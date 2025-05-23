@@ -112,6 +112,15 @@ export const registerUser = async (req, res) => {
     // Zapisz użytkownika w bazie
     await user.save();
 
+    return res.status(201).json({ 
+      message: 'Zarejestrowano pomyślnie. Kod weryfikacyjny został wysłany.'
+    });
+  } catch (error) {
+    console.error('Błąd podczas rejestracji:', error);
+    return res.status(500).json({ message: 'Błąd podczas rejestracji użytkownika.' });
+  }
+};
+
 /**
  * Rejestracja użytkownika przez Google
  * @param {Object} req - Obiekt żądania
@@ -309,14 +318,6 @@ export const completeGoogleUserProfile = async (req, res) => {
     return res.status(500).json({ message: 'Błąd podczas aktualizacji profilu.' });
   }
 };
-    return res.status(201).json({ 
-      message: 'Zarejestrowano pomyślnie. Kod weryfikacyjny został wysłany.'
-    });
-  } catch (error) {
-    console.error('Błąd podczas rejestracji:', error);
-    return res.status(500).json({ message: 'Błąd podczas rejestracji użytkownika.' });
-  }
-};
 
 /**
  * Weryfikacja telefonu po rejestracji
@@ -392,6 +393,7 @@ export const verifyPhoneNumber = async (req, res) => {
     return res.status(500).json({ message: 'Błąd serwera podczas weryfikacji telefonu.' });
   }
 };
+
 /**
  * Logowanie użytkownika
  * @param {Object} req - Obiekt żądania
@@ -616,7 +618,10 @@ export const refreshToken = async (req, res) => {
         lastName: user.lastName,
         phoneNumber: user.phoneNumber,
         dob: user.dob ? user.dob.toISOString().split('T')[0] : null,
-        isAuthenticated: true
+        isAuthenticated: true,
+        registrationType: user.registrationType,
+        isEmailVerified: user.isEmailVerified || false,
+        isPhoneVerified: user.isPhoneVerified || false
       },
       debug: process.env.NODE_ENV !== 'production' ? {
         is2FAEnabled: !!user.is2FAEnabled,
@@ -657,7 +662,14 @@ export const getUserData = async (req, res) => {
         lastName: user.lastName,
         phoneNumber: user.phoneNumber,
         dob: user.dob ? user.dob.toISOString().split('T')[0] : null,
-        isAuthenticated: true
+        street: user.street || '',
+        city: user.city || '',
+        postalCode: user.postalCode || '',
+        country: user.country || 'pl',
+        isAuthenticated: true,
+        registrationType: user.registrationType || 'standard',
+        isEmailVerified: user.isEmailVerified || false,
+        isPhoneVerified: user.isPhoneVerified || false
       }
     });
   } catch (error) {

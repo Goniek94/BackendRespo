@@ -1,4 +1,3 @@
-// src/models/user.js
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
@@ -22,17 +21,24 @@ const userSchema = new mongoose.Schema({
     lowercase: true,
     trim: true
   },
+  isEmailVerified: {
+    type: Boolean,
+    default: false
+  },
   phoneNumber: {
     type: String,
     required: true,
     unique: true,
-    // Weryfikujemy format numeru telefonu: + oraz 11-18 znaków (prefix + numer)
     validate: {
       validator: function(v) {
-        return /^\+\d{2,4}\d{9,14}$/.test(v);
+        return /^\+[1-9]\d{1,14}$/.test(v); // Poprawiony format E.164
       },
       message: props => `${props.value} nie jest prawidłowym numerem telefonu!`
     }
+  },
+  isPhoneVerified: {
+    type: Boolean,
+    default: false
   },
   password: {
     type: String,
@@ -42,7 +48,6 @@ const userSchema = new mongoose.Schema({
   dob: {
     type: Date,
     required: true,
-    // Walidacja wieku (16-100 lat)
     validate: {
       validator: function(date) {
         const today = new Date();
@@ -51,10 +56,31 @@ const userSchema = new mongoose.Schema({
         if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < date.getDate())) {
           age--;
         }
-        return age >= 16 && age <= 100;
+        return age >= 16;
       },
-      message: 'Musisz mieć co najmniej 16 lat i maksymalnie 100 lat.'
+      message: 'Musisz mieć co najmniej 16 lat'
     }
+  },
+  registrationType: {
+    type: String,
+    enum: ['standard', 'google', 'facebook'],
+    default: 'standard'
+  },
+  street: {
+    type: String,
+    trim: true
+  },
+  city: {
+    type: String,
+    trim: true
+  },
+  postalCode: {
+    type: String,
+    trim: true
+  },
+  country: {
+    type: String,
+    default: 'pl'
   },
   role: {
     type: String,
@@ -65,29 +91,61 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  loginAttempts: {
+    type: Number,
+    default: 0
+  },
+  lockUntil: {
+    type: Date
+  },
+  favorites: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Ad'
+  }],
+  
+  // Bonusy użytkownika / User bonuses
+  bonuses: [{
+    type: {
+      type: String,
+      enum: ['discount', 'free_listing', 'featured_listing', 'premium_account', 'other'],
+      required: true
+    },
+    value: {
+      type: Number,
+      required: true
+    },
+    description: {
+      type: String,
+      default: ''
+    },
+    isUsed: {
+      type: Boolean,
+      default: false
+    },
+    expiresAt: {
+      type: Date
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }]
+}, { timestamps: true });
   twoFACode: {
-    type: String,
-    default: null
+    type: String
   },
   twoFACodeExpires: {
-    type: Date,
-    default: null
+    type: Date
   },
-  resetPasswordToken: String,
-  resetPasswordExpires: Date,
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-});
-
-// Haszowanie hasła przed zapisem
+  isVerified: {
+    type: Boolean,
+    default: false
+  },
 userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) {
-    return next();
-  }
+  if (!this.isModified('password')) return next();
+  
   try {
-    const salt = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
     next();
   } catch (error) {
@@ -95,35 +153,8 @@ userSchema.pre('save', async function(next) {
   }
 });
 
-// Dodaj metodę do formatowania daty w formacie YYYY-MM-DD
-userSchema.methods.getFormattedDOB = function() {
-  if (!this.dob) return null;
-  
-  const day = String(this.dob.getDate()).padStart(2, '0');
-  const month = String(this.dob.getMonth() + 1).padStart(2, '0'); // Miesiące zaczynają się od 0
-  const year = this.dob.getFullYear();
-  
-  return `${year}-${month}-${day}`;
-};
-
-// Dodaj metodę do formatowania numeru telefonu (opcjonalnie z separacją prefiksu)
-userSchema.methods.getFormattedPhone = function(separatePrefix = false) {
-  if (!this.phoneNumber) return null;
-  
-  if (!separatePrefix) {
-    return this.phoneNumber;
-  }
-  
-  // Wydziel prefiks (+XX) i resztę numeru
-  const match = this.phoneNumber.match(/^(\+\d{2,4})(\d+)$/);
-  if (match) {
-    return {
-      prefix: match[1],
-      number: match[2]
-    };
-  }
-  
-  return this.phoneNumber;
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
 };
 
 export default mongoose.model('User', userSchema);

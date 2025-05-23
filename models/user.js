@@ -91,6 +91,16 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  twoFACode: {
+    type: String
+  },
+  twoFACodeExpires: {
+    type: Date
+  },
+  isVerified: {
+    type: Boolean,
+    default: false
+  },
   loginAttempts: {
     type: Number,
     default: 0
@@ -131,16 +141,7 @@ const userSchema = new mongoose.Schema({
     }
   }]
 }, { timestamps: true });
-  twoFACode: {
-    type: String
-  },
-  twoFACodeExpires: {
-    type: Date
-  },
-  isVerified: {
-    type: Boolean,
-    default: false
-  },
+
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
   

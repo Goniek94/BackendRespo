@@ -39,6 +39,33 @@ router.put(
 );
 
 // Sprawdzanie czy email istnieje
+router.post('/auth/google', authController.registerGoogleUser);
+
+// Complete Google user profile (requiring phone, name, and last name verification)
+router.put(
+  '/complete-google-profile',
+  auth,
+  [
+    body('phoneNumber')
+      .matches(/^\+?[0-9]{9,14}$/)
+      .withMessage('Numer telefonu powinien zawierać 9-14 cyfr (opcjonalnie +).'),
+    body('name')
+      .trim()
+      .notEmpty()
+      .withMessage('Imię jest wymagane.')
+      .isLength({ min: 2 })
+      .withMessage('Imię musi zawierać co najmniej 2 znaki.'),
+    body('lastName')
+      .trim()
+      .notEmpty()
+      .withMessage('Nazwisko jest wymagane.')
+      .isLength({ min: 2 })
+      .withMessage('Nazwisko musi zawierać co najmniej 2 znaki.')
+  ],
+  authController.completeGoogleUserProfile
+);
+
+// Sprawdzanie czy email istnieje
 router.post('/check-email', validationController.checkEmailExists);
 
 // Sprawdzanie czy telefon istnieje

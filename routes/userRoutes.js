@@ -1,27 +1,48 @@
-// src/routes/userRoutes.js
 import express from 'express';
-import {
-  registerUser,
-  loginUser,
-  send2FACode,
-  verify2FACode,
-  requestPasswordReset,
-  resetPassword,
-  changePassword,
-  verifyEmailCode,
-  checkEmailExists,
-  checkPhoneExists
-} from '../controllers/userController.js';
 import { body } from 'express-validator';
 import auth from '../middleware/auth.js';
+import {
+  authController,
+  profileController,
+  verificationController,
+  passwordController,
+  validationController
+} from '../controllers/user/index.js';
 
 const router = express.Router();
 
+// Google Authentication
+router.post('/auth/google', authController.registerGoogleUser);
+
+// Complete Google user profile (requiring phone, name, and last name verification)
+router.put(
+  '/complete-google-profile',
+  auth,
+  [
+    body('phoneNumber')
+      .matches(/^\+?[0-9]{9,14}$/)
+      .withMessage('Numer telefonu powinien zawierać 9-14 cyfr (opcjonalnie +).'),
+    body('name')
+      .trim()
+      .notEmpty()
+      .withMessage('Imię jest wymagane.')
+      .isLength({ min: 2 })
+      .withMessage('Imię musi zawierać co najmniej 2 znaki.'),
+    body('lastName')
+      .trim()
+      .notEmpty()
+      .withMessage('Nazwisko jest wymagane.')
+      .isLength({ min: 2 })
+      .withMessage('Nazwisko musi zawierać co najmniej 2 znaki.')
+  ],
+  authController.completeGoogleUserProfile
+);
+
 // Sprawdzanie czy email istnieje
-router.post('/check-email', checkEmailExists);
+router.post('/check-email', validationController.checkEmailExists);
 
 // Sprawdzanie czy telefon istnieje
-router.post('/check-phone', checkPhoneExists);
+router.post('/check-phone', validationController.checkPhoneExists);
 
 // Rejestracja użytkownika
 router.post(
@@ -42,7 +63,6 @@ router.post(
       .isLength({ min: 8 })
       .withMessage('Hasło musi mieć co najmniej 8 znaków.'),
 
-    // [ZMIANA!] Regex akceptuje + i 9-14 cyfr
     body('phone')
       .matches(/^\+?[0-9]{9,14}$/)
       .withMessage('Numer telefonu powinien zawierać 9-14 cyfr (opcjonalnie +).'),
@@ -51,7 +71,7 @@ router.post(
       .isDate()
       .withMessage('Nieprawidłowa data urodzenia.')
   ],
-  registerUser
+  authController.registerUser
 );
 
 // Logowanie użytkownika
@@ -65,17 +85,23 @@ router.post(
       .notEmpty()
       .withMessage('Hasło jest wymagane.')
   ],
-  loginUser
+  authController.loginUser
 );
 
+// Wylogowanie użytkownika
+router.post('/logout', authController.logoutUser);
+
+// Sprawdzanie stanu autoryzacji
+router.get('/check-auth', auth, authController.checkAuth);
+
 // Wysyłanie kodu SMS 2FA
-router.post('/send-2fa', send2FACode);
+router.post('/send-2fa', verificationController.send2FACode);
 
 // Weryfikacja kodu 2FA
-router.post('/verify-2fa', verify2FACode);
+router.post('/verify-2fa', verificationController.verify2FACode);
 
 // Weryfikacja kodu email
-router.post('/verify-email', verifyEmailCode);
+router.post('/verify-email', verificationController.verifyEmailCode);
 
 // Żądanie resetu hasła
 router.post(
@@ -83,7 +109,7 @@ router.post(
   [
     body('email').isEmail().withMessage('Proszę podać prawidłowy adres email.')
   ],
-  requestPasswordReset
+  passwordController.requestPasswordReset
 );
 
 // Resetowanie hasła
@@ -95,8 +121,14 @@ router.post(
       .withMessage('Hasło musi mieć co najmniej 8 znaków.'),
     body('token').notEmpty().withMessage('Token resetu hasła jest wymagany.')
   ],
-  resetPassword
+  passwordController.resetPassword
 );
+
+// Pobranie profilu użytkownika
+router.get('/profile', auth, profileController.getUserProfile);
+
+// Aktualizacja profilu użytkownika
+router.put('/profile', auth, profileController.updateUserProfile);
 
 // Zmiana hasła (gdy użytkownik jest zalogowany)
 router.put(
@@ -108,7 +140,7 @@ router.put(
       .isLength({ min: 8 })
       .withMessage('Nowe hasło musi mieć co najmniej 8 znaków.')
   ],
-  changePassword
+  passwordController.changePassword
 );
 
 export default router;

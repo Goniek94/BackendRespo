@@ -1,0 +1,127 @@
+/* admin/components/Dashboard/Dashboard.css */
+/**
+ * Style dla dashboardu administratora
+ * Styles for admin dashboard
+ */
+
+.admin-dashboard {
+  padding-bottom: 30px;
+}
+
+.admin-page-title {
+  font-size: 1.8rem;
+  margin-bottom: 25px;
+  color: var(--dark-color);
+  font-weight: 500;
+}
+
+/* Dodatkowe style dla statystyk / Additional styles for statistics */
+.stat-link {
+  display: block;
+  margin-top: 10px;
+  color: var(--primary-color);
+  text-decoration: none;
+  font-size: 0.85rem;
+  transition: color 0.2s;
+}
+
+.stat-link:hover {
+  color: var(--primary-dark);
+}
+
+.stat-link i {
+  font-size: 0.7rem;
+  margin-left: 5px;
+}
+
+/* Style dla responsywnych tabel / Styles for responsive tables */
+.admin-table-responsive {
+  overflow-x: auto;
+  margin-bottom: 15px;
+}
+
+.admin-table-content-cell {
+  max-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-table-empty {
+  text-align: center;
+  padding: 30px !important;
+  color: #7f8c8d;
+  font-style: italic;
+}
+
+/* Znaczniki statusu / Status badges */
+.admin-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.admin-badge-admin {
+  background-color: var(--danger-color);
+  color: white;
+}
+
+.admin-badge-moderator {
+  background-color: var(--warning-color);
+  color: white;
+}
+
+.admin-badge-user {
+  background-color: var(--light-color);
+  color: var(--dark-color);
+}
+
+/* Loader / Loading indicator */
+.admin-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 50px;
+  color: var(--primary-color);
+}
+
+.admin-loading i {
+  font-size: 2rem;
+  margin-bottom: 15px;
+}
+
+/* Responsywność / Responsiveness */
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+  
+  .admin-table th:nth-child(3),
+  .admin-table td:nth-child(3) {
+    display: none;
+  }
+}
+
+@media (max-width: 576px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .admin-table th:nth-child(4),
+  .admin-table td:nth-child(4) {
+    display: none;
+  }
+  
+  .admin-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .admin-card-header .admin-btn {
+    margin-top: 10px;
+  }
+}

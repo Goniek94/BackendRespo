@@ -174,7 +174,10 @@ export const registerUser = async (req, res) => {
   }
 };
 
-// Logowanie użytkownika (z prawdziwym tokenem)
+// Import konfiguracji administratorów
+import adminConfig from '../config/adminConfig.js';
+
+// Logowanie użytkownika
 export const loginUser = async (req, res) => {
   // Walidacja
   const errors = validationResult(req);
@@ -194,17 +197,36 @@ export const loginUser = async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({ message: 'Niepoprawne hasło.' });
     }
+    
+    // Sprawdź czy email jest na liście administratorów i aktualizuj rolę jeśli potrzeba
+    if (adminConfig.adminEmails.includes(email) && user.role !== 'admin') {
+      console.log(`Wykryto administratora: ${email} - aktualizacja roli`);
+      user.role = adminConfig.defaultAdminRole;
+      await user.save();
+    }
 
-    // Generuj token JWT
+    // Generuj token JWT z uwzględnieniem roli
     const token = jwt.sign(
-      { userId: user._id }, 
+      { 
+        userId: user._id,
+        role: user.role,  // Dodajemy rolę do tokenu
+        lastActivity: Date.now() // Dodajemy timestamp ostatniej aktywności
+      }, 
       process.env.JWT_SECRET, 
-      { expiresIn: '1h' }
+      { expiresIn: '24h' } // Zwiększamy czas ważności tokenu do 24h
     );
     
-    // Zwróć token i podstawowe dane
+    // Ustawiamy token w HttpOnly cookie
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // Tylko HTTPS na produkcji
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 86400000 // 24 godziny w milisekundach
+    });
+    
+    // Zwróć dane użytkownika i token
     return res.status(200).json({ 
-      token,
       user: {
         id: user._id,
         email: user.email,
@@ -213,13 +235,29 @@ export const loginUser = async (req, res) => {
         lastName: user.lastName,
         phoneNumber: user.phoneNumber,
         dob: user.dob ? user.dob.toISOString().split('T')[0] : null,
-        isAuthenticated: true
-      }
+        isAuthenticated: true,
+        isAdmin: user.role === 'admin',
+        isModerator: user.role === 'moderator'
+      },
+      token: token // Dodajemy token do odpowiedzi
     });
   } catch (error) {
     console.error('Błąd podczas logowania:', error);
     return res.status(500).json({ message: 'Błąd podczas logowania użytkownika.' });
   }
+};
+
+// Funkcja wylogowania
+export const logoutUser = (req, res) => {
+  // Usuwamy ciasteczko z tokenem
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/'
+  });
+  
+  return res.status(200).json({ message: 'Wylogowano pomyślnie.' });
 };
 
 // Weryfikacja kodu 2FA
@@ -251,9 +289,17 @@ export const verify2FACode = async (req, res) => {
         { expiresIn: '1h' }
       );
       
+      // Ustawiamy token w HttpOnly cookie
+      res.cookie('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/',
+        maxAge: 3600000 // 1 godzina w milisekundach
+      });
+      
       return res.status(200).json({ 
         message: 'Kod weryfikacyjny poprawny, zalogowano.',
-        token,
         user: {
           id: user._id,
           email: user.email,
@@ -427,7 +473,7 @@ export const resetPassword = async (req, res) => {
 // Zmiana hasła (gdy użytkownik jest zalogowany)
 export const changePassword = async (req, res) => {
   const { oldPassword, newPassword } = req.body;
-  const userId = req.user.id;
+  const userId = req.user.userId;
 
   try {
     // Weryfikacja formatu nowego hasła
@@ -465,7 +511,7 @@ export const changePassword = async (req, res) => {
 // Pobranie danych użytkownika
 export const getUserProfile = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const user = await User.findById(userId);
     
     if (!user) {
@@ -492,7 +538,7 @@ export const getUserProfile = async (req, res) => {
 // Aktualizacja danych użytkownika
 export const updateUserProfile = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const { name, lastName } = req.body;
     
     // Sprawdź czy pola są poprawne
@@ -537,4 +583,15 @@ export const updateUserProfile = async (req, res) => {
     console.error('Błąd aktualizacji profilu użytkownika:', error);
     return res.status(500).json({ message: 'Błąd serwera podczas aktualizacji danych użytkownika.' });
   }
+};
+
+// Sprawdzanie stanu autoryzacji
+export const checkAuth = (req, res) => {
+  return res.status(200).json({ 
+    isAuthenticated: true,
+    user: {
+      id: req.user.userId,
+      role: req.user.role
+    }
+  });
 };

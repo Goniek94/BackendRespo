@@ -6,7 +6,8 @@ import {
   profileController,
   verificationController,
   passwordController,
-  validationController
+  validationController,
+  settingsController
 } from '../controllers/user/index.js';
 
 const router = express.Router();
@@ -89,7 +90,7 @@ router.post(
 );
 
 // Wylogowanie użytkownika
-router.post('/logout', authController.logoutUser);
+router.post('/logout', authController.logout);
 
 // Sprawdzanie stanu autoryzacji
 router.get('/check-auth', auth, authController.checkAuth);
@@ -129,6 +130,12 @@ router.get('/profile', auth, profileController.getUserProfile);
 
 // Aktualizacja profilu użytkownika
 router.put('/profile', auth, profileController.updateUserProfile);
+
+/**
+ * User settings endpoints
+ */
+router.get('/settings', auth, settingsController.getUserSettings);
+router.put('/settings', auth, settingsController.updateUserSettings);
 
 // Zmiana hasła (gdy użytkownik jest zalogowany)
 router.put(

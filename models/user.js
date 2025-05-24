@@ -112,6 +112,26 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Ad'
   }],
+
+  // User notification preferences
+  notificationPreferences: {
+    email: { type: Boolean, default: true }, // Email notifications
+    sms: { type: Boolean, default: false },  // SMS notifications
+    push: { type: Boolean, default: false }  // Push notifications
+  },
+
+  // User privacy settings
+  privacySettings: {
+    showEmail: { type: Boolean, default: false },
+    showPhone: { type: Boolean, default: false },
+    showProfile: { type: Boolean, default: true }
+  },
+
+  // User security settings
+  securitySettings: {
+    twoFactorAuth: { type: Boolean, default: false },
+    loginAlerts: { type: Boolean, default: true }
+  },
   
   // Bonusy użytkownika / User bonuses
   bonuses: [{

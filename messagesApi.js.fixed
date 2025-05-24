@@ -1,0 +1,70 @@
+// src/services/api/messagesApi.js
+
+import apiClient from './client'; // Importuj client.js z tego samego katalogu
+
+const MessagesService = {
+  // Pobieranie wiadomości dla danego folderu
+  getByFolder: (folder = 'inbox') => apiClient.get(`/api/messages/${folder}`),
+
+  // Pobieranie pojedynczej wiadomości
+  getById: (id) => apiClient.get(`/api/messages/message/${id}`),
+
+  // Wysyłanie nowej wiadomości
+  send: (messageData) => apiClient.post('/api/messages/send', messageData),
+
+  // Wysyłanie wiadomości do użytkownika
+  sendToUser: (userId, messageData) => apiClient.post(`/api/messages/send-to-user/${userId}`, messageData),
+
+  // Wysyłanie wiadomości do właściciela ogłoszenia
+  sendToAd: (adId, messageData) => apiClient.post(`/api/messages/send-to-ad/${adId}`, messageData),
+
+  // Odpowiadanie na wiadomość
+  reply: (messageId, content, attachments) => {
+    const formData = new FormData();
+    formData.append('content', content);
+    
+    if (attachments && attachments.length > 0) {
+      attachments.forEach(file => {
+        formData.append('attachments', file);
+      });
+    }
+    
+    return apiClient.post(`/api/messages/reply/${messageId}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+  },
+
+  // Zapisywanie wersji roboczej
+  saveDraft: (messageData) => apiClient.post('/api/messages/draft', messageData),
+
+  // Oznaczanie jako przeczytane
+  markAsRead: (id) => apiClient.patch(`/api/messages/read/${id}`),
+
+  // Przełączanie gwiazdki (oznaczanie/odznaczanie wiadomości)
+  toggleStar: (id) => apiClient.patch(`/api/messages/star/${id}`),
+
+  // Usuwanie wiadomości
+  delete: (id) => apiClient.delete(`/api/messages/${id}`),
+
+  // Wyszukiwanie wiadomości
+  search: (query, folder) =>
+    apiClient.get('/api/messages/search', {
+      params: { query, folder }
+    }),
+
+  // Pobieranie sugestii użytkowników do wysyłki wiadomości
+  getUserSuggestions: (query) =>
+    apiClient.get('/api/messages/users/suggestions', {
+      params: { query }
+    }),
+    
+  // Pobieranie listy konwersacji użytkownika
+  getConversationsList: () => apiClient.get('/api/messages/conversations'),
+  
+  // Pobieranie konwersacji z konkretnym użytkownikiem
+  getConversation: (userId) => apiClient.get(`/api/messages/conversation/${userId}`)
+};
+
+export default MessagesService;

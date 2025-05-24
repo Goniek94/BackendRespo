@@ -16,6 +16,10 @@ const commentSchema = new mongoose.Schema({
     required: true,
     minlength: 1
   },
+  image: {
+    type: String,
+    required: true // Zdjęcie jest wymagane
+  },
   createdAt: {
     type: Date,
     default: Date.now

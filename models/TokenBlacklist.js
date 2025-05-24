@@ -1,19 +1,23 @@
-import mongoose from 'mongoose';
+/**
+ * Simple in-memory token blacklist for JWT rotation.
+ * In production, use Redis or persistent store!
+ */
+const blacklist = new Set();
 
-// Schemat dla unieważnionych tokenów
-const tokenBlacklistSchema = new mongoose.Schema({
-  token: {
-    type: String,
-    required: true,
-    unique: true // Token musi być unikalny
-  },
-  expiresAt: {
-    type: Date,
-    required: true // Data wygaśnięcia tokena
-  }
-});
+export const addToBlacklist = (token) => {
+  blacklist.add(token);
+};
 
-// Model czarnej listy tokenów
-const TokenBlacklist = mongoose.model('TokenBlacklist', tokenBlacklistSchema);
+export const isBlacklisted = (token) => {
+  return blacklist.has(token);
+};
 
-export default TokenBlacklist;
+export const clearBlacklist = () => {
+  blacklist.clear();
+};
+
+export default {
+  addToBlacklist,
+  isBlacklisted,
+  clearBlacklist,
+};

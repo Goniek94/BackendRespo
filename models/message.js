@@ -1,4 +1,3 @@
-// src/models/message.js
 import mongoose from 'mongoose';
 
 const messageSchema = new mongoose.Schema({
@@ -15,14 +14,12 @@ const messageSchema = new mongoose.Schema({
   subject: {
     type: String,
     required: true,
-    trim: true,
-    minlength: [1, 'Temat musi zawierać co najmniej 1 znak.']
+    trim: true
   },
   content: {
     type: String,
     required: true,
-    trim: true,
-    minlength: [1, 'Treść musi zawierać co najmniej 1 znak.']
+    trim: true
   },
   attachments: [{
     name: String,
@@ -42,7 +39,7 @@ const messageSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  deleted: {
+  archived: {
     type: Boolean,
     default: false
   },
@@ -50,15 +47,21 @@ const messageSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
+  relatedAd: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Ad',
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now
   }
 });
 
-// Indeksy dla szybszego wyszukiwania
-messageSchema.index({ sender: 1, createdAt: -1 });
-messageSchema.index({ recipient: 1, createdAt: -1 });
+// Indeksy dla wydajności
+messageSchema.index({ sender: 1 });
+messageSchema.index({ recipient: 1 });
+messageSchema.index({ createdAt: -1 });
 
 const Message = mongoose.models.Message || mongoose.model('Message', messageSchema);
 

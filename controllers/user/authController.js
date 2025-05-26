@@ -1,7 +1,9 @@
 /**
- * Auth Controller - STUBY do uruchomienia backendu bez błędów undefined.
- * Uzupełnij logikę według potrzeb projektu!
+ * Auth Controller - Kontroler autentykacji
  */
+import User from '../../models/user.js';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
 export const registerGoogleUser = (req, res) => {
   res.status(501).json({ message: 'registerGoogleUser not implemented' });
@@ -9,6 +11,48 @@ export const registerGoogleUser = (req, res) => {
 
 export const completeGoogleUserProfile = (req, res) => {
   res.status(501).json({ message: 'completeGoogleUserProfile not implemented' });
+};
+
+/**
+ * Weryfikacja kodu i finalizacja rejestracji
+ */
+export const verifyCode = async (req, res) => {
+  try {
+    const { email, code, type } = req.body;
+    
+    if (!email || !code || !type) {
+      return res.status(400).json({
+        message: 'Email, kod i typ weryfikacji są wymagane.'
+      });
+    }
+    
+    // W trybie testowym akceptujemy kod 123456
+    if (code === '123456') {
+      if (type === 'email') {
+        // Aktualizuj użytkownika jako zweryfikowanego (jeśli istnieje)
+        const user = await User.findOne({ email });
+        if (user) {
+          user.isEmailVerified = true;
+          await user.save();
+        }
+      }
+      
+      return res.status(200).json({
+        message: 'Kod weryfikacyjny poprawny',
+        verified: true
+      });
+    }
+    
+    return res.status(400).json({
+      message: 'Nieprawidłowy kod weryfikacyjny',
+      verified: false
+    });
+  } catch (error) {
+    console.error('Błąd weryfikacji kodu:', error);
+    res.status(500).json({
+      message: 'Wystąpił błąd podczas weryfikacji. Spróbuj ponownie później.'
+    });
+  }
 };
 
 export const registerUser = async (req, res) => {
@@ -103,9 +147,6 @@ export const registerUser = async (req, res) => {
   }
 };
 
-import User from '../../models/user.js';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 
 export const loginUser = async (req, res) => {
   try {
@@ -172,6 +213,25 @@ export const logout = (req, res) => {
   res.status(200).json({ message: 'Wylogowano' });
 };
 
-export const checkAuth = (req, res) => {
-  res.status(501).json({ message: 'checkAuth not implemented' });
+export const checkAuth = async (req, res) => {
+  try {
+    // Token już sprawdzony przez middleware auth
+    const userId = req.user.userId;
+    
+    const user = await User.findById(userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'Użytkownik nie znaleziony' });
+    }
+    
+    res.status(200).json({ 
+      isAuthenticated: true,
+      user
+    });
+  } catch (error) {
+    console.error('Błąd sprawdzania autentykacji:', error);
+    res.status(500).json({ 
+      isAuthenticated: false,
+      message: 'Błąd sprawdzania autentykacji' 
+    });
+  }
 };

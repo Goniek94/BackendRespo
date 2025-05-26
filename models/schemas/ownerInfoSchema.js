@@ -21,6 +21,12 @@ const ownerInfoSchema = new mongoose.Schema({
   },
   ownerPhone: {
     type: String
+  },
+  // Typ sprzedającego (osoba prywatna / firma)
+  sellerType: {
+    type: String,
+    enum: ['prywatny', 'firma'],
+    default: 'prywatny'
   }
 });
 

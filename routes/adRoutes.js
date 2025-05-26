@@ -153,6 +153,22 @@ const getRandomAds = (ads, count) => {
 };
 
 // Paginacja, filtrowanie i sortowanie ogłoszeń
+// Endpoint zwracający liczbę ogłoszeń pasujących do kryteriów
+router.get('/count', async (req, res, next) => {
+  try {
+    const filter = createAdFilter(req.query);
+    const count = await Ad.countDocuments(filter);
+    
+    console.log('Zapytanie o liczbę ogłoszeń z filtrami:', req.query);
+    console.log('Znaleziono pasujących ogłoszeń:', count);
+    
+    res.status(200).json({ count });
+  } catch (err) {
+    console.error('Błąd podczas liczenia ogłoszeń:', err);
+    next(err);
+  }
+}, errorHandler);
+
 router.get('/', async (req, res, next) => {
   const { 
     page = 1, 
@@ -192,12 +208,38 @@ router.get('/', async (req, res, next) => {
         }},
         { $sort: { sortOrder: 1, [sortBy]: order === 'desc' ? -1 : 1 } },
         { $skip: skip },
-        { $limit: parseInt(limit) }
+        { $limit: parseInt(limit) },
+        // Dodajemy projection, żeby zawsze zwracać kluczowe pola
+        { $project: {
+          _id: 1,
+          brand: 1,
+          model: 1,
+          headline: 1,
+          shortDescription: 1,
+          description: 1,
+          images: 1,
+          mainImageIndex: 1,
+          price: 1,
+          year: 1,
+          mileage: 1,
+          fuelType: 1,
+          power: 1,
+          transmission: 1,
+          status: 1,
+          listingType: 1,
+          createdAt: 1,
+          views: 1
+        }}
       ]);
     }
 
     const ads = await query;
     const totalAds = await Ad.countDocuments(filter);
+
+    // Tymczasowe logowanie pierwszego ogłoszenia do analizy struktury
+    if (ads && ads.length > 0) {
+      console.log('Przykładowy rekord ogłoszenia zwracany do frontu:', ads[0]);
+    }
 
     res.status(200).json({
       ads,
@@ -298,6 +340,7 @@ router.get('/user/listings', auth, async (req, res, next) => {
     console.log('Parametry zapytania:', { page, limit });
     
     const userListings = await Ad.find({ owner: req.user.userId })
+      .populate('owner', 'role name email')
       .sort({ createdAt: -1 })
       .limit(limit)
       .skip((page - 1) * limit);
@@ -394,6 +437,17 @@ router.get('/rotated', async (req, res, next) => {
     rotationCache.hot = hot;
     rotationCache.regular = regular;
     rotationCache.lastRotation = now;
+
+    // Tymczasowe logowanie przykładowego ogłoszenia do analizy images
+    if (featured.length > 0) {
+      console.log('FEATURED[0] IMAGES:', featured[0].images);
+    }
+    if (hot.length > 0) {
+      console.log('HOT[0] IMAGES:', hot[0].images);
+    }
+    if (regular.length > 0) {
+      console.log('REGULAR[0] IMAGES:', regular[0].images);
+    }
 
     res.status(200).json({
       featured,
@@ -582,6 +636,11 @@ router.post('/add', auth, createAdLimiter, upload.array('images', 10), validate(
       });
     }
 
+    // Generowanie krótkiego opisu z nagłówka (do 120 znaków)
+    const shortDescription = headline
+      ? headline.substring(0, 120)
+      : '';
+
     // Tworzenie nowego ogłoszenia
     const newAd = new Ad({
       // Podstawowe dane
@@ -598,6 +657,7 @@ router.post('/add', auth, createAdLimiter, upload.array('images', 10), validate(
       registrationNumber: registrationNumber || '',
       headline,
       description,
+      shortDescription, // <-- dodane pole
       images,
       purchaseOptions,
       listingType,

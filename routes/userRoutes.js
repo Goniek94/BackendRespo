@@ -104,6 +104,9 @@ router.post('/verify-2fa', verificationController.verify2FACode);
 // Weryfikacja kodu email
 router.post('/verify-email', verificationController.verifyEmailCode);
 
+// Weryfikacja kodu podczas rejestracji
+router.post('/verify-code', authController.verifyCode);
+
 // Żądanie resetu hasła
 router.post(
   '/request-reset-password',

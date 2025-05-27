@@ -771,6 +771,7 @@ router.post('/add', auth, createAdLimiter, upload.array('images', 10), validate(
       images,
       purchaseOptions,
       listingType,
+      sellerType, // <-- dodane pole sellerType
       
       // Dane techniczne
       condition,

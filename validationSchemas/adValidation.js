@@ -99,7 +99,12 @@ const adValidationSchema = Joi.object({
     }),
 
   // Pozostałe pola (opcjonalne)
-  headline: Joi.string().allow(''),
+  headline: Joi.string().max(60).allow('').messages({
+    'string.max': 'Tytuł ogłoszenia nie może przekraczać 60 znaków.'
+  }),
+  sellerType: Joi.string().valid('prywatny', 'firma').default('prywatny').messages({
+    'any.only': 'Dopuszczalne typy sprzedawcy to: prywatny, firma.'
+  }),
   condition: Joi.string().allow(''),
   accidentStatus: Joi.string().allow(''),
   damageStatus: Joi.string().allow(''),

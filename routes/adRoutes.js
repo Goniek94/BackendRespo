@@ -252,53 +252,163 @@ router.get('/', async (req, res, next) => {
   }
 }, errorHandler);
 
-// Zaawansowane wyszukiwanie ogłoszeń
+/**
+ * Zaawansowane wyszukiwanie ogłoszeń z systemem punktowym i sortowaniem według dopasowania.
+ * Hierarchia sortowania:
+ * 1. Wyróżnione + pasujące dokładnie
+ * 2. Wyróżnione + pasujące częściowo
+ * 3. Zwykłe + pasujące dokładnie
+ * 4. Zwykłe + pasujące częściowo
+ * 5. Podobne (ta sama marka, inny model)
+ * 6. Pozostałe
+ * 
+ * Zwraca wszystkie ogłoszenia, posortowane według match_score i typu ogłoszenia.
+ */
 router.get('/search', async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 30;
-    const sortBy = req.query.sortBy || 'createdAt';
-    const order = req.query.order || 'desc';
-    
-    // Tworzenie filtru z parametrów zapytania
-    const filter = createAdFilter(req.query);
     const skip = (page - 1) * limit;
-    
-    let query;
-    
-    // Jeśli filtrujemy tylko wyróżnione ogłoszenia
-    if (filter.listingType === 'wyróżnione') {
-      query = Ad.find(filter)
-        .sort({ [sortBy]: order === 'desc' ? -1 : 1 })
-        .skip(skip)
-        .limit(limit);
-    } else {
-      // Standardowe zachowanie - wyróżnione na górze, potem reszta
-      query = Ad.aggregate([
-        { $match: filter },
-        { $addFields: { 
-          sortOrder: { 
-            $cond: { 
-              if: { $eq: ["$listingType", "wyróżnione"] }, 
-              then: 0, 
-              else: 1 
-            } 
-          } 
-        }},
-        { $sort: { sortOrder: 1, [sortBy]: order === 'desc' ? -1 : 1 } },
-        { $skip: skip },
-        { $limit: limit }
-      ]);
+
+    // Pobieramy WSZYSTKIE opublikowane ogłoszenia (nie twardo po filtrach)
+    const allAds = await Ad.find({ status: 'opublikowane' });
+
+    // Funkcja licząca match_score względem filtrów
+    function calculateMatchScore(ad, filters) {
+      let score = 0;
+
+      // Pomocnicza funkcja do porównywania stringów bez uwzględniania wielkości liter i białych znaków
+      const normalize = (str) =>
+        typeof str === 'string' ? str.trim().toLowerCase() : '';
+
+      // Dokładna marka + model
+      if (
+        filters.brand &&
+        filters.model &&
+        normalize(ad.brand) === normalize(filters.brand) &&
+        normalize(ad.model) === normalize(filters.model)
+      ) {
+        score += 100;
+      } else if (
+        filters.brand &&
+        normalize(ad.brand) === normalize(filters.brand)
+      ) {
+        // Dokładna marka
+        score += 50;
+      }
+      // Zakres cenowy
+      if (
+        filters.minPrice &&
+        filters.maxPrice &&
+        ad.price >= parseFloat(filters.minPrice) &&
+        ad.price <= parseFloat(filters.maxPrice)
+      ) {
+        score += 30;
+      } else if (filters.minPrice && ad.price >= parseFloat(filters.minPrice)) {
+        score += 15;
+      } else if (filters.maxPrice && ad.price <= parseFloat(filters.maxPrice)) {
+        score += 15;
+      }
+      // Zakres rocznika
+      if (
+        filters.minYear &&
+        filters.maxYear &&
+        ad.year >= parseInt(filters.minYear) &&
+        ad.year <= parseInt(filters.maxYear)
+      ) {
+        score += 20;
+      } else if (filters.minYear && ad.year >= parseInt(filters.minYear)) {
+        score += 10;
+      } else if (filters.maxYear && ad.year <= parseInt(filters.maxYear)) {
+        score += 10;
+      }
+      // Typ paliwa
+      if (
+        filters.fuelType &&
+        normalize(ad.fuelType) === normalize(filters.fuelType)
+      ) {
+        score += 10;
+      }
+      // Skrzynia biegów
+      if (
+        filters.transmission &&
+        normalize(ad.transmission) === normalize(filters.transmission)
+      ) {
+        score += 5;
+      }
+      // Dodatkowe filtry (np. bodyType, power, drive)
+      if (
+        filters.bodyType &&
+        normalize(ad.bodyType) === normalize(filters.bodyType)
+      ) {
+        score += 5;
+      }
+      if (filters.power && ad.power && ad.power === parseInt(filters.power)) {
+        score += 3;
+      }
+      if (
+        filters.drive &&
+        normalize(ad.drive) === normalize(filters.drive)
+      ) {
+        score += 2;
+      }
+      // Podobne ogłoszenia (ta sama marka, inny model)
+      if (
+        filters.brand &&
+        normalize(ad.brand) === normalize(filters.brand) &&
+        filters.model &&
+        normalize(ad.model) !== normalize(filters.model)
+      ) {
+        score += 1;
+      }
+      return score;
     }
-    
-    const ads = await query;
-    const total = await Ad.countDocuments(filter);
-    
+
+    // Wyciągamy filtry z zapytania
+    const filters = req.query;
+
+    // Debug: loguj filtry i pierwsze 3 ogłoszenia po scoringu
+    console.log('--- [DEBUG] /ads/search ---');
+    console.log('Filtry z frontendu:', filters);
+
+    // Liczymy match_score dla każdego ogłoszenia
+    const adsWithScore = allAds.map(ad => {
+      const match_score = calculateMatchScore(ad, filters);
+      // is_featured: 1 jeśli wyróżnione, 0 jeśli zwykłe
+      const is_featured = ad.listingType === 'wyróżnione' ? 1 : 0;
+      return {
+        ...ad.toObject(),
+        match_score,
+        is_featured
+      };
+    });
+
+    // Debug: loguj pierwsze 3 ogłoszenia po scoringu
+    console.log('Pierwsze 3 ogłoszenia po scoringu:');
+    adsWithScore.slice(0, 3).forEach(ad => {
+      console.log({
+        brand: ad.brand,
+        model: ad.model,
+        match_score: ad.match_score,
+        is_featured: ad.is_featured
+      });
+    });
+
+    // Sortowanie: is_featured DESC, match_score DESC, createdAt DESC
+    adsWithScore.sort((a, b) => {
+      if (b.is_featured !== a.is_featured) return b.is_featured - a.is_featured;
+      if (b.match_score !== a.match_score) return b.match_score - a.match_score;
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+
+    // Paginacja
+    const paginatedAds = adsWithScore.slice(skip, skip + limit);
+
     res.status(200).json({
-      ads,
+      ads: paginatedAds,
       currentPage: page,
-      totalPages: Math.ceil(total / limit),
-      totalAds: total
+      totalPages: Math.ceil(adsWithScore.length / limit),
+      totalAds: adsWithScore.length
     });
   } catch (err) {
     next(err);
@@ -596,12 +706,12 @@ router.post('/add', auth, createAdLimiter, upload.array('images', 10), validate(
       registrationNumber, headline, description, purchaseOptions, listingType, condition,
       accidentStatus, damageStatus, tuning, imported, registeredInPL, firstOwner, disabledAdapted,
       bodyType, color, lastOfficialMileage, power, engineSize, drive, doors, weight,
-      voivodeship, city, rentalPrice, status
+      voivodeship, city, rentalPrice, status, sellerType
     } = req.body;
 
     console.log('Otrzymane dane ogłoszenia:', {
       brand, model, year, price, mileage, fuelType, transmission,
-      description, purchaseOptions, listingType
+      description, purchaseOptions, listingType, sellerType
     });
 
     // Pobieranie danych użytkownika

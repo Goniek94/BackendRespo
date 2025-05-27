@@ -81,7 +81,7 @@ const basicInfoSchema = new mongoose.Schema({
   headline: {
     type: String,
     trim: true,
-    maxlength: 60
+    maxlength: 120
   },
   description: {
     type: String,

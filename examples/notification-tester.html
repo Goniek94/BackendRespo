@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tester powiadomień real-time</title>
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding: 20px;
+        }
+        .notification {
+            margin-bottom: 10px;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            animation: fadeIn 0.5s;
+        }
+        .notification.unread {
+            border-left: 4px solid #0d6efd;
+            background-color: #f8f9fa;
+        }
+        .notification.read {
+            opacity: 0.7;
+        }
+        .notification-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .notification-time {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+        .notification-message {
+            margin-top: 5px;
+        }
+        .notification-actions {
+            margin-top: 10px;
+        }
+        .badge-container {
+            position: relative;
+            display: inline-block;
+        }
+        .badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background-color: #dc3545;
+            color: white;
+            border-radius: 50%;
+            padding: 0.25em 0.5em;
+            font-size: 0.75rem;
+        }
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .toast {
+            min-width: 300px;
+            margin-bottom: 10px;
+            animation: slideIn 0.3s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+        #connection-status {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.8rem;
+        }
+        .connected {
+            background-color: #198754;
+            color: white;
+        }
+        .disconnected {
+            background-color: #dc3545;
+            color: white;
+        }
+        .connecting {
+            background-color: #ffc107;
+            color: black;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Tester powiadomień real-time</h1>
+        
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        Połączenie Socket.io
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="user-id" class="form-label">ID użytkownika</label>
+                            <input type="text" class="form-control" id="user-id" placeholder="Wprowadź ID użytkownika">
+                        </div>
+                        <div class="mb-3">
+                            <label for="token" class="form-label">Token JWT</label>
+                            <input type="text" class="form-control" id="token" placeholder="Wprowadź token JWT">
+                        </div>
+                        <div class="mb-3">
+                            <label for="server-url" class="form-label">URL serwera</label>
+                            <input type="text" class="form-control" id="server-url" value="http://localhost:3000" placeholder="URL serwera Socket.io">
+                        </div>
+                        <button id="connect-btn" class="btn btn-primary">Połącz</button>
+                        <button id="disconnect-btn" class="btn btn-danger" disabled>Rozłącz</button>
+                        <button id="generate-token-btn" class="btn btn-secondary">Wygeneruj token</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        Wyślij powiadomienie testowe
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="recipient-id" class="form-label">ID odbiorcy</label>
+                            <input type="text" class="form-control" id="recipient-id" placeholder="Wprowadź ID odbiorcy">
+                        </div>
+                        <div class="mb-3">
+                            <label for="notification-type" class="form-label">Typ powiadomienia</label>
+                            <select class="form-select" id="notification-type">
+                                <option value="new_message">Nowa wiadomość</option>
+                                <option value="listing_liked">Polubienie ogłoszenia</option>
+                                <option value="payment_completed">Płatność zrealizowana</option>
+                                <option value="listing_added">Ogłoszenie dodane</option>
+                                <option value="listing_expiring">Ogłoszenie się kończy</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="ad-title" class="form-label">Tytuł ogłoszenia</label>
+                            <input type="text" class="form-control" id="ad-title" value="Testowe ogłoszenie" placeholder="Tytuł ogłoszenia">
+                        </div>
+                        <button id="send-notification-btn" class="btn btn-success">Wyślij powiadomienie</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Powiadomienia</span>
+                        <div>
+                            <span class="badge-container">
+                                <button class="btn btn-sm btn-outline-primary">
+                                    Nieprzeczytane <span id="unread-badge" class="badge">0</span>
+                                </button>
+                            </span>
+                            <button id="mark-all-read-btn" class="btn btn-sm btn-outline-secondary">Oznacz wszystkie jako przeczytane</button>
+                            <button id="clear-all-btn" class="btn btn-sm btn-outline-danger">Wyczyść listę</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="notifications-list">
+                            <div class="text-center text-muted">
+                                Brak powiadomień
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="toast-container" class="toast-container"></div>
+    <div id="connection-status" class="disconnected">Rozłączono</div>
+    
+    <script>
+        // Klasa obsługująca powiadomienia
+        class NotificationManager {
+            constructor() {
+                this.socket = null;
+                this.connected = false;
+                this.notifications = [];
+                this.unreadCount = 0;
+                
+                // Elementy DOM
+                this.connectBtn = document.getElementById('connect-btn');
+                this.disconnectBtn = document.getElementById('disconnect-btn');
+                this.generateTokenBtn = document.getElementById('generate-token-btn');
+                this.sendNotificationBtn = document.getElementById('send-notification-btn');
+                this.markAllReadBtn = document.getElementById('mark-all-read-btn');
+                this.clearAllBtn = document.getElementById('clear-all-btn');
+                this.notificationsList = document.getElementById('notifications-list');
+                this.unreadBadge = document.getElementById('unread-badge');
+                this.toastContainer = document.getElementById('toast-container');
+                this.connectionStatus = document.getElementById('connection-status');
+                
+                // Inicjalizacja event listenerów
+                this.initEventListeners();
+            }
+            
+            initEventListeners() {
+                this.connectBtn.addEventListener('click', () => this.connect());
+                this.disconnectBtn.addEventListener('click', () => this.disconnect());
+                this.generateTokenBtn.addEventListener('click', () => this.generateToken());
+                this.sendNotificationBtn.addEventListener('click', () => this.sendNotification());
+                this.markAllReadBtn.addEventListener('click', () => this.markAllAsRead());
+                this.clearAllBtn.addEventListener('click', () => this.clearAll());
+            }
+            
+            // Łączenie z serwerem Socket.io
+            connect() {
+                const userId = document.getElementById('user-id').value;
+                const token = document.getElementById('token').value;
+                const serverUrl = document.getElementById('server-url').value;
+                
+                if (!userId || !token || !serverUrl) {
+                    this.showToast('Błąd', 'Wypełnij wszystkie pola', 'danger');
+                    return;
+                }
+                
+                try {
+                    this.updateConnectionStatus('connecting');
+                    
+                    // Inicjalizacja Socket.io
+                    this.socket = io(serverUrl, {
+                        auth: { token }
+                    });
+                    
+                    // Obsługa zdarzeń Socket.io
+                    this.socket.on('connect', () => {
+                        console.log('Połączono z serwerem powiadomień');
+                        this.connected = true;
+                        this.updateConnectionStatus('connected');
+                        this.connectBtn.disabled = true;
+                        this.disconnectBtn.disabled = false;
+                        this.showToast('Połączono', 'Połączono z serwerem powiadomień', 'success');
+                    });
+                    
+                    this.socket.on('disconnect', () => {
+                        console.log('Rozłączono z serwerem powiadomień');
+                        this.connected = false;
+                        this.updateConnectionStatus('disconnected');
+                        this.connectBtn.disabled = false;
+                        this.disconnectBtn.disabled = true;
+                        this.showToast('Rozłączono', 'Rozłączono z serwerem powiadomień', 'danger');
+                    });
+                    
+                    this.socket.on('connect_error', (error) => {
+                        console.error('Błąd połączenia z serwerem powiadomień:', error);
+                        this.updateConnectionStatus('disconnected');
+                        this.showToast('Błąd połączenia', error.message, 'danger');
+                    });
+                    
+                    // Obsługa powiadomień
+                    this.socket.on('new_notification', (notification) => {
+                        console.log('Otrzymano nowe powiadomienie:', notification);
+                        this.addNotification(notification);
+                        this.showNotificationToast(notification);
+                    });
+                    
+                    // Obsługa aktualizacji powiadomień
+                    this.socket.on('notification_updated', (data) => {
+                        const { notificationId, isRead } = data;
+                        this.updateNotification(notificationId, { isRead });
+                    });
+                    
+                    // Obsługa oznaczenia wszystkich powiadomień jako przeczytane
+                    this.socket.on('all_notifications_read', () => {
+                        this.markAllAsRead();
+                    });
+                    
+                    // Obsługa usunięcia powiadomienia
+                    this.socket.on('notification_deleted', (data) => {
+                        const { notificationId } = data;
+                        this.removeNotification(notificationId);
+                    });
+                    
+                    // Obsługa potwierdzenia połączenia
+                    this.socket.on('connection_success', (data) => {
+                        console.log('Potwierdzenie połączenia:', data);
+                        this.showToast('Sukces', 'Połączono z systemem powiadomień', 'success');
+                    });
+                } catch (error) {
+                    console.error('Błąd podczas inicjalizacji Socket.io:', error);
+                    this.updateConnectionStatus('disconnected');
+                    this.showToast('Błąd', 'Nie udało się połączyć z serwerem', 'danger');
+                }
+            }
+            
+            // Rozłączenie z serwerem Socket.io
+            disconnect() {
+                if (this.socket) {
+                    this.socket.disconnect();
+                    this.socket = null;
+                    this.connected = false;
+                    this.updateConnectionStatus('disconnected');
+                    this.connectBtn.disabled = false;
+                    this.disconnectBtn.disabled = true;
+                }
+            }
+            
+            // Generowanie tokenu JWT
+            async generateToken() {
+                const userId = document.getElementById('user-id').value;
+                
+                if (!userId) {
+                    this.showToast('Błąd', 'Wprowadź ID użytkownika', 'danger');
+                    return;
+                }
+                
+                try {
+                    const response = await fetch('/api/test/notifications/token', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ userId })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.token) {
+                        document.getElementById('token').value = data.token;
+                        this.showToast('Sukces', 'Token został wygenerowany', 'success');
+                    } else {
+                        this.showToast('Błąd', data.error || 'Nie udało się wygenerować tokenu', 'danger');
+                    }
+                } catch (error) {
+                    console.error('Błąd podczas generowania tokenu:', error);
+                    this.showToast('Błąd', 'Nie udało się wygenerować tokenu', 'danger');
+                }
+            }
+            
+            // Wysyłanie testowego powiadomienia
+            async sendNotification() {
+                const recipientId = document.getElementById('recipient-id').value;
+                const type = document.getElementById('notification-type').value;
+                const adTitle = document.getElementById('ad-title').value;
+                
+                if (!recipientId || !type) {
+                    this.showToast('Błąd', 'Wypełnij wszystkie pola', 'danger');
+                    return;
+                }
+                
+                try {
+                    const response = await fetch('/api/test/notifications/send', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            userId: recipientId,
+                            type,
+                            data: {
+                                adTitle,
+                                senderName: 'Tester powiadomień',
+                                adId: 'test_ad_' + Date.now(),
+                                daysLeft: 3
+                            }
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.showToast('Sukces', 'Powiadomienie zostało wysłane', 'success');
+                    } else {
+                        this.showToast('Błąd', data.error || 'Nie udało się wysłać powiadomienia', 'danger');
+                    }
+                } catch (error) {
+                    console.error('Błąd podczas wysyłania powiadomienia:', error);
+                    this.showToast('Błąd', 'Nie udało się wysłać powiadomienia', 'danger');
+                }
+            }
+            
+            // Dodawanie powiadomienia do listy
+            addNotification(notification) {
+                const id = notification._id || 'temp_' + Date.now();
+                const isRead = notification.isRead || false;
+                
+                // Dodanie powiadomienia do tablicy
+                this.notifications.unshift({
+                    id,
+                    type: notification.type,
+                    message: notification.message,
+                    createdAt: notification.createdAt || new Date().toISOString(),
+                    isRead
+                });
+                
+                // Aktualizacja licznika nieprzeczytanych
+                if (!isRead) {
+                    this.unreadCount++;
+                    this.updateUnreadBadge();
+                }
+                
+                // Aktualizacja UI
+                this.renderNotifications();
+            }
+            
+            // Aktualizacja powiadomienia
+            updateNotification(id, updates) {
+                const index = this.notifications.findIndex(n => n.id === id);
+                
+                if (index !== -1) {
+                    const notification = this.notifications[index];
+                    
+                    // Jeśli zmieniono status przeczytania
+                    if (updates.isRead !== undefined && notification.isRead !== updates.isRead) {
+                        if (updates.isRead && !notification.isRead) {
+                            this.unreadCount = Math.max(0, this.unreadCount - 1);
+                        } else if (!updates.isRead && notification.isRead) {
+                            this.unreadCount++;
+                        }
+                        this.updateUnreadBadge();
+                    }
+                    
+                    // Aktualizacja powiadomienia
+                    this.notifications[index] = {
+                        ...notification,
+                        ...updates
+                    };
+                    
+                    // Aktualizacja UI
+                    this.renderNotifications();
+                }
+            }
+            
+            // Usuwanie powiadomienia
+            removeNotification(id) {
+                const index = this.notifications.findIndex(n => n.id === id);
+                
+                if (index !== -1) {
+                    const notification = this.notifications[index];
+                    
+                    // Jeśli usuwane powiadomienie jest nieprzeczytane
+                    if (!notification.isRead) {
+                        this.unreadCount = Math.max(0, this.unreadCount - 1);
+                        this.updateUnreadBadge();
+                    }
+                    
+                    // Usunięcie powiadomienia
+                    this.notifications.splice(index, 1);
+                    
+                    // Aktualizacja UI
+                    this.renderNotifications();
+                }
+            }
+            
+            // Oznaczanie wszystkich powiadomień jako przeczytane
+            markAllAsRead() {
+                if (this.notifications.length === 0) return;
+                
+                this.notifications = this.notifications.map(notification => ({
+                    ...notification,
+                    isRead: true
+                }));
+                
+                this.unreadCount = 0;
+                this.updateUnreadBadge();
+                this.renderNotifications();
+                
+                this.showToast('Sukces', 'Wszystkie powiadomienia zostały oznaczone jako przeczytane', 'success');
+            }
+            
+            // Czyszczenie listy powiadomień
+            clearAll() {
+                this.notifications = [];
+                this.unreadCount = 0;
+                this.updateUnreadBadge();
+                this.renderNotifications();
+            }
+            
+            // Renderowanie listy powiadomień
+            renderNotifications() {
+                if (this.notifications.length === 0) {
+                    this.notificationsList.innerHTML = `
+                        <div class="text-center text-muted">
+                            Brak powiadomień
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const html = this.notifications.map(notification => {
+                    const date = new Date(notification.createdAt);
+                    const formattedDate = date.toLocaleString();
+                    
+                    return `
+                        <div class="notification ${notification.isRead ? 'read' : 'unread'}" data-id="${notification.id}">
+                            <div class="notification-title">
+                                ${this.getNotificationTitle(notification.type)}
+                                <span class="notification-time">${formattedDate}</span>
+                            </div>
+                            <div class="notification-message">
+                                ${notification.message}
+                            </div>
+                            <div class="notification-actions">
+                                <button class="btn btn-sm btn-outline-primary mark-read-btn" ${notification.isRead ? 'disabled' : ''}>
+                                    ${notification.isRead ? 'Przeczytane' : 'Oznacz jako przeczytane'}
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger delete-btn">Usuń</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                this.notificationsList.innerHTML = html;
+                
+                // Dodanie event listenerów do przycisków
+                document.querySelectorAll('.mark-read-btn').forEach(btn => {
+                    btn.addEventListener('click', (event) => {
+                        const id = event.target.closest('.notification').dataset.id;
+                        this.markAsRead(id);
+                    });
+                });
+                
+                document.querySelectorAll('.delete-btn').forEach(btn => {
+                    btn.addEventListener('click', (event) => {
+                        const id = event.target.closest('.notification').dataset.id;
+                        this.removeNotification(id);
+                    });
+                });
+            }
+            
+            // Oznaczanie powiadomienia jako przeczytane
+            markAsRead(id) {
+                this.updateNotification(id, { isRead: true });
+                
+                // Jeśli jesteśmy połączeni z Socket.io, wysyłamy żądanie oznaczenia jako przeczytane
+                if (this.connected && this.socket) {
+                    this.socket.emit('mark_notification_read', { notificationId: id });
+                }
+            }
+            
+            // Aktualizacja licznika nieprzeczytanych powiadomień
+            updateUnreadBadge() {
+                this.unreadBadge.textContent = this.unreadCount.toString();
+                this.unreadBadge.style.display = this.unreadCount > 0 ? 'inline-block' : 'none';
+            }
+            
+            // Wyświetlanie toastu
+            showToast(title, message, type = 'info') {
+                const toastId = 'toast-' + Date.now();
+                const toastHtml = `
+                    <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                        <div class="toast-header bg-${type} text-white">
+                            <strong class="me-auto">${title}</strong>
+                            <small>${new Date().toLocaleTimeString()}</small>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                        </div>
+                        <div class="toast-body">
+                            ${message}
+                        </div>
+                    </div>
+                `;
+                
+                this.toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+                
+                const toastElement = document.getElementById(toastId);
+                const toast = new bootstrap.Toast(toastElement, {
+                    autohide: true,
+                    delay: 5000
+                });
+                
+                toast.show();
+                
+                // Usunięcie elementu po ukryciu
+                toastElement.addEventListener('hidden.bs.toast', () => {
+                    toastElement.remove();
+                });
+            }
+            
+            // Wyświetlanie toastu z powiadomieniem
+            showNotificationToast(notification) {
+                const title = this.getNotificationTitle(notification.type);
+                this.showToast(title, notification.message, this.getNotificationType(notification.type));
+            }
+            
+            // Aktualizacja statusu połączenia
+            updateConnectionStatus(status) {
+                this.connectionStatus.className = status;
+                
+                switch (status) {
+                    case 'connected':
+                        this.connectionStatus.textContent = 'Połączono';
+                        break;
+                    case 'disconnected':
+                        this.connectionStatus.textContent = 'Rozłączono';
+                        break;
+                    case 'connecting':
+                        this.connectionStatus.textContent = 'Łączenie...';
+                        break;
+                    default:
+                        this.connectionStatus.textContent = 'Status nieznany';
+                }
+            }
+            
+            // Pobieranie tytułu powiadomienia na podstawie typu
+            getNotificationTitle(type) {
+                switch (type) {
+                    case 'new_message':
+                        return 'Nowa wiadomość';
+                    case 'listing_liked':
+                        return 'Polubienie ogłoszenia';
+                    case 'payment_completed':
+                        return 'Płatność zrealizowana';
+                    case 'listing_added':
+                        return 'Ogłoszenie dodane';
+                    case 'listing_expiring':
+                        return 'Ogłoszenie się kończy';
+                    default:
+                        return 'Powiadomienie';
+                }
+            }
+            
+            // Pobieranie typu toastu na podstawie typu powiadomienia
+            getNotificationType(type) {
+                switch (type) {
+                    case 'new_message':
+                        return 'primary';
+                    case 'listing_liked':
+                        return 'success';
+                    case 'payment_completed':
+                        return 'success';
+                    case 'listing_added':
+                        return 'info';
+                    case 'listing_expiring':
+                        return 'warning';
+                    default:
+                        return 'info';
+                }
+            }
+        }
+        
+        // Inicjalizacja po załadowaniu strony
+        document.addEventListener('DOMContentLoaded', () => {
+            // Sprawdzenie, czy Bootstrap jest dostępny
+            if (typeof bootstrap === 'undefined') {
+                // Dodanie skryptu Bootstrap
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js';
+                script.onload = () => {
+                    // Inicjalizacja menedżera powiadomień
+                    window.notificationManager = new NotificationManager();
+                };
+                document.head.appendChild(script);
+            } else {
+                // Inicjalizacja menedżera powiadomień
+                window.notificationManager = new NotificationManager();
+            }
+            
+            // Uzupełnienie pola ID użytkownika
+            document.getElementById('user-id').value = localStorage.getItem('userId') || '';
+            document.getElementById('recipient-id').value = localStorage.getItem('userId') || '';
+            
+            // Zapisanie ID użytkownika przy zmianie
+            document.getElementById('user-id').addEventListener('change', (event) => {
+                localStorage.setItem('userId', event.target.value);
+                document.getElementById('recipient-id').value = event.target.value;
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,9 +1,129 @@
 import express from 'express';
 import auth from '../middleware/auth.js';
+import jwt from 'jsonwebtoken';
 import notificationService from '../controllers/notificationController.js';
 import Notification from '../models/notification.js';
 
 const router = express.Router();
+
+/**
+ * Trasy testowe do powiadomień real-time
+ */
+const testRouter = express.Router();
+
+/**
+ * @route POST /api/notifications/test/send
+ * @desc Testowe wysyłanie różnych typów powiadomień
+ * @access Public (tylko do testów)
+ */
+testRouter.post('/send', async (req, res) => {
+  try {
+    const { userId, type, data } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'Brak ID użytkownika' });
+    }
+    
+    if (!type) {
+      return res.status(400).json({ error: 'Brak typu powiadomienia' });
+    }
+    
+    let notification = null;
+    
+    switch (type) {
+      case 'new_message':
+        notification = await notificationService.notifyNewMessage(
+          userId,
+          data.senderName || 'Użytkownik',
+          data.adTitle || 'Ogłoszenie',
+          data.metadata || {}
+        );
+        break;
+        
+      case 'listing_liked':
+        notification = await notificationService.notifyAdAddedToFavorites(
+          userId,
+          data.adTitle || 'Ogłoszenie',
+          data.adId || null
+        );
+        break;
+        
+      case 'payment_completed':
+        notification = await notificationService.notifyPaymentStatusChange(
+          userId,
+          'completed',
+          data.adTitle || 'Ogłoszenie',
+          data.metadata || {}
+        );
+        break;
+        
+      case 'listing_added':
+        notification = await notificationService.notifyAdCreated(
+          userId,
+          data.adTitle || 'Ogłoszenie',
+          data.adId || null
+        );
+        break;
+        
+      case 'listing_expiring':
+        notification = await notificationService.notifyAdExpiringSoon(
+          userId,
+          data.adTitle || 'Ogłoszenie',
+          data.daysLeft || 3,
+          data.adId || null
+        );
+        break;
+        
+      default:
+        return res.status(400).json({ error: 'Nieobsługiwany typ powiadomienia' });
+    }
+    
+    if (!notification) {
+      return res.status(500).json({ error: 'Nie udało się utworzyć powiadomienia' });
+    }
+    
+    return res.status(200).json({
+      success: true,
+      notification: notification.toApiResponse ? notification.toApiResponse() : notification
+    });
+  } catch (error) {
+    console.error('Błąd podczas wysyłania powiadomienia testowego:', error);
+    return res.status(500).json({ error: error.message || 'Wystąpił błąd podczas wysyłania powiadomienia' });
+  }
+});
+
+/**
+ * @route POST /api/notifications/test/token
+ * @desc Generuje token JWT do testów
+ * @access Public (tylko do testów)
+ */
+testRouter.post('/token', (req, res) => {
+  const { userId } = req.body;
+  
+  if (!userId) {
+    return res.status(400).json({ error: 'Brak ID użytkownika' });
+  }
+  
+  const token = jwt.sign(
+    { userId },
+    process.env.JWT_SECRET || 'default_secret',
+    { expiresIn: '1h' }
+  );
+  
+  return res.status(200).json({ token });
+});
+
+/**
+ * @route GET /api/notifications/test
+ * @desc Serwuje stronę testową do demonstracji powiadomień real-time
+ * @access Public (tylko do testów)
+ */
+testRouter.get('/', (req, res) => {
+  res.sendFile('notification-tester.html', { root: './examples' });
+});
+
+// Rejestracja tras testowych
+router.use('/test', testRouter);
 
 /**
  * @route GET /api/notifications

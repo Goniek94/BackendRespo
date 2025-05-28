@@ -9,10 +9,10 @@
  */
 export const NotificationType = {
   // Ogłoszenia
-  AD_CREATED: 'ad_created',
-  AD_EXPIRING: 'ad_expiring',
-  AD_STATUS_CHANGED: 'ad_status_changed',
-  AD_ADDED_TO_FAVORITES: 'ad_added_to_favorites',
+  LISTING_ADDED: 'listing_added',
+  LISTING_EXPIRING: 'listing_expiring',
+  LISTING_STATUS_CHANGED: 'listing_status_changed',
+  LISTING_LIKED: 'listing_liked',
   
   // Wiadomości
   NEW_MESSAGE: 'new_message',
@@ -21,7 +21,7 @@ export const NotificationType = {
   NEW_COMMENT: 'new_comment',
   
   // Płatności
-  PAYMENT_STATUS_CHANGED: 'payment_status_changed',
+  PAYMENT_COMPLETED: 'payment_completed',
   
   // System
   SYSTEM_NOTIFICATION: 'system_notification'
@@ -37,7 +37,7 @@ export const notificationTemplates = {
    * @param {string} adTitle - Tytuł ogłoszenia
    * @returns {string} - Treść powiadomienia
    */
-  [NotificationType.AD_CREATED]: (adTitle) => {
+  [NotificationType.LISTING_ADDED]: (adTitle) => {
     return `Twoje ogłoszenie "${adTitle}" zostało pomyślnie dodane.`;
   },
   
@@ -47,7 +47,7 @@ export const notificationTemplates = {
    * @param {number} daysLeft - Liczba dni do końca
    * @returns {string} - Treść powiadomienia
    */
-  [NotificationType.AD_EXPIRING]: (adTitle, daysLeft) => {
+  [NotificationType.LISTING_EXPIRING]: (adTitle, daysLeft) => {
     return `Twoje ogłoszenie "${adTitle}" wygaśnie za ${daysLeft} dni. Rozważ jego odnowienie.`;
   },
   
@@ -57,7 +57,7 @@ export const notificationTemplates = {
    * @param {string} status - Nowy status ogłoszenia
    * @returns {string} - Treść powiadomienia
    */
-  [NotificationType.AD_STATUS_CHANGED]: (adTitle, status) => {
+  [NotificationType.LISTING_STATUS_CHANGED]: (adTitle, status) => {
     const statusMessages = {
       'opublikowane': `Twoje ogłoszenie "${adTitle}" zostało opublikowane.`,
       'archiwalne': `Twoje ogłoszenie "${adTitle}" zostało zarchiwizowane.`,
@@ -72,7 +72,7 @@ export const notificationTemplates = {
    * @param {string} adTitle - Tytuł ogłoszenia
    * @returns {string} - Treść powiadomienia
    */
-  [NotificationType.AD_ADDED_TO_FAVORITES]: (adTitle) => {
+  [NotificationType.LISTING_LIKED]: (adTitle) => {
     return `Twoje ogłoszenie "${adTitle}" zostało dodane do ulubionych przez innego użytkownika.`;
   },
   
@@ -105,20 +105,10 @@ export const notificationTemplates = {
    * @param {string} adTitle - Tytuł ogłoszenia (opcjonalnie)
    * @returns {string} - Treść powiadomienia
    */
-  [NotificationType.PAYMENT_STATUS_CHANGED]: (status, adTitle = null) => {
-    const statusMessages = {
-      'completed': adTitle 
-        ? `Płatność za ogłoszenie "${adTitle}" została zrealizowana.` 
-        : `Twoja płatność została zrealizowana.`,
-      'pending': adTitle 
-        ? `Oczekujemy na potwierdzenie płatności za ogłoszenie "${adTitle}".` 
-        : `Oczekujemy na potwierdzenie Twojej płatności.`,
-      'failed': adTitle 
-        ? `Wystąpił problem z płatnością za ogłoszenie "${adTitle}". Prosimy o kontakt.` 
-        : `Wystąpił problem z Twoją płatnością. Prosimy o kontakt.`
-    };
-    
-    return statusMessages[status] || `Status Twojej płatności${adTitle ? ` za ogłoszenie "${adTitle}"` : ''} został zmieniony na "${status}".`;
+  [NotificationType.PAYMENT_COMPLETED]: (adTitle = null) => {
+    return adTitle 
+      ? `Płatność za ogłoszenie "${adTitle}" została zrealizowana.` 
+      : `Twoja płatność została zrealizowana.`;
   },
   
   /**

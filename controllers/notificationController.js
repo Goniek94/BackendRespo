@@ -79,10 +79,10 @@ class NotificationService {
    * @returns {Promise<Object>} - Utworzone powiadomienie
    */
   async notifyAdCreated(userId, adTitle, adId = null) {
-    const message = notificationTemplates[NotificationType.AD_CREATED](adTitle);
+    const message = notificationTemplates[NotificationType.LISTING_ADDED](adTitle);
     const metadata = adId ? { adId } : {};
     
-    return this.createNotification(userId, message, NotificationType.AD_CREATED, metadata);
+    return this.createNotification(userId, message, NotificationType.LISTING_ADDED, metadata);
   }
 
   /**
@@ -94,10 +94,10 @@ class NotificationService {
    * @returns {Promise<Object>} - Utworzone powiadomienie
    */
   async notifyAdExpiringSoon(userId, adTitle, daysLeft, adId = null) {
-    const message = notificationTemplates[NotificationType.AD_EXPIRING](adTitle, daysLeft);
+    const message = notificationTemplates[NotificationType.LISTING_EXPIRING](adTitle, daysLeft);
     const metadata = adId ? { adId, daysLeft } : { daysLeft };
     
-    return this.createNotification(userId, message, NotificationType.AD_EXPIRING, metadata);
+    return this.createNotification(userId, message, NotificationType.LISTING_EXPIRING, metadata);
   }
 
   /**
@@ -146,13 +146,13 @@ class NotificationService {
    * @returns {Promise<Object>} - Utworzone powiadomienie
    */
   async notifyAdStatusChange(userId, adTitle, status, adId = null) {
-    const message = notificationTemplates[NotificationType.AD_STATUS_CHANGED](adTitle, status);
+    const message = notificationTemplates[NotificationType.LISTING_STATUS_CHANGED](adTitle, status);
     const metadata = {
       status,
       ...(adId ? { adId } : {})
     };
     
-    return this.createNotification(userId, message, NotificationType.AD_STATUS_CHANGED, metadata);
+    return this.createNotification(userId, message, NotificationType.LISTING_STATUS_CHANGED, metadata);
   }
 
   /**
@@ -175,10 +175,10 @@ class NotificationService {
       // Jeśli nie ma tytułu, użyj domyślnego
       const safeAdTitle = adTitle || 'Ogłoszenie';
       
-      const message = notificationTemplates[NotificationType.AD_ADDED_TO_FAVORITES](safeAdTitle);
+      const message = notificationTemplates[NotificationType.LISTING_LIKED](safeAdTitle);
       const metadata = adId ? { adId } : {};
       
-      return this.createNotification(userId, message, NotificationType.AD_ADDED_TO_FAVORITES, metadata);
+      return this.createNotification(userId, message, NotificationType.LISTING_LIKED, metadata);
     } catch (error) {
       console.error(`[NotificationService] Błąd podczas tworzenia powiadomienia o dodaniu do ulubionych: ${error.message}`, error);
       return null;

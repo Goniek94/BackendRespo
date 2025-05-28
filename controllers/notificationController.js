@@ -127,14 +127,25 @@ class NotificationService {
    * @returns {Promise<Object>} - Utworzone powiadomienie
    */
   async notifyPaymentStatusChange(userId, status, adTitle = null, metadata = {}) {
-    const message = notificationTemplates[NotificationType.PAYMENT_STATUS_CHANGED](status, adTitle);
-    
-    metadata.status = status;
-    if (adTitle) {
-      metadata.adTitle = adTitle;
+    // Dla statusu 'completed' używamy dedykowanego typu PAYMENT_COMPLETED
+    if (status === 'completed') {
+      const message = notificationTemplates[NotificationType.PAYMENT_COMPLETED](adTitle);
+      
+      if (adTitle) {
+        metadata.adTitle = adTitle;
+      }
+      
+      return this.createNotification(userId, message, NotificationType.PAYMENT_COMPLETED, metadata);
+    } else {
+      // Dla innych statusów używamy systemowego powiadomienia
+      const statusMessage = `Status Twojej płatności${adTitle ? ` za ogłoszenie "${adTitle}"` : ''} został zmieniony na "${status}".`;
+      metadata.status = status;
+      if (adTitle) {
+        metadata.adTitle = adTitle;
+      }
+      
+      return this.createNotification(userId, statusMessage, NotificationType.SYSTEM_NOTIFICATION, metadata);
     }
-    
-    return this.createNotification(userId, message, NotificationType.PAYMENT_STATUS_CHANGED, metadata);
   }
 
   /**

@@ -1,153 +1,151 @@
-// messageTestApi.js - Skrypt testujący API wiadomości
-import fetch from 'node-fetch';
+/**
+ * Test script for messages API - create test messages and verify conversations retrieval
+ * Run: node messageTestApi.js
+ */
+const mongoose = require('mongoose');
+const axios = require('axios');
+const Message = require('./models/message');
+const User = require('./models/user');
+const dotenv = require('dotenv');
 
-// Dane logowania
-const credentials = {
-  email: 'mateusz.goszczycki1994@gmail.com',
-  password: 'Neluchu321.'
-};
+// Load environment variables
+dotenv.config();
 
-// URL API
-const API_URL = 'http://localhost:5000/api';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/marketplace';
+const API_URL = process.env.API_URL || 'http://localhost:5000';
 
-// Funkcja logowania i uzyskania tokenu
-async function login() {
+// Test user IDs - modify these as needed
+const TEST_RECIPIENT_ID = '67cd803e430b755038f60025'; // Target user who should receive messages
+const AUTH_TOKEN = 'your-auth-token-here'; // Add a valid JWT token for authentication
+
+async function createTestMessages() {
+  console.log('Connecting to MongoDB...');
+  await mongoose.connect(MONGO_URI);
+  console.log('Connected to MongoDB');
+
   try {
-    const response = await fetch(`${API_URL}/users/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
+    // Find recipient user
+    const recipient = await User.findById(TEST_RECIPIENT_ID);
+    if (!recipient) {
+      console.error(`Recipient user with ID ${TEST_RECIPIENT_ID} not found!`);
+      process.exit(1);
+    }
+    console.log(`Found recipient: ${recipient.name || recipient.email}`);
+
+    // Find a different user to be the sender
+    const sender = await User.findOne({ _id: { $ne: TEST_RECIPIENT_ID } });
+    if (!sender) {
+      console.error('No other users found to use as sender!');
+      process.exit(1);
+    }
+    console.log(`Found sender: ${sender.name || sender.email} (ID: ${sender._id})`);
+
+    // Create test messages
+    console.log('Creating test messages...');
+    
+    // Create messages in both directions to test conversations
+    const testMessages = [
+      {
+        sender: sender._id,
+        recipient: recipient._id,
+        subject: 'Test Message 1',
+        content: 'This is a test message from the script - outgoing',
+        read: false,
+        draft: false,
+        createdAt: new Date()
       },
-      body: JSON.stringify(credentials)
-    });
+      {
+        sender: recipient._id,
+        recipient: sender._id,
+        subject: 'Test Reply 1',
+        content: 'This is a test reply from the script - incoming',
+        read: true,
+        draft: false,
+        createdAt: new Date(Date.now() + 1000) // 1 second later
+      },
+      {
+        sender: sender._id,
+        recipient: recipient._id,
+        subject: 'Test Message 2',
+        content: 'This is another test message from the script - outgoing',
+        read: false, 
+        draft: false,
+        createdAt: new Date(Date.now() + 2000) // 2 seconds later
+      }
+    ];
 
-    if (!response.ok) {
-      throw new Error(`Błąd logowania: ${response.status} ${response.statusText}`);
+    // Save all messages
+    for (const msgData of testMessages) {
+      const message = new Message(msgData);
+      await message.save();
+      console.log(`Created message: ${message._id}`);
     }
 
-    const data = await response.json();
-    console.log('Zalogowano pomyślnie!');
-    return data.token;
+    console.log('Successfully created test messages!');
   } catch (error) {
-    console.error('Błąd podczas logowania:', error.message);
-    process.exit(1);
+    console.error('Error creating test messages:', error);
+  } finally {
+    await mongoose.disconnect();
+    console.log('Disconnected from MongoDB');
   }
 }
 
-// Funkcja testująca pobieranie wiadomości
-async function testGetMessages(token, folder = 'inbox') {
+async function testGetConversations() {
   try {
-    console.log(`\nTestowanie pobierania wiadomości z folderu ${folder}...`);
+    console.log('Testing /messages/conversations API endpoint...');
     
-    const response = await fetch(`${API_URL}/messages/${folder}`, {
-      method: 'GET',
+    const response = await axios.get(`${API_URL}/api/messages/conversations`, {
       headers: {
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${AUTH_TOKEN}`
       }
     });
-
-    if (!response.ok) {
-      throw new Error(`Błąd pobierania wiadomości: ${response.status} ${response.statusText}`);
-    }
-
-    const messages = await response.json();
-    console.log(`Pobrano ${messages.length} wiadomości z folderu ${folder}`);
     
-    if (messages.length > 0) {
-      console.log('Przykładowa wiadomość:');
-      console.log('- ID:', messages[0]._id);
-      console.log('- Nadawca:', messages[0].sender?.name || messages[0].sender?.email || messages[0].sender);
-      console.log('- Odbiorca:', messages[0].recipient?.name || messages[0].recipient?.email || messages[0].recipient);
-      console.log('- Temat:', messages[0].subject);
-      console.log('- Treść:', messages[0].content.substring(0, 50) + '...');
-    }
+    console.log('API Response Status:', response.status);
+    console.log('API Response Data:', JSON.stringify(response.data, null, 2));
     
-    return messages;
-  } catch (error) {
-    console.error('Błąd podczas pobierania wiadomości:', error.message);
-    return [];
-  }
-}
-
-// Funkcja testująca pobieranie konwersacji
-async function testGetConversations(token) {
-  try {
-    console.log('\nTestowanie pobierania listy konwersacji...');
-    
-    const response = await fetch(`${API_URL}/messages/conversations`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`
+    if (Array.isArray(response.data)) {
+      console.log(`Retrieved ${response.data.length} conversations`);
+      
+      if (response.data.length > 0) {
+        console.log('First conversation details:');
+        const conversation = response.data[0];
+        console.log(`- User: ${conversation.user?.name || conversation.user?.email || 'Unknown'}`);
+        console.log(`- Last message: ${conversation.lastMessage?.content?.substring(0, 50) || 'No content'}`);
+        console.log(`- Unread count: ${conversation.unreadCount || 0}`);
+      } else {
+        console.log('No conversations found');
       }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Błąd pobierania konwersacji: ${response.status} ${response.statusText}`);
+    } else {
+      console.log('Unexpected response format - not an array');
     }
-
-    const data = await response.json();
-    console.log(`Pobrano dane konwersacji:`, data);
-    return data;
-  } catch (error) {
-    console.error('Błąd podczas pobierania konwersacji:', error.message);
-    return null;
-  }
-}
-
-// Funkcja testująca pobieranie konwersacji z użytkownikiem
-async function testGetConversation(token, userId) {
-  try {
-    console.log(`\nTestowanie pobierania konwersacji z użytkownikiem ${userId}...`);
     
-    const response = await fetch(`${API_URL}/messages/conversation/${userId}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Błąd pobierania konwersacji: ${response.status} ${response.statusText}`);
-    }
-
-    const conversation = await response.json();
-    console.log('Pobrano konwersację:', conversation);
-    return conversation;
+    return response.data;
   } catch (error) {
-    console.error('Błąd podczas pobierania konwersacji:', error.message);
-    return null;
-  }
-}
-
-// Główna funkcja testowa
-async function runTests() {
-  console.log('Rozpoczynanie testów API wiadomości...');
-  
-  // Logowanie i uzyskanie tokenu
-  const token = await login();
-  if (!token) {
-    console.error('Nie można kontynuować testów bez tokenu.');
-    return;
-  }
-  
-  // Test 1: Pobieranie wiadomości z różnych folderów
-  const inboxMessages = await testGetMessages(token, 'inbox');
-  const sentMessages = await testGetMessages(token, 'sent');
-  
-  // Test 2: Pobieranie listy konwersacji
-  const conversationsData = await testGetConversations(token);
-  
-  // Test 3: Jeśli mamy jakieś wiadomości, testujemy pobieranie konkretnej konwersacji
-  if (inboxMessages.length > 0) {
-    // Pobieramy ID nadawcy pierwszej wiadomości
-    const otherUserId = inboxMessages[0].sender?._id || inboxMessages[0].sender;
-    if (otherUserId) {
-      await testGetConversation(token, otherUserId);
+    console.error('Error testing conversations API:', error.message);
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', error.response.data);
     }
   }
-  
-  console.log('\nTesty zakończone!');
 }
 
-// Uruchomienie testów
-runTests();
+async function main() {
+  const command = process.argv[2];
+  
+  if (command === 'create') {
+    await createTestMessages();
+  } else if (command === 'test') {
+    await testGetConversations();
+  } else {
+    console.log(`
+Usage:
+  node messageTestApi.js create  - Create test messages
+  node messageTestApi.js test    - Test retrieving conversations
+    `);
+  }
+}
+
+main().catch(error => {
+  console.error('Script error:', error);
+  process.exit(1);
+});

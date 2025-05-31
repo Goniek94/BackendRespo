@@ -4,6 +4,7 @@ import Ad from '../models/ad.js';
 import mongoose from 'mongoose';
 import notificationService from '../controllers/notificationController.js';
 import { sendNewMessageEmail } from '../config/nodemailer.js';
+import socketService from '../services/socketService.js';
 
 // Pobieranie wiadomości dla danego folderu
 export const getMessages = async (req, res) => {
@@ -300,6 +301,11 @@ export const sendMessage = async (req, res) => {
     });
 
     await newMessage.save();
+
+    // Emit realtime event do odbiorcy (socket.io)
+    if (socketService.isUserOnline(recipientUser._id.toString())) {
+      socketService.sendNotification(recipientUser._id.toString(), { type: 'new_message' });
+    }
 
     // Znajdź dane nadawcy dla powiadomienia
     const sender = await User.findById(senderId);
@@ -655,6 +661,11 @@ export const sendMessageToUser = async (req, res) => {
 
     await newMessage.save();
 
+    // Emit realtime event do odbiorcy (socket.io)
+    if (socketService.isUserOnline(recipientUser._id.toString())) {
+      socketService.sendNotification(recipientUser._id.toString(), { type: 'new_message' });
+    }
+
     // Znajdź dane nadawcy dla powiadomienia
     const sender = await User.findById(senderId);
     if (!sender) {
@@ -683,17 +694,25 @@ export const getConversation = async (req, res) => {
   try {
     const { userId } = req.params;
     const currentUserId = req.user.userId;
-    
+
+    console.log('--- getConversation DEBUG ---');
+    console.log('currentUserId (JWT):', currentUserId, 'typeof:', typeof currentUserId);
+    console.log('userId (param):', userId, 'typeof:', typeof userId);
+
     // Konwertuj userId na ObjectId, aby zapewnić poprawne porównanie w MongoDB
     const currentUserObjectId = mongoose.Types.ObjectId.isValid(currentUserId) ? new mongoose.Types.ObjectId(currentUserId) : currentUserId;
     const otherUserObjectId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
-    
+
+    console.log('currentUserObjectId:', currentUserObjectId, 'typeof:', typeof currentUserObjectId);
+    console.log('otherUserObjectId:', otherUserObjectId, 'typeof:', typeof otherUserObjectId);
+
     // Sprawdź czy użytkownik istnieje
     const otherUser = await User.findById(otherUserObjectId);
     if (!otherUser) {
+      console.log('Nie znaleziono użytkownika:', otherUserObjectId);
       return res.status(404).json({ message: 'Nie znaleziono użytkownika' });
     }
-    
+
     // Pobierz wiadomości między użytkownikami
     const messages = await Message.find({
       $or: [
@@ -705,19 +724,26 @@ export const getConversation = async (req, res) => {
     .populate('recipient', 'name email')
     .populate('relatedAd', 'headline brand model')
     .sort({ createdAt: 1 });
-    
+
+    console.log('Znaleziono wiadomości:', messages.length);
+    if (messages.length > 0) {
+      messages.forEach(msg => {
+        console.log('msg._id:', msg._id, '| sender:', msg.sender?._id, '| recipient:', msg.recipient?._id);
+      });
+    }
+
     // Oznacz wszystkie wiadomości od drugiego użytkownika jako przeczytane
     const unreadMessages = messages.filter(
       msg => msg.recipient.toString() === currentUserId && !msg.read
     );
-    
+
     if (unreadMessages.length > 0) {
       await Message.updateMany(
         { _id: { $in: unreadMessages.map(msg => msg._id) } },
         { read: true }
       );
     }
-    
+
     // Grupuj wiadomości według relatedAd, jeśli istnieje
     const conversationsByAd = {};
     messages.forEach(msg => {
@@ -730,7 +756,7 @@ export const getConversation = async (req, res) => {
       }
       conversationsByAd[adId].messages.push(msg);
     });
-    
+
     res.status(200).json({
       otherUser: {
         id: otherUser._id,
@@ -827,13 +853,32 @@ export const replyToMessage = async (req, res) => {
   }
 };
 
-// Pobieranie listy konwersacji użytkownika
+/**
+ * Pobieranie listy konwersacji użytkownika - wersja produkcyjna
+ * Zwraca konwersacje w formacie zgodnym z oczekiwaniami frontu:
+ * [{ user, lastMessage, unreadCount, adInfo }]
+ */
 export const getConversationsList = async (req, res) => {
   try {
     const userId = req.user.userId;
     
+    console.log('getConversationsList - userId:', userId);
+    
     // Konwertuj userId na ObjectId, aby zapewnić poprawne porównanie w MongoDB
-    const userObjectId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
+    const userObjectId = mongoose.Types.ObjectId.isValid(userId) 
+      ? new mongoose.Types.ObjectId(userId) 
+      : userId;
+    
+    console.log(`Przekonwertowane userObjectId: ${userObjectId}`);
+    
+    // Sprawdź czy użytkownik istnieje
+    const user = await User.findById(userObjectId);
+    if (!user) {
+      console.log(`Nie znaleziono użytkownika o ID: ${userId}`);
+      return res.status(404).json({ message: 'Nie znaleziono użytkownika' });
+    }
+    
+    console.log(`Znaleziono użytkownika: ${user.name || user.email}`);
     
     // Pobierz wszystkie wiadomości, w których użytkownik jest nadawcą lub odbiorcą
     const messages = await Message.find({
@@ -842,26 +887,73 @@ export const getConversationsList = async (req, res) => {
         { recipient: userObjectId, deletedBy: { $ne: userObjectId } }
       ]
     })
-    .populate('sender', 'name email')
-    .populate('recipient', 'name email')
-    .populate('relatedAd', 'headline brand model')
-    .sort({ createdAt: -1 });
+      .populate('sender', 'name email')
+      .populate('recipient', 'name email')
+      .populate('relatedAd', 'headline brand model')
+      .sort({ createdAt: -1 });
+
+    console.log(`Znaleziono ${messages.length} wiadomości dla użytkownika ${userId}`);
     
-    // Grupuj wiadomości według rozmówcy
+    // Sprawdź czy mamy wiadomości
+    if (messages.length === 0) {
+      console.log('Brak wiadomości dla użytkownika');
+      return res.status(200).json([]);
+    }
+    
+    console.log('Przykładowa wiadomość:', {
+      id: messages[0]._id,
+      sender: messages[0].sender ? (typeof messages[0].sender === 'object' ? messages[0].sender._id : messages[0].sender) : 'brak',
+      recipient: messages[0].recipient ? (typeof messages[0].recipient === 'object' ? messages[0].recipient._id : messages[0].recipient) : 'brak',
+      subject: messages[0].subject,
+      createdAt: messages[0].createdAt
+    });
+
+    // Grupuj wiadomości według rozmówcy (niezależnie od tego, kto był nadawcą/odbiorcą)
     const conversationsByUser = {};
-    
+    const userIdStr = userObjectId.toString();
+
     messages.forEach(msg => {
+      // Sprawdź czy msg.sender i msg.recipient są obiektami (już załadowane przez populate)
+      const senderId = msg.sender ? (typeof msg.sender === 'object' ? msg.sender._id.toString() : msg.sender.toString()) : null;
+      const recipientId = msg.recipient ? (typeof msg.recipient === 'object' ? msg.recipient._id.toString() : msg.recipient.toString()) : null;
+      
+      if (!senderId || !recipientId) {
+        console.log(`Pominięto wiadomość ${msg._id} - brak nadawcy lub odbiorcy`);
+        return; // pomiń tę wiadomość
+      }
+      
       // Określ ID rozmówcy (jeśli jesteś nadawcą, to odbiorca, jeśli jesteś odbiorcą, to nadawca)
-      const otherUserId = msg.sender._id.toString() === userId 
-        ? msg.recipient._id.toString() 
-        : msg.sender._id.toString();
+      let otherUser, otherUserId;
       
+      if (senderId === userIdStr) {
+        otherUser = msg.recipient;
+        otherUserId = recipientId;
+      } else {
+        otherUser = msg.sender;
+        otherUserId = senderId;
+      }
+
       // Pomiń wiadomości wysłane do samego siebie
-      if (otherUserId === userId) return;
+      if (otherUserId === userIdStr) {
+        console.log(`Pominięto wiadomość ${msg._id} - wysłana do samego siebie`);
+        return;
+      }
       
+      if (!otherUser || !otherUserId) {
+        console.log(`Pominięto wiadomość ${msg._id} - brak danych rozmówcy`);
+        return;
+      }
+
+      // Upewnij się, że otherUser jest obiektem z polami _id, name, email
+      const otherUserObject = {
+        _id: typeof otherUser === 'object' ? otherUser._id : otherUser,
+        name: typeof otherUser === 'object' ? (otherUser.name || 'Nieznany użytkownik') : 'Nieznany użytkownik',
+        email: typeof otherUser === 'object' ? (otherUser.email || '') : ''
+      };
+
       if (!conversationsByUser[otherUserId]) {
         conversationsByUser[otherUserId] = {
-          user: msg.sender._id.toString() === userId ? msg.recipient : msg.sender,
+          user: otherUserObject,
           lastMessage: msg,
           unreadCount: 0,
           adInfo: msg.relatedAd
@@ -869,18 +961,32 @@ export const getConversationsList = async (req, res) => {
       } else if (msg.createdAt > conversationsByUser[otherUserId].lastMessage.createdAt) {
         // Aktualizuj tylko jeśli ta wiadomość jest nowsza
         conversationsByUser[otherUserId].lastMessage = msg;
+        conversationsByUser[otherUserId].adInfo = msg.relatedAd;
       }
-      
-      // Zlicz nieprzeczytane wiadomości
-      if (msg.recipient._id.toString() === userId && !msg.read) {
+
+      // Zlicz nieprzeczytane wiadomości od tego rozmówcy do użytkownika
+      if (senderId === otherUserId && recipientId === userIdStr && !msg.read) {
         conversationsByUser[otherUserId].unreadCount += 1;
       }
     });
-    
+
     // Konwertuj obiekt na tablicę i sortuj według daty ostatniej wiadomości
     const conversations = Object.values(conversationsByUser)
       .sort((a, b) => b.lastMessage.createdAt - a.lastMessage.createdAt);
+
+    console.log(`Zwracanie ${conversations.length} konwersacji`);
     
+    if (conversations.length > 0) {
+      console.log('Przykładowa konwersacja:', {
+        user: {
+          _id: conversations[0].user._id.toString(),
+          name: conversations[0].user.name
+        },
+        lastMessageDate: conversations[0].lastMessage.createdAt,
+        unreadCount: conversations[0].unreadCount
+      });
+    }
+
     res.status(200).json(conversations);
   } catch (error) {
     console.error('Błąd podczas pobierania listy konwersacji:', error);

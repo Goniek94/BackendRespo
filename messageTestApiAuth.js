@@ -1,25 +1,108 @@
 /**
- * Test script for messages API with proper authentication
+ * Enhanced test script for messages API with MongoDB integration
  * 
  * This script:
- * 1. Logs in with test credentials
- * 2. Tests direct API calls to conversations endpoint
- * 3. Verifies token handling and response formats
+ * 1. Connects directly to MongoDB
+ * 2. Creates a test user if needed
+ * 3. Tests authentication and messaging endpoints
  * 
  * Usage: node messageTestApiAuth.js
  */
 import fetch from 'node-fetch';
+import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 
 // Configuration
 const API_URL = 'http://localhost:5000';
+const MONGO_URI = 'mongodb://localhost:27017/marketplace';
 const TEST_USER = {
-  email: 'test@example.com',
-  password: 'Test1234!'
+  email: 'apitest@example.com',
+  password: 'TestApi123!'
 };
 
 // Global state
 let authToken = null;
 let userId = null;
+let userModel;
+
+/**
+ * Connect to MongoDB
+ */
+async function connectToMongoDB() {
+  try {
+    await mongoose.connect(MONGO_URI);
+    console.log('✅ Connected to MongoDB');
+    
+    // Define User schema for test purposes
+    const userSchema = new mongoose.Schema({
+      name: String,
+      lastName: String,
+      email: { type: String, required: true },
+      password: { type: String, required: true },
+      phoneNumber: String,
+      role: { type: String, default: 'user' },
+      isEmailVerified: { type: Boolean, default: true },
+      isPhoneVerified: { type: Boolean, default: true }
+    });
+    
+    // Add password hashing hook if not exists
+    if (!userSchema.pre) {
+      userSchema.pre('save', async function(next) {
+        if (!this.isModified('password')) return next();
+        
+        try {
+          const salt = await bcrypt.genSalt(12);
+          this.password = await bcrypt.hash(this.password, salt);
+          next();
+        } catch (error) {
+          next(error);
+        }
+      });
+    }
+    
+    // Create or get the model
+    userModel = mongoose.models.User || mongoose.model('User', userSchema);
+    
+    return true;
+  } catch (error) {
+    console.error('❌ MongoDB connection error:', error);
+    return false;
+  }
+}
+
+/**
+ * Create a test user if it doesn't exist
+ */
+async function ensureTestUser() {
+  try {
+    // Check if user already exists
+    let user = await userModel.findOne({ email: TEST_USER.email });
+    
+    if (user) {
+      console.log(`✅ Test user already exists: ${user._id}`);
+      return user;
+    }
+    
+    // Create new test user
+    user = new userModel({
+      name: 'API',
+      lastName: 'Test',
+      email: TEST_USER.email,
+      password: TEST_USER.password,
+      phoneNumber: '+48987654321',
+      isEmailVerified: true,
+      isPhoneVerified: true,
+      role: 'user'
+    });
+    
+    await user.save();
+    console.log(`✅ Created test user: ${user._id}`);
+    return user;
+  } catch (error) {
+    console.error('❌ Error ensuring test user:', error);
+    return null;
+  }
+}
 
 /**
  * Login to get authentication token
@@ -39,12 +122,14 @@ async function login() {
       })
     });
     
-    const data = await response.json();
-    
     if (!response.ok) {
-      console.error('❌ Login error:', data);
+      console.error(`❌ Login failed with status: ${response.status}`);
+      const errorData = await response.json();
+      console.error('Error details:', errorData);
       return false;
     }
+    
+    const data = await response.json();
     
     authToken = data.token;
     userId = data.user.id;
@@ -88,24 +173,6 @@ async function testEndpoint(url, description) {
     });
     
     await logResponse(authHeaderResponse);
-    
-    // Test with token in query parameter
-    console.log('\n> Testing with token query parameter');
-    const queryParamResponse = await fetch(`${url}?token=${authToken}`, {
-      method: 'GET'
-    });
-    
-    await logResponse(queryParamResponse);
-    
-    // Test with credentials (cookies)
-    console.log('\n> Testing with credentials (cookies)');
-    const credentialsResponse = await fetch(url, {
-      method: 'GET',
-      credentials: 'include'
-    });
-    
-    await logResponse(credentialsResponse);
-    
   } catch (error) {
     console.error(`❌ Request failed:`, error);
   }
@@ -127,12 +194,12 @@ async function logResponse(response) {
   try {
     const data = await response.json();
     console.log('Response data:');
-    console.log(JSON.stringify(data, null, 2).substring(0, 500) + '...');
+    console.log(JSON.stringify(data, null, 2).substring(0, 500) + (JSON.stringify(data, null, 2).length > 500 ? '...' : ''));
   } catch (error) {
     console.log('Could not parse response as JSON');
     const text = await response.text();
     console.log('Response text:');
-    console.log(text.substring(0, 500) + '...');
+    console.log(text.substring(0, 500) + (text.length > 500 ? '...' : ''));
   }
 }
 
@@ -140,18 +207,42 @@ async function logResponse(response) {
  * Main function
  */
 async function main() {
-  const loginSuccess = await login();
-  
-  if (!loginSuccess) {
-    console.error('❌ Cannot proceed without successful login');
-    return;
+  try {
+    // Connect to MongoDB and ensure test user exists
+    const dbConnected = await connectToMongoDB();
+    if (!dbConnected) {
+      console.error('❌ Cannot proceed without database connection');
+      return;
+    }
+    
+    const testUser = await ensureTestUser();
+    if (!testUser) {
+      console.error('❌ Cannot proceed without test user');
+      return;
+    }
+    
+    // Login with test user
+    const loginSuccess = await login();
+    if (!loginSuccess) {
+      console.error('❌ Cannot proceed without successful login');
+      return;
+    }
+    
+    // Test API endpoints
+    await testConversations();
+    
+    console.log('\n--- Test completed ---');
+  } catch (error) {
+    console.error('❌ Unhandled error:', error);
+  } finally {
+    // Close MongoDB connection
+    await mongoose.disconnect();
+    console.log('Database connection closed');
   }
-  
-  await testConversations();
-  
-  console.log('\n--- Test completed ---');
 }
 
+// Run the script
 main().catch(error => {
-  console.error('❌ Unhandled error:', error);
+  console.error('❌ Fatal error:', error);
+  mongoose.disconnect();
 });

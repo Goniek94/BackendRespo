@@ -861,9 +861,12 @@ export const replyToMessage = async (req, res) => {
 export const getConversationsList = async (req, res) => {
   try {
     const userId = req.user.userId;
+    // Pobierz parametr folder z zapytania
+    const { folder } = req.query;
     
     console.log('=== getConversationsList START ===');
     console.log('userId z tokenu JWT:', userId, 'typ:', typeof userId);
+    console.log('Folder z zapytania:', folder);
     
     // Sprawdź, czy userId jest poprawnym ObjectId
     if (!mongoose.Types.ObjectId.isValid(userId)) {
@@ -884,15 +887,61 @@ export const getConversationsList = async (req, res) => {
     
     console.log(`Znaleziono użytkownika: ${user.name || user.email} (ID: ${user._id})`);
     
-    // Pobierz wszystkie wiadomości, w których użytkownik jest nadawcą lub odbiorcą
-    // i które nie zostały usunięte przez tego użytkownika
+    // Przygotuj zapytanie bazowe w zależności od folderu
+    let query = {};
+    
+    switch(folder) {
+      case 'inbox':
+        // Pobierz wiadomości, gdzie użytkownik jest odbiorcą i nie usunął wiadomości
+        query = {
+          recipient: userObjectId,
+          deletedBy: { $ne: userObjectId }
+        };
+        break;
+      case 'sent':
+        // Pobierz wiadomości, gdzie użytkownik jest nadawcą, nie są szkicami i nie usunął wiadomości
+        query = {
+          sender: userObjectId,
+          draft: false,
+          deletedBy: { $ne: userObjectId }
+        };
+        break;
+      case 'starred':
+        // Pobierz wiadomości oznaczone gwiazdką, gdzie użytkownik jest nadawcą lub odbiorcą
+        query = {
+          $or: [
+            { recipient: userObjectId, starred: true },
+            { sender: userObjectId, starred: true }
+          ],
+          deletedBy: { $ne: userObjectId }
+        };
+        break;
+      case 'archived':
+        // Pobierz zarchiwizowane wiadomości, gdzie użytkownik jest nadawcą lub odbiorcą
+        query = {
+          $or: [
+            { recipient: userObjectId, archived: true },
+            { sender: userObjectId, archived: true }
+          ],
+          deletedBy: { $ne: userObjectId }
+        };
+        break;
+      default:
+        // Domyślnie pobierz wszystkie wiadomości (inbox)
+        console.log('Używam domyślnego zapytania dla wszystkich konwersacji');
+        query = {
+          $or: [
+            { sender: userObjectId, deletedBy: { $ne: userObjectId } },
+            { recipient: userObjectId, deletedBy: { $ne: userObjectId } }
+          ]
+        };
+    }
+    
+    console.log('Zapytanie do bazy danych:', JSON.stringify(query));
+    
+    // Pobierz wiadomości z bazy danych
     console.log('Pobieranie wiadomości z bazy danych...');
-    const messages = await Message.find({
-      $or: [
-        { sender: userObjectId, deletedBy: { $ne: userObjectId } },
-        { recipient: userObjectId, deletedBy: { $ne: userObjectId } }
-      ]
-    })
+    const messages = await Message.find(query)
       .populate('sender', 'name email')
       .populate('recipient', 'name email')
       .populate('relatedAd', 'headline brand model')

@@ -1,155 +1,289 @@
-// messageTest.js - Skrypt generujący testowe wiadomości
+// Test API wiadomości
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import Message from './models/message.js';
 import User from './models/user.js';
-import Ad from './models/ad.js';
+import Message from './models/message.js';
 
-// Ładowanie zmiennych środowiskowych
+// Konfiguracja zmiennych środowiskowych
 dotenv.config();
 
-// Łączenie z bazą danych
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('Połączono z bazą danych MongoDB'))
-  .catch(err => {
-    console.error('Błąd połączenia z bazą danych:', err.message);
-    process.exit(1);
-  });
-
-// Funkcja generująca losowy tekst
-const generateLoremIpsum = (paragraphs = 1) => {
-  const lorem = [
-    "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-    "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
-    "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.",
-    "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
-    "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium."
-  ];
-  
-  let result = '';
-  for (let i = 0; i < paragraphs; i++) {
-    result += lorem[Math.floor(Math.random() * lorem.length)] + ' ';
+// Funkcja łącząca z bazą danych
+const connectToDB = async () => {
+  try {
+    console.log('Łączenie z bazą danych MongoDB...');
+    await mongoose.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true
+    });
+    console.log('✅ Połączono z bazą danych MongoDB');
+    return true;
+  } catch (err) {
+    console.log('❌ MongoDB connection error:', err);
+    return false;
   }
-  return result.trim();
+};
+
+// Funkcja znajdująca użytkowników testowych
+const findTestUsers = async () => {
+  try {
+    console.log('Szukanie użytkowników testowych...');
+    
+    // Szukamy dwóch użytkowników - dowolnych
+    const users = await User.find().limit(2);
+    
+    if (users.length < 2) {
+      console.log('❌ Nie znaleziono wystarczającej liczby użytkowników (minimum 2)');
+      return null;
+    }
+    
+    console.log(`✅ Znaleziono użytkowników: ${users[0].email} i ${users[1].email}`);
+    return users;
+  } catch (err) {
+    console.log('❌ Błąd podczas szukania użytkowników:', err);
+    return null;
+  }
 };
 
 // Funkcja tworząca testowe wiadomości
-const createTestMessages = async () => {
+const createTestMessages = async (users) => {
   try {
-    // Znajdź wszystkich użytkowników
-    const users = await User.find({});
+    console.log('Tworzenie testowych wiadomości...');
     
-    if (users.length < 2) {
-      console.log('Za mało użytkowników w bazie. Potrzeba co najmniej 2 użytkowników.');
-      process.exit(1);
-    }
+    const sender = users[0];
+    const recipient = users[1];
     
-    console.log(`Znaleziono ${users.length} użytkowników`);
-
-    // Znajdź ogłoszenia (opcjonalnie)
-    const ads = await Ad.find({}).limit(5);
-    console.log(`Znaleziono ${ads.length} ogłoszeń`);
-
-    // Usuń wszystkie istniejące wiadomości
-    await Message.deleteMany({});
-    console.log('Usunięto istniejące wiadomości');
-
-    const messages = [];
-    const folderTypes = ['inbox', 'sent', 'draft', 'starred', 'archived'];
-    const messageCount = 20; // Liczba wiadomości do utworzenia
+    // Sprawdzenie czy istnieje już konwersacja między tymi użytkownikami
+    const existingMessages = await Message.find({
+      $or: [
+        { sender: sender._id, recipient: recipient._id },
+        { sender: recipient._id, recipient: sender._id }
+      ]
+    }).sort({ createdAt: -1 }).limit(5);
     
-    for (let i = 0; i < messageCount; i++) {
-      // Wybierz losowych użytkowników jako nadawcę i odbiorcę
-      const senderIndex = Math.floor(Math.random() * users.length);
-      let recipientIndex;
-      do {
-        recipientIndex = Math.floor(Math.random() * users.length);
-      } while (recipientIndex === senderIndex); // Upewnij się, że nadawca i odbiorca to różne osoby
+    if (existingMessages.length > 0) {
+      console.log(`✅ Znaleziono ${existingMessages.length} istniejących wiadomości między użytkownikami`);
       
-      const sender = users[senderIndex];
-      const recipient = users[recipientIndex];
-      
-      // Losowo wybierz, czy wiadomość ma być powiązana z ogłoszeniem
-      const relatedAd = ads.length > 0 && Math.random() > 0.5 
-        ? ads[Math.floor(Math.random() * ads.length)]._id 
-        : null;
-      
-      // Losowo wybierz status wiadomości
-      const isDraft = Math.random() < 0.2; // 20% szans na szkic
-      const isStarred = !isDraft && Math.random() < 0.3; // 30% szans na oznaczenie gwiazdką (jeśli nie jest szkicem)
-      const isRead = !isDraft && Math.random() < 0.7; // 70% szans na przeczytanie (jeśli nie jest szkicem)
-      const isArchived = !isDraft && Math.random() < 0.1; // 10% szans na zarchiwizowanie (jeśli nie jest szkicem)
-      
-      // Losowo wybierz folder dla wiadomości (dla celów testowych, nie wpływa bezpośrednio na wyświetlanie)
-      const folder = folderTypes[Math.floor(Math.random() * folderTypes.length)];
-      
-      // Stwórz testową wiadomość
-      const message = new Message({
-        sender: sender._id,
-        recipient: recipient._id,
-        subject: `Testowa wiadomość #${i + 1}: ${generateLoremIpsum(1).substring(0, 50)}...`,
-        content: generateLoremIpsum(3),
-        read: isRead,
-        starred: isStarred,
-        draft: isDraft,
-        archived: isArchived,
-        relatedAd: relatedAd,
-        createdAt: new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000) // Losowa data w ciągu ostatnich 30 dni
-      });
-      
-      messages.push(message);
-      
-      console.log(`Utworzono wiadomość #${i + 1} od ${sender.email || sender.name} do ${recipient.email || recipient.name}`);
-    }
-    
-    // Zapisz wszystkie wiadomości
-    await Message.insertMany(messages);
-    
-    console.log(`Utworzono ${messages.length} testowych wiadomości`);
-    
-    // Dodaj kilka odpowiedzi do wiadomości, aby utworzyć konwersacje
-    const conversationCount = 3; // Liczba konwersacji do utworzenia
-    
-    for (let i = 0; i < conversationCount; i++) {
-      // Wybierz losową wiadomość jako początek konwersacji
-      const baseMessage = messages[Math.floor(Math.random() * messages.length)];
-      
-      // Dodaj 2-5 odpowiedzi
-      const replyCount = 2 + Math.floor(Math.random() * 4);
-      
-      for (let j = 0; j < replyCount; j++) {
-        // Zamień nadawcę i odbiorcę dla odpowiedzi
-        const replySender = j % 2 === 0 ? baseMessage.recipient : baseMessage.sender;
-        const replyRecipient = j % 2 === 0 ? baseMessage.sender : baseMessage.recipient;
-        
-        const reply = new Message({
-          sender: replySender,
-          recipient: replyRecipient,
-          subject: `Re: ${baseMessage.subject}`,
-          content: generateLoremIpsum(2),
-          read: Math.random() < 0.5, // 50% szans na przeczytanie
-          starred: Math.random() < 0.2, // 20% szans na oznaczenie gwiazdką
-          draft: false,
-          archived: false,
-          relatedAd: baseMessage.relatedAd,
-          createdAt: new Date(baseMessage.createdAt.getTime() + (j + 1) * 60 * 60 * 1000) // Odpowiedź godzinę później
-        });
-        
-        await reply.save();
-        
-        console.log(`Utworzono odpowiedź #${j + 1} do wiadomości #${i + 1}`);
+      // Wyświetlenie istniejących wiadomości
+      for (const msg of existingMessages) {
+        const senderUser = msg.sender.toString() === sender._id.toString() ? sender.email : recipient.email;
+        console.log(`- [${new Date(msg.createdAt).toLocaleString()}] ${senderUser}: ${msg.content}`);
       }
       
-      console.log(`Utworzono konwersację #${i + 1} z ${replyCount} odpowiedziami`);
+      // Dodanie nowej wiadomości do istniejącej konwersacji
+      const newMessage = new Message({
+        sender: sender._id,
+        recipient: recipient._id,
+        content: `Test wiadomości wysłanej ${new Date().toLocaleString()}`,
+        read: false,
+        adId: existingMessages[0].adId
+      });
+      
+      await newMessage.save();
+      console.log('✅ Dodano nową wiadomość do istniejącej konwersacji');
+      return true;
+    } else {
+      console.log('Nie znaleziono istniejących wiadomości, tworzenie nowej konwersacji...');
+      
+      // Tworzenie nowej konwersacji z trzema wiadomościami
+      const messages = [
+        {
+          sender: sender._id,
+          recipient: recipient._id,
+          content: `Cześć! To jest pierwsza wiadomość testowa. Wygenerowana: ${new Date().toLocaleString()}`,
+          read: true
+        },
+        {
+          sender: recipient._id,
+          recipient: sender._id,
+          content: `Hej! To jest odpowiedź na twoją wiadomość. Wygenerowana: ${new Date().toLocaleString()}`,
+          read: true
+        },
+        {
+          sender: sender._id,
+          recipient: recipient._id,
+          content: `Świetnie! To jest ostatnia wiadomość testowa. Wygenerowana: ${new Date().toLocaleString()}`,
+          read: false
+        }
+      ];
+      
+      await Message.insertMany(messages);
+      console.log('✅ Utworzono nową konwersację z 3 wiadomościami');
+      return true;
     }
-    
-    console.log('Zakończono tworzenie testowych wiadomości i konwersacji');
-    process.exit(0);
-  } catch (error) {
-    console.error('Błąd podczas tworzenia testowych wiadomości:', error);
-    process.exit(1);
+  } catch (err) {
+    console.log('❌ Błąd podczas tworzenia testowych wiadomości:', err);
+    return false;
   }
 };
 
-// Uruchom funkcję generującą testowe wiadomości
-createTestMessages();
+// Funkcja testująca pobieranie konwersacji
+const testGetConversations = async (userId) => {
+  try {
+    console.log(`\nTestowanie pobierania konwersacji dla użytkownika ${userId}...`);
+    
+    // Pobieranie listy wszystkich konwersacji użytkownika
+    const conversations = await Message.aggregate([
+      {
+        $match: {
+          $or: [
+            { sender: mongoose.Types.ObjectId(userId) },
+            { recipient: mongoose.Types.ObjectId(userId) }
+          ]
+        }
+      },
+      {
+        $sort: { createdAt: -1 }
+      },
+      {
+        $group: {
+          _id: {
+            $cond: [
+              { $eq: ["$sender", mongoose.Types.ObjectId(userId)] },
+              "$recipient",
+              "$sender"
+            ]
+          },
+          lastMessage: { $first: "$$ROOT" },
+          messages: { $push: "$$ROOT" },
+          unreadCount: {
+            $sum: {
+              $cond: [
+                { 
+                  $and: [
+                    { $eq: ["$recipient", mongoose.Types.ObjectId(userId)] },
+                    { $eq: ["$read", false] }
+                  ]
+                },
+                1,
+                0
+              ]
+            }
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "user"
+        }
+      },
+      { $unwind: "$user" },
+      {
+        $project: {
+          _id: 1,
+          "user._id": 1,
+          "user.name": 1,
+          "user.email": 1,
+          lastMessage: 1,
+          unreadCount: 1
+        }
+      }
+    ]);
+    
+    console.log(`✅ Znaleziono ${conversations.length} konwersacji dla użytkownika`);
+    
+    if (conversations.length > 0) {
+      // Wyświetlenie wszystkich konwersacji
+      for (const convo of conversations) {
+        const otherUser = convo.user.name || convo.user.email;
+        console.log(`- Konwersacja z ${otherUser} - Nieprzeczytane: ${convo.unreadCount}`);
+        console.log(`  Ostatnia wiadomość: ${convo.lastMessage.content}`);
+      }
+    }
+    
+    return conversations;
+  } catch (err) {
+    console.log('❌ Błąd podczas pobierania konwersacji:', err);
+    return [];
+  }
+};
+
+// Funkcja testująca pobieranie wiadomości z określonej konwersacji
+const testGetMessages = async (userId, otherUserId) => {
+  try {
+    console.log(`\nTestowanie pobierania wiadomości między użytkownikami ${userId} i ${otherUserId}...`);
+    
+    // Pobieranie wszystkich wiadomości między dwoma użytkownikami
+    const messages = await Message.find({
+      $or: [
+        { sender: userId, recipient: otherUserId },
+        { sender: otherUserId, recipient: userId }
+      ]
+    }).sort({ createdAt: 1 });
+    
+    console.log(`✅ Znaleziono ${messages.length} wiadomości`);
+    
+    if (messages.length > 0) {
+      // Wyświetlenie wszystkich wiadomości
+      for (const msg of messages) {
+        const isSender = msg.sender.toString() === userId.toString();
+        console.log(`- [${new Date(msg.createdAt).toLocaleString()}] ${isSender ? 'Ja' : 'Rozmówca'}: ${msg.content}`);
+      }
+      
+      // Oznaczenie nieprzeczytanych wiadomości jako przeczytane
+      const unreadCount = await Message.countDocuments({
+        sender: otherUserId,
+        recipient: userId,
+        read: false
+      });
+      
+      if (unreadCount > 0) {
+        await Message.updateMany(
+          { sender: otherUserId, recipient: userId, read: false },
+          { $set: { read: true } }
+        );
+        console.log(`✅ Oznaczono ${unreadCount} wiadomości jako przeczytane`);
+      }
+    }
+    
+    return messages;
+  } catch (err) {
+    console.log('❌ Błąd podczas pobierania wiadomości:', err);
+    return [];
+  }
+};
+
+// Główna funkcja testowa
+const main = async () => {
+  // Połączenie z bazą danych
+  const connected = await connectToDB();
+  if (!connected) {
+    console.log('Przerwanie testu z powodu problemów z połączeniem z bazą danych');
+    process.exit(1);
+  }
+  
+  // Znalezienie użytkowników testowych
+  const users = await findTestUsers();
+  if (!users) {
+    console.log('Przerwanie testu z powodu braku użytkowników testowych');
+    process.exit(1);
+  }
+  
+  // Utworzenie testowych wiadomości
+  const messagesCreated = await createTestMessages(users);
+  if (!messagesCreated) {
+    console.log('Wystąpił błąd podczas tworzenia wiadomości testowych');
+    // Kontynuujemy test mimo błędu, aby sprawdzić czy istnieją jakieś wiadomości
+  }
+  
+  // Testowanie pobierania konwersacji
+  const conversations = await testGetConversations(users[0]._id);
+  
+  // Jeśli znaleziono konwersacje, testujemy pobieranie wiadomości z pierwszej z nich
+  if (conversations.length > 0) {
+    const otherUserId = conversations[0]._id;
+    await testGetMessages(users[0]._id, otherUserId);
+  }
+  
+  // Rozłączenie z bazą danych
+  await mongoose.disconnect();
+  console.log('✅ Test zakończony. Rozłączono z bazą danych');
+};
+
+// Uruchomienie testu
+main().catch(err => {
+  console.error('❌ Nieobsłużony błąd:', err);
+  mongoose.disconnect();
+});

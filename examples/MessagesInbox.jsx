@@ -223,21 +223,21 @@ const MessagesInbox = () => {
     }
   }, [activeFolder, token, fetchMessages]); // Dodajemy fetchMessages do zależności
 
-  // Obsługa kliknięcia w wiadomość
-  const handleMessageClick = (message) => {
+  // Obsługa kliknięcia w wiadomość - zoptymalizowane z useCallback
+  const handleMessageClick = useCallback((message) => {
     fetchMessageDetails(message._id);
     
     // Jeśli wiadomość nie jest przeczytana, oznacz ją jako przeczytaną
     if (!message.read && activeFolder === 'inbox') {
       markAsRead(message._id);
     }
-  };
+  }, [fetchMessageDetails, markAsRead, activeFolder]);
 
-  // Formatowanie daty
-  const formatDate = (dateString) => {
+  // Formatowanie daty - zoptymalizowane z useCallback
+  const formatDate = useCallback((dateString) => {
     const date = new Date(dateString);
     return date.toLocaleString();
-  };
+  }, []);
 
   return (
     <div className="messages-inbox-container">

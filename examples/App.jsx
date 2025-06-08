@@ -1,13 +1,18 @@
 // src/App.jsx
 
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
+import { useUnreadMessages } from './hooks/useUnreadMessages';
 import NotificationClient from './notificationClient';
 
 // Importy komponentów
 import MessagesInbox from './MessagesInbox';
 import MessageForm from './MessageForm';
+import NotificationBadge from './NotificationBadge';
+
+// Import stylów
+import './styles/NotificationBadge.css';
 
 // Komponent główny aplikacji
 const App = () => {

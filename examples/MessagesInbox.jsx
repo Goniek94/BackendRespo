@@ -198,12 +198,10 @@ const MessagesInbox = () => {
   // Efekt pobierający wiadomości przy zmianie folderu
   useEffect(() => {
     if (token) {
-      console.log('useEffect - zmiana folderu lub tokenu');
-      fetchMessages();
-    } else {
-      console.log('useEffect - brak tokenu, nie pobieramy wiadomości');
+      // Usuńmy console.log aby uniknąć nadmiernych renderów
+      fetchMessages(true); // Wymuś odświeżenie przy zmianie folderu
     }
-  }, [activeFolder, token]);
+  }, [activeFolder, token, fetchMessages]); // Dodajemy fetchMessages do zależności
 
   // Obsługa kliknięcia w wiadomość
   const handleMessageClick = (message) => {

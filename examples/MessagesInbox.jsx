@@ -15,15 +15,32 @@ const MessagesInbox = () => {
   const [replyContent, setReplyContent] = useState('');
   const [isReplying, setIsReplying] = useState(false);
 
-  // Pobieranie wiadomości dla aktywnego folderu
-  const fetchMessages = async () => {
+  // Refs do kontroli zapytań API
+  const lastFetchTime = useRef(0);
+  const isRequestPending = useRef(false);
+  const messagesCache = useRef(null);
+  const MIN_FETCH_INTERVAL = 5000; // Minimalny czas między zapytaniami (5 sekund)
+
+  // Pobieranie wiadomości dla aktywnego folderu - zoptymalizowane z useCallback
+  const fetchMessages = useCallback(async (force = false) => {
+    // Blokuj zbyt częste wywołania API
+    const now = Date.now();
+    if (!force && 
+        (isRequestPending.current || 
+         now - lastFetchTime.current < MIN_FETCH_INTERVAL)) {
+      // Jeśli wywołanie jest zbyt częste, ale mamy buforowane dane, użyj ich
+      if (messagesCache.current) {
+        return;
+      }
+    }
+
+    // Ustaw flagi stanu zapytania
+    isRequestPending.current = true;
     setIsLoading(true);
     setError(null);
 
     try {
-      console.log(`Pobieranie wiadomości dla folderu: ${activeFolder}`);
-      console.log(`Token autoryzacji: ${token ? 'Dostępny' : 'Brak'}`);
-      
+      // Zmniejszamy ilość logów, aby uniknąć niepotrzebnych renderów
       // Ustaw pełny URL z protokołem i hostem
       const baseUrl = 'http://localhost:5000';
       const response = await axios.get(`${baseUrl}/api/messages/${activeFolder}`, {
@@ -31,26 +48,20 @@ const MessagesInbox = () => {
           'Authorization': `Bearer ${token}`
         }
       });
-
-      console.log('Odpowiedź z API:', response.data);
-      console.log('Status odpowiedzi:', response.status);
-      console.log('Liczba wiadomości:', response.data.length);
       
-      if (response.data.length === 0) {
-        console.log('Brak wiadomości w odpowiedzi');
-      } else {
-        console.log('Przykładowa wiadomość:', response.data[0]);
-      }
-      
+      // Aktualizuj dane i cache
       setMessages(response.data);
+      messagesCache.current = response.data;
+      lastFetchTime.current = Date.now();
     } catch (err) {
       console.error('Błąd podczas pobierania wiadomości:', err);
       const errorMessage = err.response?.data?.message || err.message || 'Wystąpił błąd podczas pobierania wiadomości';
       setError(errorMessage);
     } finally {
       setIsLoading(false);
+      isRequestPending.current = false;
     }
-  };
+  }, [activeFolder, token]); // Zależności useCallback
 
   // Pobieranie szczegółów wiadomości
   const fetchMessageDetails = async (messageId) => {

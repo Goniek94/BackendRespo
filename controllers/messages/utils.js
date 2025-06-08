@@ -2,25 +2,59 @@ import Message from '../../models/message.js';
 import User from '../../models/user.js';
 import mongoose from 'mongoose';
 
-// Pobieranie liczby nieprzeczytanych wiadomości
+// Cache dla liczby nieprzeczytanych wiadomości
+const unreadCountCache = new Map();
+const CACHE_TTL = 30000; // 30 sekund
+
+// Pobieranie liczby nieprzeczytanych wiadomości z cachowaniem
 export const getUnreadCount = async (req, res) => {
   try {
     const userId = req.user.userId;
+    const cacheKey = `unread_${userId}`;
+    
+    // Sprawdź cache
+    const cachedData = unreadCountCache.get(cacheKey);
+    const now = Date.now();
+    
+    if (cachedData && now - cachedData.timestamp < CACHE_TTL) {
+      return res.status(200).json({ unreadCount: cachedData.count, fromCache: true });
+    }
     
     // Konwertuj userId na ObjectId, aby zapewnić poprawne porównanie w MongoDB
     const userObjectId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
     
-    // Pobierz liczbę nieprzeczytanych wiadomości
+    // Pobierz liczbę nieprzeczytanych wiadomości z optymalizacją
     const unreadCount = await Message.countDocuments({ 
       recipient: userObjectId,
       read: false,
       deletedBy: { $ne: userObjectId }
+    }, { maxTimeMS: 2000 }); // Timeout na zapytanie - 2 sekundy
+    
+    // Zapisz do cache
+    unreadCountCache.set(cacheKey, {
+      count: unreadCount,
+      timestamp: now
     });
+    
+    // Automatyczne czyszczenie cache po TTL
+    setTimeout(() => {
+      if (unreadCountCache.has(cacheKey)) {
+        unreadCountCache.delete(cacheKey);
+      }
+    }, CACHE_TTL);
     
     res.status(200).json({ unreadCount });
   } catch (error) {
     console.error('Błąd podczas pobierania liczby nieprzeczytanych wiadomości:', error);
-    res.status(500).json({ message: 'Błąd serwera' });
+    
+    // Obsługa timeoutu zapytania MongoDB
+    if (error.name === 'MongooseError' && error.message.includes('timed out')) {
+      return res.status(200).json({ unreadCount: 0, error: 'timeout' });
+    }
+    
+    // Domyślna odpowiedź w przypadku błędu - zwracamy 0 zamiast błędu 500
+    // aby nie przerywać działania aplikacji
+    res.status(200).json({ unreadCount: 0, error: 'server_error' });
   }
 };
 

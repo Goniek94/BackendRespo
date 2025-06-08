@@ -4,14 +4,44 @@
 
 .notification-badge {
   position: absolute;
-  top: -8px;
-  right: -8px;
-  background: #ff4444;
+  top: -10px;
+  right: -10px;
+  background-color: #e62e2e;
   color: white;
   border-radius: 50%;
-  padding: 2px 6px;
-  font-size: 12px;
+  padding: 4px 8px;
+  font-size: 13px;
   font-weight: bold;
-  min-width: 18px;
+  min-width: 20px;
+  min-height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  border: 2px solid white;
+  line-height: 1;
+  z-index: 100;
+}
+
+/* Styl dla paska nawigacyjnego */
+.nav-list {
+  display: flex;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  gap: 20px;
+}
+
+.nav-list li a {
+  text-decoration: none;
+  color: #333;
+  position: relative;
+  display: inline-block;
+  padding: 8px 12px;
+}
+
+/* Dodatkowy styl dla widoczności dymka przy wiadomościach */
+.nav-list .nav-item a {
+  padding-right: 20px; /* Dodatkowa przestrzeń dla dymka */
 }

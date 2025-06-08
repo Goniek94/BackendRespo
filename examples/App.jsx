@@ -15,6 +15,7 @@ import AdminPanel from '../admin/components/AdminPanel';
 
 // Import stylów
 import './styles/NotificationBadge.css';
+import './styles/AdminButton.css';
 
 // Komponent główny aplikacji
 const App = () => {

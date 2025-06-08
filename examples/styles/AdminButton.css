@@ -1,0 +1,79 @@
+/* Style dla przycisku panelu administratora */
+.nav-list .admin-button {
+  margin-left: auto; /* Przesunięcie przycisku na prawą stronę */
+  background-color: #2c5e1a; /* Zielony kolor tła - dopasowany do schematu kolorów */
+  border-radius: 4px;
+  padding: 0;
+  transition: background-color 0.3s;
+}
+
+.nav-list .admin-button a {
+  color: white;
+  font-weight: bold;
+  padding: 8px 12px;
+  display: block;
+  text-decoration: none;
+}
+
+.nav-list .admin-button:hover {
+  background-color: #1e4212; /* Ciemniejszy odcień zielonego przy najechaniu */
+}
+
+/* Style dla dropdown menu */
+.nav-item.dropdown {
+  position: relative;
+}
+
+.dropdown-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #333;
+  font-size: 16px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  min-width: 180px;
+  z-index: 1000;
+}
+
+.dropdown-menu li {
+  padding: 0;
+  margin: 0;
+}
+
+.dropdown-menu li a {
+  padding: 10px 15px;
+  display: block;
+  color: #333;
+  text-decoration: none;
+  transition: background-color 0.2s;
+}
+
+.dropdown-menu li a:hover {
+  background-color: #f5f5f5;
+}
+
+/* Style dla opcji administratora w dropdown */
+.dropdown-menu li a[href="/admin"] {
+  color: #2c5e1a;
+  font-weight: bold;
+}
+
+.dropdown-menu li a[href="/admin"]:hover {
+  background-color: #eaf5e6;
+}

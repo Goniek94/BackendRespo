@@ -20,7 +20,8 @@ import {
   replyToMessage,
   getConversationsList,
   archiveMessage,
-  unarchiveMessage
+  unarchiveMessage,
+  getUnreadCount
 } from '../controllers/messagesController.js';
 import auth from '../middleware/auth.js';
 

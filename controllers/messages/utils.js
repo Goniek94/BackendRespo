@@ -2,6 +2,28 @@ import Message from '../../models/message.js';
 import User from '../../models/user.js';
 import mongoose from 'mongoose';
 
+// Pobieranie liczby nieprzeczytanych wiadomości
+export const getUnreadCount = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    // Konwertuj userId na ObjectId, aby zapewnić poprawne porównanie w MongoDB
+    const userObjectId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
+    
+    // Pobierz liczbę nieprzeczytanych wiadomości
+    const unreadCount = await Message.countDocuments({ 
+      recipient: userObjectId,
+      read: false,
+      deletedBy: { $ne: userObjectId }
+    });
+    
+    res.status(200).json({ unreadCount });
+  } catch (error) {
+    console.error('Błąd podczas pobierania liczby nieprzeczytanych wiadomości:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+};
+
 // Wyszukiwanie wiadomości
 export const searchMessages = async (req, res) => {
   try {

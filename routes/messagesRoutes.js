@@ -52,6 +52,9 @@ router.use(auth);
 // Wyszukiwanie wiadomości
 router.get('/search', searchMessages);
 
+// Pobieranie liczby nieprzeczytanych wiadomości
+router.get('/unread-count', getUnreadCount);
+
 // Pobieranie sugestii użytkowników
 router.get('/users/suggestions', getUserSuggestions);
 

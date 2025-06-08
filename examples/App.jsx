@@ -28,14 +28,26 @@ const App = () => {
 // Zawartość aplikacji z dostępem do kontekstu autoryzacji
 const AppContent = () => {
   const { token, isAuthenticated } = useAuth();
-  const { unreadCount, incrementUnreadCount, fetchUnreadCount } = useUnreadMessages();
+  const { 
+    unreadCount, 
+    incrementUnreadCount, 
+    // Nie używaj fetchUnreadCount bezpośrednio w renderze - hook sam zarządza odświeżaniem
+  } = useUnreadMessages();
   
-  // Inicjalizacja klienta powiadomień
+  // Referencja do klienta powiadomień, aby uniknąć tworzenia nowych instancji przy re-renderach
+  const notificationClientRef = useRef(null);
+  
+  // Inicjalizacja klienta powiadomień - tylko raz przy montowaniu lub zmianie tokenu
   useEffect(() => {
-    if (token) {
-      const notificationClient = new NotificationClient('http://localhost:5000');
+    // Jeśli nie ma tokenu, nie inicjalizuj klienta
+    if (!token) return;
+    
+    // Unikaj tworzenia nowych instancji przy każdym re-renderze
+    if (!notificationClientRef.current) {
+      notificationClientRef.current = new NotificationClient('http://localhost:5000');
       
-      notificationClient.onNotification((notification) => {
+      // Ustaw obsługę powiadomień tylko raz
+      notificationClientRef.current.onNotification((notification) => {
         if (notification.type === 'new_message') {
           // Pokaż powiadomienie o nowej wiadomości
           console.log('Nowa wiadomość:', notification.message);
@@ -48,12 +60,28 @@ const AppContent = () => {
           // toast.info(`Nowa wiadomość od ${notification.data.senderName}`);
         }
       });
+    }
+    
+    // Łącz z serwerem tylko jeśli mamy token i klient nie jest podłączony
+    if (token && notificationClientRef.current) {
+      // Użyj zmiennej connected do śledzenia stanu połączenia
+      let connected = false;
       
-      notificationClient.connect(token)
-        .catch(err => console.error('Błąd połączenia z serwerem powiadomień:', err));
+      notificationClientRef.current.connect(token)
+        .then(() => {
+          connected = true;
+          console.log('Połączono z serwerem powiadomień');
+        })
+        .catch(err => {
+          console.error('Błąd połączenia z serwerem powiadomień:', err);
+        });
       
       return () => {
-        notificationClient.disconnect();
+        // Rozłącz tylko jeśli faktycznie byliśmy połączeni
+        if (connected && notificationClientRef.current) {
+          notificationClientRef.current.disconnect();
+          console.log('Rozłączono z serwerem powiadomień');
+        }
       };
     }
   }, [token, incrementUnreadCount]);

@@ -28,6 +28,7 @@ const App = () => {
 // Zawartość aplikacji z dostępem do kontekstu autoryzacji
 const AppContent = () => {
   const { token, isAuthenticated } = useAuth();
+  const { unreadCount, incrementUnreadCount, fetchUnreadCount } = useUnreadMessages();
   
   // Inicjalizacja klienta powiadomień
   useEffect(() => {
@@ -38,6 +39,9 @@ const AppContent = () => {
         if (notification.type === 'new_message') {
           // Pokaż powiadomienie o nowej wiadomości
           console.log('Nowa wiadomość:', notification.message);
+          
+          // Zwiększ licznik nieprzeczytanych wiadomości
+          incrementUnreadCount();
           
           // Tutaj możesz dodać kod do wyświetlania powiadomień
           // np. za pomocą biblioteki toast
@@ -52,7 +56,7 @@ const AppContent = () => {
         notificationClient.disconnect();
       };
     }
-  }, [token]);
+  }, [token, incrementUnreadCount]);
   
   return (
     <div className="app-container">

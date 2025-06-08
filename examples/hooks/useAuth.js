@@ -21,8 +21,37 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
+      // Najpierw sprawdź, czy token jest prawidłowy przez zdekodowanie go
       try {
-        // Pobierz dane użytkownika z API
+        const tokenData = parseJwt(token);
+        
+        // Sprawdź, czy token ma podstawowe wymagane pola
+        if (!tokenData || !tokenData.userId || !tokenData.exp) {
+          console.error('Token jest nieprawidłowy lub brakuje wymaganych pól');
+          throw new Error('Nieprawidłowy token');
+        }
+        
+        // Sprawdź, czy token nie wygasł
+        const currentTime = Date.now() / 1000;
+        if (tokenData.exp && tokenData.exp < currentTime) {
+          console.error('Token wygasł');
+          localStorage.removeItem('token');
+          setToken(null);
+          setUser(null);
+          setIsLoading(false);
+          return;
+        }
+        
+        // Ustaw podstawowe dane użytkownika z tokenu
+        const basicUserData = {
+          id: tokenData.userId,
+          role: tokenData.role || 'user'
+        };
+        
+        // Ustaw dane użytkownika z tokenu jako fallback
+        setUser(basicUserData);
+        
+        // Spróbuj pobrać pełne dane użytkownika z API
         const baseUrl = 'http://localhost:5000';
         try {
           const response = await axios.get(`${baseUrl}/api/users/me`, {
@@ -30,27 +59,26 @@ export const AuthProvider = ({ children }) => {
               'Authorization': `Bearer ${token}`
             }
           });
+          
+          // Jeśli się udało, zaktualizuj dane użytkownika
           setUser(response.data);
           console.log('Załadowano dane użytkownika z API:', response.data);
         } catch (apiError) {
-          console.error('Błąd podczas pobierania danych użytkownika z API:', apiError);
-          
-          // Jeśli nie udało się pobrać danych z API, użyj danych z tokenu
-          const tokenData = parseJwt(token);
-          setUser({
-            id: tokenData.userId,
-            role: tokenData.role || 'user'
-          });
-          
-          console.log('Załadowano dane użytkownika z tokenu:', tokenData);
+          console.warn('Nie udało się pobrać pełnych danych użytkownika z API, używam danych z tokenu:', apiError);
+          // Nie wylogowujemy użytkownika, ponieważ już ustawiliśmy podstawowe dane z tokenu
         }
       } catch (err) {
-        console.error('Błąd podczas ładowania danych użytkownika:', err);
-        setError('Nie udało się załadować danych użytkownika');
+        console.error('Błąd podczas przetwarzania tokenu:', err);
         
-        // Jeśli token jest nieprawidłowy, wyloguj użytkownika
-        if (err.response && err.response.status === 401) {
+        // Wyloguj użytkownika tylko jeśli token jest całkowicie nieprawidłowy
+        // lub jednoznacznie odrzucony przez serwer (401)
+        if (err.response && err.response.status === 401 && 
+            err.response.data && err.response.data.message === 'Invalid token') {
+          console.error('Token został odrzucony przez serwer, wylogowuję...');
           logout();
+        } else {
+          // Ustaw błąd, ale nie wylogowuj - może to być chwilowy problem z siecią
+          setError('Wystąpił problem z autoryzacją, ale sesja została zachowana');
         }
       } finally {
         setIsLoading(false);

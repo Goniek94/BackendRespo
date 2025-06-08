@@ -62,7 +62,28 @@ const AppContent = () => {
     <div className="app-container">
       <header className="app-header">
         <h1>Marketplace</h1>
-        {/* Tutaj możesz dodać pasek nawigacyjny */}
+        <nav className="main-nav">
+          <ul className="nav-list">
+            <li><Link to="/">Strona główna</Link></li>
+            {isAuthenticated ? (
+              <>
+                <li className="nav-item">
+                  <Link to="/messages">
+                    Wiadomości
+                    <NotificationBadge count={unreadCount} />
+                  </Link>
+                </li>
+                <li><Link to="/profile">Mój profil</Link></li>
+                <li><Link to="/ads/my">Moje ogłoszenia</Link></li>
+              </>
+            ) : (
+              <>
+                <li><Link to="/login">Logowanie</Link></li>
+                <li><Link to="/register">Rejestracja</Link></li>
+              </>
+            )}
+          </ul>
+        </nav>
       </header>
       
       <main className="app-content">

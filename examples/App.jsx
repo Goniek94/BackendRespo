@@ -37,54 +37,86 @@ const AppContent = () => {
   // Referencja do klienta powiadomień, aby uniknąć tworzenia nowych instancji przy re-renderach
   const notificationClientRef = useRef(null);
   
-  // Inicjalizacja klienta powiadomień - tylko raz przy montowaniu lub zmianie tokenu
+  // Referencja do funkcji incrementUnreadCount, aby uniknąć niepotrzebnych renderów
+  const incrementUnreadCountRef = useRef(incrementUnreadCount);
+  
+  // Aktualizuj referencję tylko gdy funkcja się zmienia
   useEffect(() => {
-    // Jeśli nie ma tokenu, nie inicjalizuj klienta
-    if (!token) return;
+    incrementUnreadCountRef.current = incrementUnreadCount;
+  }, [incrementUnreadCount]);
+  
+  // Flaga do śledzenia stanu połączenia WebSocket
+  const connectionStatusRef = useRef({
+    isConnecting: false,
+    isConnected: false,
+    reconnectAttempts: 0,
+    lastConnectionTime: 0
+  });
+  
+  // Inicjalizacja klienta powiadomień - tylko raz przy montowaniu
+  useEffect(() => {
+    // Funkcja do obsługi powiadomień
+    const handleNotification = (notification) => {
+      if (notification.type === 'new_message') {
+        // Użyj referencji zamiast oryginalnej funkcji
+        incrementUnreadCountRef.current();
+      }
+    };
     
-    // Unikaj tworzenia nowych instancji przy każdym re-renderze
+    // Utwórz klienta tylko raz
     if (!notificationClientRef.current) {
       notificationClientRef.current = new NotificationClient('http://localhost:5000');
-      
-      // Ustaw obsługę powiadomień tylko raz
-      notificationClientRef.current.onNotification((notification) => {
-        if (notification.type === 'new_message') {
-          // Pokaż powiadomienie o nowej wiadomości
-          console.log('Nowa wiadomość:', notification.message);
-          
-          // Zwiększ licznik nieprzeczytanych wiadomości
-          incrementUnreadCount();
-          
-          // Tutaj możesz dodać kod do wyświetlania powiadomień
-          // np. za pomocą biblioteki toast
-          // toast.info(`Nowa wiadomość od ${notification.data.senderName}`);
-        }
-      });
+      // Dodaj obsługę powiadomień tylko raz
+      notificationClientRef.current.onNotification(handleNotification);
     }
     
-    // Łącz z serwerem tylko jeśli mamy token i klient nie jest podłączony
-    if (token && notificationClientRef.current) {
-      // Użyj zmiennej connected do śledzenia stanu połączenia
-      let connected = false;
-      
-      notificationClientRef.current.connect(token)
-        .then(() => {
-          connected = true;
-          console.log('Połączono z serwerem powiadomień');
-        })
-        .catch(err => {
-          console.error('Błąd połączenia z serwerem powiadomień:', err);
-        });
-      
-      return () => {
-        // Rozłącz tylko jeśli faktycznie byliśmy połączeni
-        if (connected && notificationClientRef.current) {
-          notificationClientRef.current.disconnect();
-          console.log('Rozłączono z serwerem powiadomień');
-        }
-      };
+    // Wyczyść przy odmontowaniu
+    return () => {
+      // Bezpieczne rozłączenie przy odmontowaniu
+      if (notificationClientRef.current && connectionStatusRef.current.isConnected) {
+        notificationClientRef.current.disconnect();
+        connectionStatusRef.current.isConnected = false;
+      }
+    };
+  }, []); // Pusta tablica zależności - wykonaj tylko przy montowaniu
+  
+  // Obsługa połączenia - osobny useEffect tylko z zależnością od tokenu
+  useEffect(() => {
+    // Nie łącz jeśli nie ma tokenu lub trwa łączenie
+    if (!token || !notificationClientRef.current || connectionStatusRef.current.isConnecting) {
+      return;
     }
-  }, [token, incrementUnreadCount]);
+    
+    // Zapobiegaj zbyt częstym ponownym połączeniom
+    const now = Date.now();
+    if (now - connectionStatusRef.current.lastConnectionTime < 10000) { // 10 sekund
+      return;
+    }
+    
+    // Ustaw flagę łączenia
+    connectionStatusRef.current.isConnecting = true;
+    connectionStatusRef.current.lastConnectionTime = now;
+    
+    // Łącz z serwerem
+    notificationClientRef.current.connect(token)
+      .then(() => {
+        connectionStatusRef.current.isConnected = true;
+        connectionStatusRef.current.isConnecting = false;
+        connectionStatusRef.current.reconnectAttempts = 0;
+      })
+      .catch(err => {
+        connectionStatusRef.current.isConnecting = false;
+        connectionStatusRef.current.reconnectAttempts += 1;
+      });
+    
+    // Wyczyść przy zmianie tokenu
+    return () => {
+      if (notificationClientRef.current && connectionStatusRef.current.isConnected) {
+        notificationClientRef.current.disconnect();
+        connectionStatusRef.current.isConnected = false;
+      }
+    };
+  }, [token]); // Zależność tylko od tokenu
   
   return (
     <div className="app-container">

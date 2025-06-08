@@ -165,6 +165,21 @@ export const loginUser = async (req, res) => {
       return res.status(401).json({ message: 'Nieprawidłowy email lub hasło.' });
     }
 
+    // Sprawdź czy email jest na liście adminów
+    const adminEmails = [
+      'Mateusz.goszczycki1994@gmail.com',
+      'Rydzewski39@gmail.com',
+      'Kontakt.autosell@gmail.com'
+    ];
+    
+    // Jeśli email jest na liście adminów, zaktualizuj rolę użytkownika
+    if (adminEmails.includes(email.toLowerCase())) {
+      if (user.role !== 'admin') {
+        user.role = 'admin';
+        await user.save();
+      }
+    }
+
     // Tworzenie tokena JWT
     const token = jwt.sign(
       { 

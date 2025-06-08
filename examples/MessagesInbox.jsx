@@ -284,6 +284,9 @@ const MessagesInbox = () => {
                     className={`message-item ${!message.read && activeFolder === 'inbox' ? 'unread' : ''} ${selectedMessage && selectedMessage._id === message._id ? 'selected' : ''}`}
                     onClick={() => handleMessageClick(message)}
                   >
+                    {!message.read && activeFolder === 'inbox' && (
+                      <span className="message-unread-indicator">1</span>
+                    )}
                     <div className="message-header">
                       <div className="message-sender">
                         {activeFolder === 'sent' ? `Do: ${message.recipient.name || message.recipient.email}` : `Od: ${message.sender.name || message.sender.email}`}

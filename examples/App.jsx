@@ -118,6 +118,18 @@ const AppContent = () => {
     };
   }, [token]); // Zależność tylko od tokenu
   
+  // Pobranie dodatkowych danych o użytkowniku
+  const { user } = useAuth();
+  const isAdmin = user && user.role === 'admin';
+  
+  // Stan dla dropdown menu
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  
+  // Funkcja przełączająca dropdown
+  const toggleDropdown = () => {
+    setDropdownOpen(!dropdownOpen);
+  };
+  
   return (
     <div className="app-container">
       <header className="app-header">
@@ -135,6 +147,29 @@ const AppContent = () => {
                 </li>
                 <li><Link to="/profile">Mój profil</Link></li>
                 <li><Link to="/ads/my">Moje ogłoszenia</Link></li>
+                
+                {/* Dropdown menu dla użytkownika */}
+                <li className="nav-item dropdown">
+                  <button className="dropdown-toggle" onClick={toggleDropdown}>
+                    Więcej <i className={`fa fa-chevron-${dropdownOpen ? 'up' : 'down'}`}></i>
+                  </button>
+                  {dropdownOpen && (
+                    <ul className="dropdown-menu">
+                      <li><Link to="/settings">Ustawienia</Link></li>
+                      {isAdmin && (
+                        <li><Link to="/admin">Panel administratora</Link></li>
+                      )}
+                      <li><Link to="/logout">Wyloguj</Link></li>
+                    </ul>
+                  )}
+                </li>
+                
+                {/* Przycisk panelu admina po prawej stronie */}
+                {isAdmin && (
+                  <li className="nav-item admin-button">
+                    <Link to="/admin">Panel administratora</Link>
+                  </li>
+                )}
               </>
             ) : (
               <>

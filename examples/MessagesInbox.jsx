@@ -63,10 +63,14 @@ const MessagesInbox = () => {
     }
   }, [activeFolder, token]); // Zależności useCallback
 
-  // Pobieranie szczegółów wiadomości
-  const fetchMessageDetails = async (messageId) => {
+  // Pobieranie szczegółów wiadomości - zoptymalizowane z useCallback
+  const fetchMessageDetails = useCallback(async (messageId) => {
+    // Zabezpieczenie przed zbyt częstymi wywołaniami
+    if (isRequestPending.current) return;
+    
     setIsLoading(true);
     setError(null);
+    isRequestPending.current = true;
 
     try {
       // Ustaw pełny URL z protokołem i hostem
@@ -83,11 +87,12 @@ const MessagesInbox = () => {
       setError(errorMessage);
     } finally {
       setIsLoading(false);
+      isRequestPending.current = false;
     }
-  };
+  }, [token]);
 
-  // Oznaczanie wiadomości jako przeczytana
-  const markAsRead = async (messageId) => {
+  // Oznaczanie wiadomości jako przeczytana - zoptymalizowane z useCallback
+  const markAsRead = useCallback(async (messageId) => {
     try {
       // Ustaw pełny URL z protokołem i hostem
       const baseUrl = 'http://localhost:5000';
@@ -97,21 +102,26 @@ const MessagesInbox = () => {
         }
       });
 
-      // Aktualizacja stanu wiadomości
-      setMessages(messages.map(msg => 
-        msg._id === messageId ? { ...msg, read: true } : msg
-      ));
+      // Aktualizacja stanu wiadomości - używamy funkcyjnej formy setState aby uniknąć stale closures
+      setMessages(prevMessages => 
+        prevMessages.map(msg => 
+          msg._id === messageId ? { ...msg, read: true } : msg
+        )
+      );
 
-      if (selectedMessage && selectedMessage._id === messageId) {
-        setSelectedMessage({ ...selectedMessage, read: true });
-      }
+      setSelectedMessage(prevSelected => {
+        if (prevSelected && prevSelected._id === messageId) {
+          return { ...prevSelected, read: true };
+        }
+        return prevSelected;
+      });
     } catch (err) {
       console.error('Błąd podczas oznaczania wiadomości jako przeczytana:', err);
     }
-  };
+  }, [token]);
 
-  // Oznaczanie wiadomości gwiazdką
-  const toggleStar = async (messageId) => {
+  // Oznaczanie wiadomości gwiazdką - zoptymalizowane z useCallback
+  const toggleStar = useCallback(async (messageId) => {
     try {
       // Ustaw pełny URL z protokołem i hostem
       const baseUrl = 'http://localhost:5000';
@@ -123,21 +133,26 @@ const MessagesInbox = () => {
 
       const { starred } = response.data;
 
-      // Aktualizacja stanu wiadomości
-      setMessages(messages.map(msg => 
-        msg._id === messageId ? { ...msg, starred } : msg
-      ));
+      // Aktualizacja stanu wiadomości - używamy funkcyjnej formy setState
+      setMessages(prevMessages => 
+        prevMessages.map(msg => 
+          msg._id === messageId ? { ...msg, starred } : msg
+        )
+      );
 
-      if (selectedMessage && selectedMessage._id === messageId) {
-        setSelectedMessage({ ...selectedMessage, starred });
-      }
+      setSelectedMessage(prevSelected => {
+        if (prevSelected && prevSelected._id === messageId) {
+          return { ...prevSelected, starred };
+        }
+        return prevSelected;
+      });
     } catch (err) {
       console.error('Błąd podczas oznaczania wiadomości gwiazdką:', err);
     }
-  };
+  }, [token]);
 
-  // Usuwanie wiadomości
-  const deleteMessage = async (messageId) => {
+  // Usuwanie wiadomości - zoptymalizowane z useCallback
+  const deleteMessage = useCallback(async (messageId) => {
     try {
       // Ustaw pełny URL z protokołem i hostem
       const baseUrl = 'http://localhost:5000';
@@ -147,19 +162,24 @@ const MessagesInbox = () => {
         }
       });
 
-      // Aktualizacja stanu wiadomości
-      setMessages(messages.filter(msg => msg._id !== messageId));
+      // Aktualizacja stanu wiadomości - używamy funkcyjnej formy setState
+      setMessages(prevMessages => 
+        prevMessages.filter(msg => msg._id !== messageId)
+      );
 
-      if (selectedMessage && selectedMessage._id === messageId) {
-        setSelectedMessage(null);
-      }
+      setSelectedMessage(prevSelected => {
+        if (prevSelected && prevSelected._id === messageId) {
+          return null;
+        }
+        return prevSelected;
+      });
     } catch (err) {
       console.error('Błąd podczas usuwania wiadomości:', err);
     }
-  };
+  }, [token]);
 
-  // Wysyłanie odpowiedzi na wiadomość
-  const sendReply = async () => {
+  // Wysyłanie odpowiedzi na wiadomość - zoptymalizowane z useCallback
+  const sendReply = useCallback(async () => {
     if (!selectedMessage || !replyContent.trim()) return;
 
     setIsReplying(true);
@@ -185,15 +205,15 @@ const MessagesInbox = () => {
       // Wyczyszczenie pola odpowiedzi
       setReplyContent('');
       
-      // Odświeżenie wiadomości
-      fetchMessages();
+      // Odświeżenie wiadomości - używamy wersji z force=true
+      fetchMessages(true);
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.message || 'Wystąpił błąd podczas wysyłania odpowiedzi';
       setError(errorMessage);
     } finally {
       setIsReplying(false);
     }
-  };
+  }, [token, selectedMessage, replyContent, fetchMessages]);
 
   // Efekt pobierający wiadomości przy zmianie folderu
   useEffect(() => {

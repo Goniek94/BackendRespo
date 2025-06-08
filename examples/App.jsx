@@ -1,6 +1,6 @@
 // src/App.jsx
 
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { useUnreadMessages } from './hooks/useUnreadMessages';

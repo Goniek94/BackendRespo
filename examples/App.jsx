@@ -12,15 +12,6 @@ import MessageForm from './MessageForm';
 import NotificationBadge from './NotificationBadge';
 // Import komponentu panelu administratora
 import AdminPanel from '../admin/components/AdminPanel';
-import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
-import { AuthProvider, useAuth } from './hooks/useAuth';
-import { useUnreadMessages } from './hooks/useUnreadMessages';
-import NotificationClient from './notificationClient';
-
-// Importy komponentów
-import MessagesInbox from './MessagesInbox';
-import MessageForm from './MessageForm';
-import NotificationBadge from './NotificationBadge';
 
 // Import stylów
 import './styles/NotificationBadge.css';
@@ -38,12 +29,23 @@ const App = () => {
 
 // Zawartość aplikacji z dostępem do kontekstu autoryzacji
 const AppContent = () => {
-  const { token, isAuthenticated } = useAuth();
+  const { token, isAuthenticated, user } = useAuth();
   const { 
     unreadCount, 
     incrementUnreadCount, 
     // Nie używaj fetchUnreadCount bezpośrednio w renderze - hook sam zarządza odświeżaniem
   } = useUnreadMessages();
+  
+  // Sprawdzenie czy użytkownik jest administratorem
+  const isAdmin = user && user.role === 'admin';
+  
+  // Stan dla dropdown menu
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  
+  // Funkcja przełączająca dropdown
+  const toggleDropdown = () => {
+    setDropdownOpen(!dropdownOpen);
+  };
   
   // Referencja do klienta powiadomień, aby uniknąć tworzenia nowych instancji przy re-renderach
   const notificationClientRef = useRef(null);
@@ -129,18 +131,6 @@ const AppContent = () => {
     };
   }, [token]); // Zależność tylko od tokenu
   
-  // Pobranie dodatkowych danych o użytkowniku
-  const { user } = useAuth();
-  const isAdmin = user && user.role === 'admin';
-  
-  // Stan dla dropdown menu
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  
-  // Funkcja przełączająca dropdown
-  const toggleDropdown = () => {
-    setDropdownOpen(!dropdownOpen);
-  };
-  
   return (
     <div className="app-container">
       <header className="app-header">
@@ -203,6 +193,12 @@ const AppContent = () => {
           <Route
             path="/messages/*"
             element={isAuthenticated ? <MessagesRoutes /> : <Navigate to="/login" />}
+          />
+          
+          {/* Panel administratora - wymaga roli admin */}
+          <Route
+            path="/admin/*"
+            element={isAuthenticated && isAdmin ? <AdminPanel /> : <Navigate to="/" />}
           />
           
           {/* Trasa 404 */}

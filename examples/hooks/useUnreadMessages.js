@@ -124,29 +124,58 @@ export const useUnreadMessages = () => {
     });
   }, []);
 
-  // Pobierz liczbę nieprzeczytanych wiadomości tylko raz przy montowaniu komponentu
-  // i używaj stabilnego tokenId jako zależności zamiast całego obiektu token
+  // Użyj referencji do przechowywania funkcji, aby uniknąć problemów z zależnościami
+  const fetchInternalRef = useRef(fetchUnreadCountInternal);
+  
+  // Aktualizuj referencję tylko gdy zależności się zmieniają
   useEffect(() => {
-    // Używamy tokenu jako ID do śledzenia, czy faktycznie się zmienił
-    const tokenId = token ? token.slice(0, 10) : 'no-token';
+    fetchInternalRef.current = fetchUnreadCountInternal;
+  }, [fetchUnreadCountInternal]);
+  
+  // Pobierz liczbę nieprzeczytanych wiadomości tylko raz przy montowaniu
+  // Użyj stabilnych referencji zamiast zależności, które mogą powodować cykle
+  useEffect(() => {
+    // Flaga do śledzenia, czy komponent jest zamontowany
+    let isMounted = true;
+    const tokenCheck = token ? true : false;
     
-    // Pobierz dane przy montowaniu lub zmianie tokenu
-    if (isAuthenticated) {
-      fetchUnreadCountInternal(true);
-    }
-    
-    // Pobieraj liczbę nieprzeczytanych wiadomości co 60 sekund, ale tylko jeśli użytkownik jest zalogowany
-    let intervalId;
-    if (isAuthenticated) {
-      intervalId = setInterval(() => {
-        fetchUnreadCountInternal();
-      }, 60000);
+    // Pobierz dane tylko raz przy montowaniu jeśli jest token
+    if (tokenCheck && isMounted) {
+      // Użyj setTimeout zamiast bezpośredniego wywołania, aby dać czas na stabilizację komponentu
+      const initialTimeout = setTimeout(() => {
+        if (isMounted) {
+          fetchInternalRef.current(true);
+        }
+      }, 500);
+      
+      // Wyczyść timeout przy odmontowaniu
+      return () => {
+        clearTimeout(initialTimeout);
+        isMounted = false;
+      };
     }
     
     return () => {
-      if (intervalId) clearInterval(intervalId);
+      isMounted = false;
     };
-  }, [isAuthenticated, fetchUnreadCountInternal]);
+  }, []); // Pusta tablica zależności - wykonaj tylko przy montowaniu
+  
+  // Skonfiguruj interwał w osobnym useEffect, aby rozdzielić logikę
+  useEffect(() => {
+    // Nie twórz interwału, jeśli nie ma tokenu
+    if (!token) return;
+    
+    // Używaj stałego interwału z referencją do najnowszej funkcji
+    const intervalId = setInterval(() => {
+      // Wywołaj najnowszą wersję funkcji z referencji
+      fetchInternalRef.current();
+    }, 60000); // 60 sekund
+    
+    // Wyczyść interwał przy odmontowaniu
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [token]); // Zależność tylko od samego tokenu, nie od funkcji
 
   return {
     unreadCount,

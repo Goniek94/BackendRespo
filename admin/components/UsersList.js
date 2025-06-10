@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './UsersList.css';
+import UserBlockModal from './UserBlockModal';
 
 const UsersList = () => {
   // Stan / State
@@ -25,7 +26,15 @@ const UsersList = () => {
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [userToChangeRole, setUserToChangeRole] = useState(null);
   const [newRole, setNewRole] = useState('');
-
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [userToBlock, setUserToBlock] = useState(null);
+  // Obsługa zmiany statusu blokady / Handle block status change
+  const handleBlockStatusChange = (updatedUser) => {
+    // Aktualizuj lokalną listę użytkowników
+    setUsers(users.map(user => 
+      user._id === updatedUser._id ? updatedUser : user
+    ));
+  };
   // Pobierz użytkowników / Fetch users
   useEffect(() => {
     fetchUsers();
@@ -307,6 +316,17 @@ const UsersList = () => {
                        user.role === 'moderator' ? 'Moderator' : 'Użytkownik'}
                     </span>
                   </td>
+                  <td>
+                    {user.isBlocked ? (
+                      <span className="block-badge blocked">
+                        <i className="fas fa-ban mr-1"></i> Zablokowany
+                      </span>
+                    ) : (
+                      <span className="block-badge active">
+                        <i className="fas fa-check-circle mr-1"></i> Aktywny
+                      </span>
+                    )}
+                  </td>
                   <td>{formatDate(user.createdAt)}</td>
                   <td className="actions">
                     <button 
@@ -326,6 +346,16 @@ const UsersList = () => {
                       title="Zmień rolę"
                     >
                       <i className="fas fa-user-shield"></i>
+                    </button>
+                    <button 
+                      className={`action-button ${user.isBlocked ? 'unblock' : 'block'}`}
+                      onClick={() => {
+                        setUserToBlock(user);
+                        setShowBlockModal(true);
+                      }}
+                      title={user.isBlocked ? "Odblokuj użytkownika" : "Zablokuj użytkownika"}
+                    >
+                      <i className={`fas ${user.isBlocked ? 'fa-unlock' : 'fa-ban'}`}></i>
                     </button>
                     <button 
                       className="action-button delete"
@@ -406,6 +436,18 @@ const UsersList = () => {
             </div>
           </div>
         </div>
+      )}
+      
+      {/* Modal blokowania użytkownika / User block modal */}
+      {showBlockModal && userToBlock && (
+        <UserBlockModal 
+          user={userToBlock}
+          onClose={() => {
+            setShowBlockModal(false);
+            setUserToBlock(null);
+          }}
+          onBlockStatusChange={handleBlockStatusChange}
+        />
       )}
       
       {/* Modal usuwania użytkownika / Delete user modal */}

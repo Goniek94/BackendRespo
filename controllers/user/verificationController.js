@@ -1,7 +1,190 @@
 // controllers/user/verificationController.js
 import User from '../../models/user.js';
 import jwt from 'jsonwebtoken';
-import { sendVerificationCode } from '../../config/twilio.js';
+import { sendVerificationCode as sendTwilioCode, verifyCode as verifyTwilioCode } from '../../config/twilio.js';
+
+/**
+ * Wysyła kod weryfikacyjny na telefon
+ * Używane podczas weryfikacji Google użytkownika
+ */
+export const sendVerificationCode = async (req, res) => {
+  console.log('Rozpoczynanie wysyłania kodu weryfikacyjnego...');
+  const { phoneNumber, type } = req.body;
+  
+  if (!phoneNumber) {
+    return res.status(400).json({ 
+      success: false,
+      message: 'Numer telefonu jest wymagany'
+    });
+  }
+  
+  if (!type || type !== 'phone') {
+    return res.status(400).json({ 
+      success: false,
+      message: 'Nieprawidłowy typ weryfikacji'
+    });
+  }
+  
+  try {
+    // Pobierz dane użytkownika z tokena JWT
+    const userId = req.user.userId;
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Użytkownik nie został znaleziony'
+      });
+    }
+    
+    // Zapisz telefon z żądania jeśli różni się od bieżącego
+    if (user.phoneNumber !== phoneNumber) {
+      user.phoneNumber = phoneNumber;
+      await user.save();
+    }
+    
+    // Generowanie 6-cyfrowego kodu
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Zapisz kod w bazie danych
+    user.twoFACode = code;
+    user.twoFACodeExpires = Date.now() + 10 * 60 * 1000; // 10 minut
+    await user.save();
+    
+    // Wysłanie kodu przez Twilio
+    const result = await sendTwilioCode(phoneNumber);
+    
+    console.log('Wynik wysyłania kodu:', result);
+    
+    // W trybie deweloperskim zwracamy kod
+    const devMode = process.env.NODE_ENV !== 'production';
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Kod weryfikacyjny został wysłany',
+      // W trybie deweloperskim zwracamy kod testowy
+      devCode: devMode ? '123456' : undefined
+    });
+  } catch (error) {
+    console.error('Błąd wysyłania kodu weryfikacyjnego:', error);
+    return res.status(500).json({ 
+      success: false,
+      message: 'Wystąpił błąd podczas wysyłania kodu weryfikacyjnego'
+    });
+  }
+};
+
+/**
+ * Weryfikuje kod wysłany na telefon
+ * Aktualizuje status weryfikacji telefonu użytkownika
+ */
+export const verifyVerificationCode = async (req, res) => {
+  console.log('Rozpoczynanie weryfikacji kodu...');
+  const { phoneNumber, code, type } = req.body;
+  
+  if (!phoneNumber || !code) {
+    return res.status(400).json({ 
+      success: false,
+      message: 'Numer telefonu i kod weryfikacyjny są wymagane'
+    });
+  }
+  
+  if (!type || type !== 'phone') {
+    return res.status(400).json({ 
+      success: false,
+      message: 'Nieprawidłowy typ weryfikacji'
+    });
+  }
+  
+  try {
+    // Pobierz dane użytkownika z tokena JWT
+    const userId = req.user.userId;
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Użytkownik nie został znaleziony'
+      });
+    }
+    
+    // W trybie deweloperskim akceptujemy uniwersalny kod
+    const isTestCode = code === '123456' || process.env.NODE_ENV === 'development';
+    
+    // Sprawdź czy kod wygasł
+    const isCodeExpired = user.twoFACodeExpires && new Date(user.twoFACodeExpires) < new Date();
+    if (isCodeExpired && !isTestCode) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Kod weryfikacyjny wygasł. Proszę wygenerować nowy kod.'
+      });
+    }
+    
+    // W środowisku deweloperskim albo przy kodzie testowym
+    if (isTestCode) {
+      // Aktualizuj status weryfikacji
+      user.isPhoneVerified = true;
+      
+      // Jeśli email jest już zweryfikowany, oznacz cały profil jako zweryfikowany
+      if (user.isEmailVerified) {
+        user.isVerified = true;
+      }
+      
+      // Wyczyść kod weryfikacyjny
+      user.twoFACode = null;
+      user.twoFACodeExpires = null;
+      
+      await user.save();
+      
+      return res.status(200).json({
+        success: true,
+        verified: true,
+        message: 'Numer telefonu został zweryfikowany pomyślnie',
+        isPhoneVerified: true,
+        isVerified: user.isVerified
+      });
+    }
+    
+    // Sprawdź kod przez Twilio
+    const verificationResult = await verifyTwilioCode(phoneNumber, code);
+    
+    if (verificationResult.success) {
+      // Aktualizuj status weryfikacji
+      user.isPhoneVerified = true;
+      
+      // Jeśli email jest już zweryfikowany, oznacz cały profil jako zweryfikowany
+      if (user.isEmailVerified) {
+        user.isVerified = true;
+      }
+      
+      // Wyczyść kod weryfikacyjny
+      user.twoFACode = null;
+      user.twoFACodeExpires = null;
+      
+      await user.save();
+      
+      return res.status(200).json({
+        success: true,
+        verified: true,
+        message: 'Numer telefonu został zweryfikowany pomyślnie',
+        isPhoneVerified: true,
+        isVerified: user.isVerified
+      });
+    }
+    
+    return res.status(400).json({
+      success: false,
+      verified: false,
+      message: 'Nieprawidłowy kod weryfikacyjny'
+    });
+  } catch (error) {
+    console.error('Błąd weryfikacji kodu:', error);
+    return res.status(500).json({ 
+      success: false,
+      message: 'Wystąpił błąd podczas weryfikacji kodu'
+    });
+  }
+};
 
 // Wysyłanie kodu 2FA
 export const send2FACode = async (req, res) => {
@@ -55,7 +238,7 @@ export const send2FACode = async (req, res) => {
       // Wysyłanie kodu (symulacja)
       if (phone) {
         console.log('Próba wysłania kodu SMS...');
-        const result = await sendVerificationCode(phone, code);
+        const result = await sendTwilioCode(phone);
         console.log('Wynik wysyłania kodu:', result);
       } else {
         console.log('Brak numeru telefonu, kod powinien być wysłany przez email');

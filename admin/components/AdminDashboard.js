@@ -13,6 +13,7 @@ import StatCard from './StatCard';
 import UsersList from './UsersList';
 import AdsList from './AdsList';
 import ReportsManagement from './ReportsManagement';
+import NewAdsApproval from './NewAdsApproval';
 import DiscountManager from './DiscountManager';
 import BonusManager from './BonusManager';
 
@@ -24,7 +25,9 @@ const AdminDashboard = () => {
     adsCount: 0,
     commentsCount: 0,
     reportsCount: 0,
-    discountsCount: 0
+    pendingAdsCount: 0,
+    discountsCount: 0,
+    newReportsCount: 0
   });
   const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -90,6 +93,13 @@ const AdminDashboard = () => {
                 icon="fas fa-ad" 
                 color="green"
                 link="/admin/ads"
+              />
+              <StatCard 
+                title="Oczekujące ogłoszenia" 
+                value={stats.pendingAdsCount} 
+                icon="fas fa-hourglass-half" 
+                color="orange"
+                link="/admin/pending-ads"
               />
               <StatCard 
                 title="Komentarze" 
@@ -212,6 +222,8 @@ const AdminDashboard = () => {
         return <UsersList />;
       case 'ads':
         return <AdsList />;
+      case 'pending-ads':
+        return <NewAdsApproval />;
       case 'reports':
         return <ReportsManagement />;
       case 'discounts':
@@ -298,6 +310,15 @@ const AdminDashboard = () => {
                 <button onClick={() => setActiveTab('ads')}>
                   <i className="fas fa-ad"></i>
                   <span>Ogłoszenia</span>
+                </button>
+              </li>
+              <li className={activeTab === 'pending-ads' ? 'active' : ''}>
+                <button onClick={() => setActiveTab('pending-ads')}>
+                  <i className="fas fa-hourglass-half"></i>
+                  <span>Oczekujące ogłoszenia</span>
+                  {stats.pendingAdsCount > 0 && (
+                    <span className="notification-badge">{stats.pendingAdsCount}</span>
+                  )}
                 </button>
               </li>
               <li className={activeTab === 'discounts' ? 'active' : ''}>

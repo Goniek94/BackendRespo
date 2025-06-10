@@ -12,6 +12,7 @@ import './AdminDashboard.css';
 import StatCard from './StatCard';
 import UsersList from './UsersList';
 import AdsList from './AdsList';
+import ReportsManagement from './ReportsManagement';
 import DiscountManager from './DiscountManager';
 import BonusManager from './BonusManager';
 
@@ -112,6 +113,38 @@ const AdminDashboard = () => {
                 link="/admin/discounts"
               />
             </div>
+
+            {/* Alerty o pilnych sprawach */}
+            {recentActivity.reports && recentActivity.reports.filter(report => report.status === 'new').length > 0 && (
+              <div className="urgent-alerts mt-6">
+                <h3 className="alert-title text-red-600">
+                  <i className="fas fa-exclamation-circle mr-2"></i>
+                  Pilne sprawy wymagające uwagi
+                </h3>
+                <div className="alert-list">
+                  {recentActivity.reports.filter(report => report.status === 'new').map((report) => (
+                    <div key={report._id} className="alert-item bg-red-50 border border-red-200 rounded-lg p-3 mb-2">
+                      <div className="alert-header flex justify-between">
+                        <span className="font-medium">{report.title}</span>
+                        <span className="text-sm text-gray-500">{formatDate(report.createdAt)}</span>
+                      </div>
+                      <p className="text-sm text-gray-700 mt-1">{report.description.substring(0, 100)}...</p>
+                      <div className="alert-actions mt-2">
+                        <button 
+                          onClick={() => {
+                            setActiveTab('reports');
+                            // Opcjonalnie dodać kod do otwarcia szczegółów zgłoszenia
+                          }}
+                          className="text-sm text-blue-600 hover:underline"
+                        >
+                          Przejdź do zgłoszenia
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             
             <h2 className="section-title mt-6">Ostatnia aktywność</h2>
             <div className="activity-list">
@@ -179,6 +212,8 @@ const AdminDashboard = () => {
         return <UsersList />;
       case 'ads':
         return <AdsList />;
+      case 'reports':
+        return <ReportsManagement />;
       case 'discounts':
         return <DiscountManager />;
       case 'bonuses':
@@ -269,6 +304,15 @@ const AdminDashboard = () => {
                 <button onClick={() => setActiveTab('discounts')}>
                   <i className="fas fa-percent"></i>
                   <span>Zniżki</span>
+                </button>
+              </li>
+              <li className={activeTab === 'reports' ? 'active' : ''}>
+                <button onClick={() => setActiveTab('reports')}>
+                  <i className="fas fa-flag"></i>
+                  <span>Zgłoszenia</span>
+                  {stats.newReportsCount > 0 && (
+                    <span className="notification-badge">{stats.newReportsCount}</span>
+                  )}
                 </button>
               </li>
               <li className={activeTab === 'bonuses' ? 'active' : ''}>

@@ -10,7 +10,7 @@ export const getUserProfile = async (req, res) => {
       return res.status(404).json({ message: 'Użytkownik nie został znaleziony.' });
     }
 
-    // Zwracamy tylko bezpieczne dane
+    // Zwracamy dane włącznie ze statusem weryfikacji
     return res.status(200).json({
       id: user._id,
       name: user.name,
@@ -19,7 +19,12 @@ export const getUserProfile = async (req, res) => {
       phoneNumber: user.phoneNumber,
       dob: user.dob ? user.dob.toISOString().split('T')[0] : null,
       role: user.role,
-      createdAt: user.createdAt
+      createdAt: user.createdAt,
+      // Dane weryfikacji
+      isEmailVerified: user.isEmailVerified || false,
+      isPhoneVerified: user.isPhoneVerified || false,
+      isVerified: user.isVerified || false,
+      registrationType: user.registrationType || 'standard'
     });
   } catch (error) {
     console.error('Błąd pobierania profilu użytkownika:', error);
@@ -68,7 +73,12 @@ export const updateUserProfile = async (req, res) => {
         email: user.email,
         phoneNumber: user.phoneNumber,
         dob: user.dob ? user.dob.toISOString().split('T')[0] : null,
-        role: user.role
+        role: user.role,
+        // Dane weryfikacji
+        isEmailVerified: user.isEmailVerified || false,
+        isPhoneVerified: user.isPhoneVerified || false,
+        isVerified: user.isVerified || false,
+        registrationType: user.registrationType || 'standard'
       }
     });
   } catch (error) {

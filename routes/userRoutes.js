@@ -15,6 +15,10 @@ const router = express.Router();
 // Google Authentication
 router.post('/auth/google', authController.registerGoogleUser);
 
+// Verification routes for phone and email
+router.post('/verification/send', auth, verificationController.sendVerificationCode);
+router.post('/verification/verify', auth, verificationController.verifyVerificationCode);
+
 // Complete Google user profile (requiring phone, name, and last name verification)
 router.put(
   '/complete-google-profile',

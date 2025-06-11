@@ -34,15 +34,21 @@ router.get('/users', authMiddleware, adminOrModerator, userController.getUsers);
 router.get('/users/:userId', authMiddleware, adminOrModerator, userController.getUserDetails);
 router.put('/users/:userId', authMiddleware, adminOnly, userController.updateUser);
 router.delete('/users/:userId', authMiddleware, adminOnly, userController.deleteUser);
+router.post('/users/:userId/block', authMiddleware, adminOrModerator, userController.blockUser);
+router.post('/users/:userId/unblock', authMiddleware, adminOrModerator, userController.unblockUser);
 
 /**
  * Trasy zarządzania ogłoszeniami / Ad management routes
  */
 router.get('/ads', authMiddleware, adminOrModerator, adController.getAds);
+router.get('/ads/pending', authMiddleware, adminOrModerator, adController.getPendingAds);
 router.get('/ads/:adId', authMiddleware, adminOrModerator, adController.getAdDetails);
 router.put('/ads/:adId', authMiddleware, adminOrModerator, adController.updateAd);
 router.delete('/ads/:adId', authMiddleware, adminOnly, adController.deleteAd);
 router.post('/ads/bulk-discount', authMiddleware, adminOnly, adController.setBulkDiscount);
+router.post('/ads/:adId/approve', authMiddleware, adminOrModerator, adController.approveAd);
+router.post('/ads/:adId/reject', authMiddleware, adminOrModerator, adController.rejectAd);
+router.post('/ads/:adId/moderate', authMiddleware, adminOrModerator, adController.moderateAd);
 
 /**
  * Trasy zarządzania komentarzami / Comment management routes

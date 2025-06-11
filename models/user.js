@@ -108,6 +108,28 @@ const userSchema = new mongoose.Schema({
   lockUntil: {
     type: Date
   },
+  status: {
+    type: String,
+    enum: ['active', 'suspended', 'banned'],
+    default: 'active'
+  },
+  suspendedUntil: {
+    type: Date
+  },
+  suspendedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  suspensionReason: {
+    type: String
+  },
+  bannedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  banReason: {
+    type: String
+  },
   favorites: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Ad'

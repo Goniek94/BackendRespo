@@ -24,8 +24,40 @@ const metadataSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['w toku', 'opublikowane', 'archiwalne'],
-    default: 'w toku'
+    enum: ['pending', 'active', 'rejected', 'needs_changes', 'sold', 'archived'],
+    default: 'pending'
+  },
+  
+  // Pola związane z moderacją / Moderation fields
+  moderatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  moderatedAt: {
+    type: Date
+  },
+  moderationComment: {
+    type: String
+  },
+  rejectionReason: {
+    type: String
+  },
+  requiredChanges: {
+    type: String
+  },
+  
+  // Dodatkowe ustawienia ogłoszenia / Additional ad settings
+  featured: {
+    type: Boolean,
+    default: false
+  },
+  discount: {
+    type: Number,
+    min: 0,
+    max: 99
+  },
+  discountedPrice: {
+    type: Number
   }
 });
 

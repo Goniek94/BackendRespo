@@ -6,6 +6,7 @@
 
 import Ad from '../../models/ad.js';
 import User from '../../models/user.js';
+import Notification from '../../models/notification.js';
 
 /**
  * Pobiera listę ogłoszeń z możliwością filtrowania i paginacji

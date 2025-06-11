@@ -216,3 +216,241 @@ export const setBulkDiscount = async (req, res) => {
     return res.status(500).json({ message: 'Błąd serwera podczas ustawiania zniżek dla ogłoszeń.' });
   }
 };
+
+/**
+ * Pobiera listę oczekujących ogłoszeń do moderacji
+ * Gets a list of pending ads for moderation
+ */
+export const getPendingAds = async (req, res) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 10, 
+      sortBy = 'createdAt', 
+      sortOrder = 'desc' 
+    } = req.query;
+    
+    // Przygotuj zapytanie o oczekujące ogłoszenia / Prepare query for pending ads
+    const query = { status: 'pending' };
+    
+    // Przygotuj opcje sortowania / Prepare sort options
+    const sort = {};
+    sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+    
+    // Pobierz całkowitą liczbę oczekujących ogłoszeń / Get total count of pending ads
+    const total = await Ad.countDocuments(query);
+    
+    // Pobierz oczekujące ogłoszenia z paginacją / Get pending ads with pagination
+    const ads = await Ad.find(query)
+      .populate('user', 'email name lastName')
+      .sort(sort)
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+    
+    return res.status(200).json({
+      ads,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Błąd podczas pobierania listy oczekujących ogłoszeń:', error);
+    return res.status(500).json({ message: 'Błąd serwera podczas pobierania listy oczekujących ogłoszeń.' });
+  }
+};
+
+/**
+ * Zatwierdza ogłoszenie
+ * Approves an ad
+ */
+export const approveAd = async (req, res) => {
+  try {
+    const { adId } = req.params;
+    const { comment } = req.body;
+    
+    // Sprawdź czy ogłoszenie istnieje / Check if ad exists
+    const ad = await Ad.findById(adId);
+    if (!ad) {
+      return res.status(404).json({ message: 'Ogłoszenie nie zostało znalezione.' });
+    }
+    
+    // Sprawdź czy ogłoszenie jest w stanie oczekującym / Check if ad is pending
+    if (ad.status !== 'pending') {
+      return res.status(400).json({ message: `Ogłoszenie nie może zostać zatwierdzone, ponieważ ma status "${ad.status}".` });
+    }
+    
+    // Zatwierdź ogłoszenie / Approve ad
+    ad.status = 'active';
+    ad.moderationComment = comment || 'Zatwierdzone przez moderatora.';
+    ad.moderatedBy = req.user.userId;
+    ad.moderatedAt = new Date();
+    
+    await ad.save();
+    
+    // Powiadom użytkownika o zatwierdzeniu ogłoszenia / Notify user about ad approval
+    try {
+      await Notification.create({
+        user: ad.user,
+        type: 'ad_approved',
+        title: 'Ogłoszenie zostało zatwierdzone',
+        message: `Twoje ogłoszenie "${ad.title}" zostało zatwierdzone przez moderatora i jest teraz widoczne na stronie.`,
+        data: {
+          adId: ad._id,
+          comment: ad.moderationComment
+        }
+      });
+    } catch (notificationError) {
+      console.error('Błąd podczas wysyłania powiadomienia:', notificationError);
+      // Kontynuuj, nawet jeśli powiadomienie się nie powiodło / Continue even if notification failed
+    }
+    
+    return res.status(200).json({ 
+      message: 'Ogłoszenie zostało zatwierdzone.',
+      ad
+    });
+  } catch (error) {
+    console.error('Błąd podczas zatwierdzania ogłoszenia:', error);
+    return res.status(500).json({ message: 'Błąd serwera podczas zatwierdzania ogłoszenia.' });
+  }
+};
+
+/**
+ * Odrzuca ogłoszenie
+ * Rejects an ad
+ */
+export const rejectAd = async (req, res) => {
+  try {
+    const { adId } = req.params;
+    const { reason, comment } = req.body;
+    
+    if (!reason) {
+      return res.status(400).json({ message: 'Należy podać powód odrzucenia ogłoszenia.' });
+    }
+    
+    // Sprawdź czy ogłoszenie istnieje / Check if ad exists
+    const ad = await Ad.findById(adId);
+    if (!ad) {
+      return res.status(404).json({ message: 'Ogłoszenie nie zostało znalezione.' });
+    }
+    
+    // Sprawdź czy ogłoszenie jest w stanie oczekującym / Check if ad is pending
+    if (ad.status !== 'pending') {
+      return res.status(400).json({ message: `Ogłoszenie nie może zostać odrzucone, ponieważ ma status "${ad.status}".` });
+    }
+    
+    // Odrzuć ogłoszenie / Reject ad
+    ad.status = 'rejected';
+    ad.rejectionReason = reason;
+    ad.moderationComment = comment || 'Odrzucone przez moderatora.';
+    ad.moderatedBy = req.user.userId;
+    ad.moderatedAt = new Date();
+    
+    await ad.save();
+    
+    // Powiadom użytkownika o odrzuceniu ogłoszenia / Notify user about ad rejection
+    try {
+      await Notification.create({
+        user: ad.user,
+        type: 'ad_rejected',
+        title: 'Ogłoszenie zostało odrzucone',
+        message: `Twoje ogłoszenie "${ad.title}" zostało odrzucone przez moderatora. Powód: ${reason}`,
+        data: {
+          adId: ad._id,
+          reason: reason,
+          comment: ad.moderationComment
+        }
+      });
+    } catch (notificationError) {
+      console.error('Błąd podczas wysyłania powiadomienia:', notificationError);
+      // Kontynuuj, nawet jeśli powiadomienie się nie powiodło / Continue even if notification failed
+    }
+    
+    return res.status(200).json({ 
+      message: 'Ogłoszenie zostało odrzucone.',
+      ad
+    });
+  } catch (error) {
+    console.error('Błąd podczas odrzucania ogłoszenia:', error);
+    return res.status(500).json({ message: 'Błąd serwera podczas odrzucania ogłoszenia.' });
+  }
+};
+
+/**
+ * Aktualizuje ogłoszenie po moderacji (z komentarzem moderatora)
+ * Updates an ad after moderation (with moderator comment)
+ */
+export const moderateAd = async (req, res) => {
+  try {
+    const { adId } = req.params;
+    const { status, moderationComment, requiredChanges } = req.body;
+    
+    // Sprawdź czy ogłoszenie istnieje / Check if ad exists
+    const ad = await Ad.findById(adId);
+    if (!ad) {
+      return res.status(404).json({ message: 'Ogłoszenie nie zostało znalezione.' });
+    }
+    
+    // Sprawdź poprawność statusu / Check status validity
+    const validStatuses = ['pending', 'active', 'rejected', 'needs_changes'];
+    if (status && !validStatuses.includes(status)) {
+      return res.status(400).json({ message: 'Nieprawidłowy status ogłoszenia.' });
+    }
+    
+    // Aktualizuj dane / Update data
+    if (status) ad.status = status;
+    if (moderationComment) ad.moderationComment = moderationComment;
+    if (requiredChanges) ad.requiredChanges = requiredChanges;
+    
+    ad.moderatedBy = req.user.userId;
+    ad.moderatedAt = new Date();
+    
+    await ad.save();
+    
+    // Powiadom użytkownika o zmianach / Notify user about changes
+    try {
+      let notificationType, notificationTitle, notificationMessage;
+      
+      if (status === 'active') {
+        notificationType = 'ad_approved';
+        notificationTitle = 'Ogłoszenie zostało zatwierdzone';
+        notificationMessage = `Twoje ogłoszenie "${ad.title}" zostało zatwierdzone przez moderatora i jest teraz widoczne na stronie.`;
+      } else if (status === 'rejected') {
+        notificationType = 'ad_rejected';
+        notificationTitle = 'Ogłoszenie zostało odrzucone';
+        notificationMessage = `Twoje ogłoszenie "${ad.title}" zostało odrzucone przez moderatora.`;
+      } else if (status === 'needs_changes') {
+        notificationType = 'ad_needs_changes';
+        notificationTitle = 'Ogłoszenie wymaga zmian';
+        notificationMessage = `Twoje ogłoszenie "${ad.title}" wymaga zmian przed zatwierdzeniem.`;
+      }
+      
+      if (notificationType) {
+        await Notification.create({
+          user: ad.user,
+          type: notificationType,
+          title: notificationTitle,
+          message: notificationMessage,
+          data: {
+            adId: ad._id,
+            moderationComment: ad.moderationComment,
+            requiredChanges: ad.requiredChanges
+          }
+        });
+      }
+    } catch (notificationError) {
+      console.error('Błąd podczas wysyłania powiadomienia:', notificationError);
+      // Kontynuuj, nawet jeśli powiadomienie się nie powiodło / Continue even if notification failed
+    }
+    
+    return res.status(200).json({ 
+      message: `Ogłoszenie zostało zaktualizowane ze statusem "${status}".`,
+      ad
+    });
+  } catch (error) {
+    console.error('Błąd podczas moderacji ogłoszenia:', error);
+    return res.status(500).json({ message: 'Błąd serwera podczas moderacji ogłoszenia.' });
+  }
+};

@@ -125,6 +125,141 @@ export const updateUser = async (req, res) => {
 };
 
 /**
+ * Blokuje konto użytkownika
+ * Blocks a user account
+ */
+export const blockUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { blockType, reason, duration } = req.body;
+    
+    // Sprawdź czy użytkownik istnieje / Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'Użytkownik nie został znaleziony.' });
+    }
+    
+    // Nie pozwól zablokować administratora / Don't allow blocking an admin
+    if (user.role === 'admin') {
+      return res.status(400).json({ message: 'Nie można zablokować konta administratora.' });
+    }
+    
+    // Ustaw odpowiedni status i czas blokady / Set appropriate status and block time
+    if (blockType === 'suspend') {
+      // Tymczasowa blokada / Temporary suspension
+      const suspensionDuration = duration || 7; // domyślnie 7 dni / default 7 days
+      user.status = 'suspended';
+      user.suspendedUntil = new Date(Date.now() + suspensionDuration * 24 * 60 * 60 * 1000);
+      user.suspendedBy = req.user.userId;
+      user.suspensionReason = reason || 'Naruszenie zasad serwisu';
+    } else if (blockType === 'ban') {
+      // Permanentna blokada / Permanent ban
+      user.status = 'banned';
+      user.bannedBy = req.user.userId;
+      user.banReason = reason || 'Poważne naruszenie zasad serwisu';
+      user.suspendedUntil = null; // Usuń datę zakończenia blokady / Remove suspension end date
+    } else {
+      return res.status(400).json({ message: 'Nieprawidłowy typ blokady. Użyj "suspend" lub "ban".' });
+    }
+    
+    await user.save();
+    
+    // Powiadom użytkownika o blokadzie / Notify user about block
+    try {
+      await Notification.create({
+        user: userId,
+        type: blockType === 'suspend' ? 'account_suspended' : 'account_banned',
+        title: blockType === 'suspend' ? 'Konto zostało tymczasowo zawieszone' : 'Konto zostało zbanowane',
+        message: `Twoje konto zostało ${blockType === 'suspend' ? 'tymczasowo zawieszone' : 'permanentnie zbanowane'} przez administratora. Powód: ${user.suspensionReason || user.banReason}`,
+        data: {
+          suspendedUntil: user.suspendedUntil,
+          reason: user.suspensionReason || user.banReason
+        }
+      });
+    } catch (notificationError) {
+      console.error('Błąd podczas wysyłania powiadomienia:', notificationError);
+      // Kontynuuj, nawet jeśli powiadomienie się nie powiodło / Continue even if notification failed
+    }
+    
+    return res.status(200).json({ 
+      message: blockType === 'suspend' 
+        ? `Konto użytkownika zostało tymczasowo zawieszone do ${user.suspendedUntil.toLocaleDateString()}.` 
+        : 'Konto użytkownika zostało permanentnie zbanowane.',
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        lastName: user.lastName,
+        status: user.status,
+        suspendedUntil: user.suspendedUntil
+      }
+    });
+  } catch (error) {
+    console.error('Błąd podczas blokowania użytkownika:', error);
+    return res.status(500).json({ message: 'Błąd serwera podczas blokowania użytkownika.' });
+  }
+};
+
+/**
+ * Odblokowuje konto użytkownika
+ * Unblocks a user account
+ */
+export const unblockUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Sprawdź czy użytkownik istnieje / Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'Użytkownik nie został znaleziony.' });
+    }
+    
+    // Sprawdź czy użytkownik jest zablokowany / Check if user is blocked
+    if (user.status !== 'suspended' && user.status !== 'banned') {
+      return res.status(400).json({ message: 'Konto użytkownika nie jest zablokowane.' });
+    }
+    
+    // Odblokuj konto / Unblock account
+    user.status = 'active';
+    user.suspendedUntil = null;
+    user.suspendedBy = null;
+    user.suspensionReason = null;
+    user.bannedBy = null;
+    user.banReason = null;
+    
+    await user.save();
+    
+    // Powiadom użytkownika o odblokowaniu / Notify user about unblock
+    try {
+      await Notification.create({
+        user: userId,
+        type: 'account_unblocked',
+        title: 'Konto zostało odblokowane',
+        message: 'Twoje konto zostało odblokowane przez administratora. Możesz znów korzystać z pełnej funkcjonalności serwisu.',
+        data: {}
+      });
+    } catch (notificationError) {
+      console.error('Błąd podczas wysyłania powiadomienia:', notificationError);
+      // Kontynuuj, nawet jeśli powiadomienie się nie powiodło / Continue even if notification failed
+    }
+    
+    return res.status(200).json({ 
+      message: 'Konto użytkownika zostało odblokowane.',
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        lastName: user.lastName,
+        status: user.status
+      }
+    });
+  } catch (error) {
+    console.error('Błąd podczas odblokowywania użytkownika:', error);
+    return res.status(500).json({ message: 'Błąd serwera podczas odblokowywania użytkownika.' });
+  }
+};
+
+/**
  * Usuwa użytkownika
  * Deletes a user
  */

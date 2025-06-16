@@ -10,7 +10,7 @@ import validate from '../middleware/validate.js';
 import adValidationSchema from '../validationSchemas/adValidation.js';
 import rateLimit from 'express-rate-limit';
 import errorHandler from '../middleware/errorHandler.js';
-import notificationService from '../controllers/notificationController.js';
+import { notificationService } from '../controllers/notificationController.js';
 
 // Upewniamy się, że folder uploads istnieje z odpowiednimi uprawnieniami
 if (!fs.existsSync('uploads')) {

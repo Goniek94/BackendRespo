@@ -4,7 +4,7 @@ import auth from '../middleware/auth.js';
 import User from '../models/user.js';
 import Ad from '../models/ad.js';
 import mongoose from 'mongoose';
-import notificationService from '../controllers/notificationController.js';
+import { notificationService } from '../controllers/notificationController.js';
 
 const router = Router();
 

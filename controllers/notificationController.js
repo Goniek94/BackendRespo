@@ -323,5 +323,5 @@ class NotificationService {
 }
 
 // Eksport instancji serwisu jako singleton
-const notificationService = new NotificationService();
+export const notificationService = new NotificationService();
 export default notificationService;

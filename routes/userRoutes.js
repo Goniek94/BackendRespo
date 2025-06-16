@@ -90,7 +90,7 @@ router.post(
 );
 
 // Wylogowanie użytkownika
-router.post('/logout', authController.logout);
+router.post('/logout', authController.logoutUser);
 
 // Sprawdzanie stanu autoryzacji
 router.get('/check-auth', auth, authController.checkAuth);

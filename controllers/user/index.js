@@ -19,7 +19,9 @@ import * as settingsController from './settingsController.js';
     registerUser,
     loginUser,
     logoutUser,
-    checkAuth
+    checkAuth,
+    registerGoogleUser,
+    completeGoogleUserProfile
   } = authController;
 
   export const {

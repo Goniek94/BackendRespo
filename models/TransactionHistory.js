@@ -1,5 +1,5 @@
 // models/TransactionHistory.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const transactionHistorySchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -11,4 +11,4 @@ const transactionHistorySchema = new mongoose.Schema({
 });
 
 const TransactionHistory = mongoose.model('TransactionHistory', transactionHistorySchema);
-module.exports = TransactionHistory;
+export default TransactionHistory;

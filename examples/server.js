@@ -1,7 +1,7 @@
 // Prosty serwer HTTP do serwowania plików statycznych
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
+import http from 'http';
+import fs from 'fs';
+import path from 'path';
 
 const PORT = 8080;
 

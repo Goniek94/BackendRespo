@@ -3,48 +3,21 @@ import { Router } from 'express';
 import auth from '../middleware/auth.js';
 import Ad from '../models/ad.js';
 import User from '../models/user.js';
-import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import validate from '../middleware/validate.js';
 import adValidationSchema from '../validationSchemas/adValidation.js';
 import rateLimit from 'express-rate-limit';
 import errorHandler from '../middleware/errorHandler.js';
-import notificationService from '../controllers/notificationController.js';
+import { notificationService } from '../controllers/notificationController.js';
+import { upload, uploadToCloudinaryMiddleware, deleteCloudinaryImage, extractPublicIdFromUrl } from '../middleware/cloudinaryUploader.js';
 
-// Upewniamy się, że folder uploads istnieje z odpowiednimi uprawnieniami
-if (!fs.existsSync('uploads')) {
-  console.log('Tworzenie folderu uploads...');
-  fs.mkdirSync('uploads', { recursive: true, mode: 0o755 });
-  console.log('Folder uploads utworzony pomyślnie!');
+// Upewniamy się, że folder temp istnieje z odpowiednimi uprawnieniami
+if (!fs.existsSync('temp')) {
+  console.log('Tworzenie folderu temp...');
+  fs.mkdirSync('temp', { recursive: true, mode: 0o755 });
+  console.log('Folder temp utworzony pomyślnie!');
 }
-
-// Konfiguracja lokalnego przechowywania z Multer
-const storage = multer.diskStorage({
-  destination: function(req, file, cb) {
-    cb(null, 'uploads/');
-  },
-  filename: function(req, file, cb) {
-    // Tworzenie unikalnej nazwy pliku
-    const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueName + path.extname(file.originalname));
-  }
-});
-
-// Filtr do akceptowania tylko obrazów
-const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('image/')) {
-    cb(null, true);
-  } else {
-    cb(new Error('Dozwolone są tylko pliki obrazów!'), false);
-  }
-};
-
-const upload = multer({ 
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 } // Limit 5MB
-});
 
 const router = Router();
 
@@ -106,11 +79,11 @@ const createAdFilter = (query) => {
     if (query.mileageTo) filter.mileage.$lte = parseInt(query.mileageTo);
   }
   
-  // Status ogłoszenia - domyślnie tylko opublikowane
+  // Status ogłoszenia - domyślnie tylko active
   if (query.status) {
     filter.status = query.status;
   } else {
-    filter.status = 'opublikowane';
+    filter.status = 'active';
   }
   
   // Typ ogłoszenia
@@ -270,8 +243,8 @@ router.get('/search', async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 30;
     const skip = (page - 1) * limit;
 
-    // Pobieramy WSZYSTKIE opublikowane ogłoszenia (nie twardo po filtrach)
-    const allAds = await Ad.find({ status: 'opublikowane' });
+    // Pobieramy WSZYSTKIE aktywne ogłoszenia (nie twardo po filtrach)
+    const allAds = await Ad.find({ status: 'active' });
 
     // Funkcja licząca match_score względem filtrów
     function calculateMatchScore(ad, filters) {
@@ -464,6 +437,11 @@ router.get('/user/listings', auth, async (req, res, next) => {
       status: ad.status
     })));
     
+    // Dodajemy dodatkowe logowanie, aby zobaczyć pełną strukturę ogłoszeń
+    if (userListings.length > 0) {
+      console.log('Pełna struktura pierwszego ogłoszenia:', JSON.stringify(userListings[0], null, 2));
+    }
+    
     const total = await Ad.countDocuments({ owner: req.user.userId });
     console.log('Całkowita liczba ogłoszeń użytkownika:', total);
     
@@ -485,9 +463,9 @@ router.get('/rotated', async (req, res, next) => {
   try {
     const now = new Date();
 
-    // Pobierz wszystkie opublikowane ogłoszenia z uwzględnieniem mainImageIndex
+    // Pobierz wszystkie aktywne ogłoszenia z uwzględnieniem mainImageIndex
     const allAds = await Ad.find({ 
-      status: 'opublikowane' 
+      status: 'active' 
     })
     .select({
       _id: 1,
@@ -583,9 +561,9 @@ router.post('/rotated/refresh', auth, async (req, res, next) => {
     // Pobierz nowe rotowane ogłoszenia
     const now = new Date();
     
-    // Pobierz wszystkie opublikowane ogłoszenia z uwzględnieniem mainImageIndex
+    // Pobierz wszystkie aktywne ogłoszenia z uwzględnieniem mainImageIndex
     const allAds = await Ad.find({ 
-      status: 'opublikowane' 
+      status: 'active' 
     })
     .select({
       _id: 1,
@@ -696,8 +674,8 @@ router.get('/:id', async (req, res, next) => {
   }
 }, errorHandler);
 
-// Dodawanie ogłoszenia z lokalnymi zdjęciami i danymi użytkownika
-router.post('/add', auth, createAdLimiter, upload.array('images', 10), validate(adValidationSchema), async (req, res, next) => {
+// Dodawanie ogłoszenia ze zdjęciami w Cloudinary i danymi użytkownika
+router.post('/add', auth, createAdLimiter, upload.array('images', 10), uploadToCloudinaryMiddleware, validate(adValidationSchema), async (req, res, next) => {
   try {
     console.log('Rozpoczęto dodawanie ogłoszenia');
     
@@ -730,21 +708,9 @@ router.post('/add', auth, createAdLimiter, upload.array('images', 10), validate(
       console.warn('Brak plików w żądaniu!');
     }
 
-    // Tworzenie ścieżek URL do zdjęć
-    const images = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
-    console.log(`Dodano ${images.length} zdjęć:`, images);
-    
-    // Sprawdź, czy zdjęcia istnieją fizycznie
-    if (images.length > 0) {
-      images.forEach(imagePath => {
-        const fullPath = path.join(path.resolve(), imagePath);
-        if (fs.existsSync(fullPath)) {
-          console.log(`✅ Zdjęcie istnieje: ${fullPath}`);
-        } else {
-          console.error(`❌ Zdjęcie nie istnieje: ${fullPath}`);
-        }
-      });
-    }
+    // Pobieranie URL-i zdjęć z Cloudinary
+    const images = req.cloudinaryResults ? req.cloudinaryResults.map(result => result.cloudinaryUrl) : [];
+    console.log(`Dodano ${images.length} zdjęć do Cloudinary:`, images);
 
     // Generowanie krótkiego opisu z nagłówka (do 120 znaków)
     const shortDescription = headline
@@ -805,8 +771,8 @@ router.post('/add', auth, createAdLimiter, upload.array('images', 10), validate(
       ownerEmail: user.email,
       ownerPhone: user.phoneNumber,
       
-      // Status - zawsze opublikowane (symulacja płatności)
-      status: 'opublikowane'
+      // Status - zawsze pending (symulacja płatności)
+      status: 'pending'
     });
 
     console.log('Utworzono obiekt ogłoszenia, próba zapisania w bazie danych');
@@ -840,7 +806,7 @@ router.post('/add', auth, createAdLimiter, upload.array('images', 10), validate(
 router.put('/:id/status', auth, async (req, res, next) => {
   const { status } = req.body;
 
-  if (!['w toku', 'opublikowane', 'archiwalne'].includes(status)) {
+  if (!['pending', 'active', 'rejected', 'needs_changes', 'sold', 'archived'].includes(status)) {
     return res.status(400).json({ message: 'Nieprawidłowy status ogłoszenia' });
   }
 
@@ -947,8 +913,100 @@ router.put('/:id', auth, async (req, res, next) => {
   }
 }, errorHandler);
 
+// Endpoint do pobierania danych o markach i modelach samochodów
+router.get('/car-data', async (req, res, next) => {
+  try {
+    // Pobierz wszystkie unikalne marki i modele z bazy danych
+    const ads = await Ad.find({}, 'brand model').lean();
+    
+    // Utwórz obiekt z markami jako kluczami i tablicami modeli jako wartościami
+    const carData = {};
+    
+    ads.forEach(ad => {
+      if (ad.brand && ad.model) {
+        if (!carData[ad.brand]) {
+          carData[ad.brand] = [];
+        }
+        
+        // Dodaj model tylko jeśli jeszcze nie istnieje w tablicy
+        if (!carData[ad.brand].includes(ad.model)) {
+          carData[ad.brand].push(ad.model);
+        }
+      }
+    });
+    
+    // Posortuj modele dla każdej marki
+    Object.keys(carData).forEach(brand => {
+      carData[brand].sort();
+    });
+    
+    res.status(200).json(carData);
+  } catch (err) {
+    console.error('Błąd podczas pobierania danych o markach i modelach:', err);
+    next(err);
+  }
+}, errorHandler);
+
+// Usuwanie zdjęcia z ogłoszenia
+router.delete('/:id/images/:index', auth, async (req, res, next) => {
+  try {
+    const ad = await Ad.findById(req.params.id);
+
+    if (!ad) {
+      return res.status(404).json({ message: 'Ogłoszenie nie znalezione' });
+    }
+
+    // Sprawdź czy użytkownik jest właścicielem lub adminem
+    if (ad.owner.toString() !== req.user.userId.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Brak uprawnień do usuwania zdjęć z tego ogłoszenia' });
+    }
+
+    const index = parseInt(req.params.index);
+    
+    // Sprawdź czy indeks jest prawidłowy
+    if (isNaN(index) || index < 0 || index >= ad.images.length) {
+      return res.status(400).json({ message: 'Nieprawidłowy indeks zdjęcia' });
+    }
+
+    // Pobierz URL zdjęcia do usunięcia
+    const imageUrl = ad.images[index];
+    
+    // Usuń zdjęcie z Cloudinary
+    try {
+      const publicId = extractPublicIdFromUrl(imageUrl);
+      if (publicId) {
+        await deleteCloudinaryImage(publicId);
+        console.log(`Usunięto zdjęcie z Cloudinary: ${publicId}`);
+      } else {
+        console.warn(`Nie można wyodrębnić publicId z URL: ${imageUrl}`);
+      }
+    } catch (cloudinaryError) {
+      console.error('Błąd podczas usuwania zdjęcia z Cloudinary:', cloudinaryError);
+      // Nie przerywamy głównego procesu w przypadku błędu Cloudinary
+    }
+
+    // Usuń zdjęcie z tablicy zdjęć ogłoszenia
+    ad.images.splice(index, 1);
+    
+    // Jeśli usunięto główne zdjęcie, zresetuj mainImageIndex
+    if (ad.mainImageIndex === index) {
+      ad.mainImageIndex = 0;
+    } else if (ad.mainImageIndex > index) {
+      // Jeśli usunięto zdjęcie przed głównym, przesuń indeks
+      ad.mainImageIndex--;
+    }
+
+    await ad.save();
+
+    res.status(200).json({ message: 'Zdjęcie usunięte', ad });
+  } catch (err) {
+    console.error('Błąd podczas usuwania zdjęcia:', err);
+    next(err);
+  }
+}, errorHandler);
+
 // Dodawanie zdjęć do ogłoszenia
-router.post('/:id/images', auth, upload.array('images', 20), async (req, res, next) => {
+router.post('/:id/images', auth, upload.array('images', 20), uploadToCloudinaryMiddleware, async (req, res, next) => {
   try {
     const ad = await Ad.findById(req.params.id);
 
@@ -968,8 +1026,8 @@ router.post('/:id/images', auth, upload.array('images', 20), async (req, res, ne
       });
     }
 
-    // Dodaj nowe zdjęcia
-    const newImages = req.files.map(file => `/uploads/${file.filename}`);
+    // Dodaj nowe zdjęcia z Cloudinary
+    const newImages = req.cloudinaryResults ? req.cloudinaryResults.map(result => result.cloudinaryUrl) : [];
     ad.images = [...ad.images, ...newImages];
 
     await ad.save();

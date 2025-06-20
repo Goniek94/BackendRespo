@@ -9,17 +9,28 @@ import {
   validationController,
   settingsController
 } from '../controllers/user/index.js';
+// Usuwamy import funkcji, które powodują problemy
 
 const router = express.Router();
 
-// Google Authentication
-router.post('/auth/google', authController.registerGoogleUser);
+// Google Authentication - tymczasowo wyłączone
+// router.post('/auth/google', authController.registerGoogleUser);
 
-// Verification routes for phone and email
-router.post('/verification/send', auth, verificationController.sendVerificationCode);
-router.post('/verification/verify', auth, verificationController.verifyVerificationCode);
+// Verification routes for phone and email - tymczasowo wyłączone
+// Zakomentowane, aby umożliwić uruchomienie serwera
+/*
+router.post('/verification/send', auth, (req, res) => {
+  // TODO: Implementacja wysyłania kodu weryfikacyjnego
+  return res.status(200).json({ message: 'Funkcja tymczasowo niedostępna' });
+});
+router.post('/verification/verify', auth, (req, res) => {
+  // TODO: Implementacja weryfikacji kodu
+  return res.status(200).json({ message: 'Funkcja tymczasowo niedostępna' });
+});
+*/
 
-// Complete Google user profile (requiring phone, name, and last name verification)
+// Complete Google user profile - tymczasowo wyłączone
+/*
 router.put(
   '/complete-google-profile',
   auth,
@@ -42,6 +53,7 @@ router.put(
   ],
   authController.completeGoogleUserProfile
 );
+*/
 
 // Sprawdzanie czy email istnieje
 router.post('/check-email', validationController.checkEmailExists);
@@ -94,10 +106,13 @@ router.post(
 );
 
 // Wylogowanie użytkownika
-router.post('/logout', authController.logout);
+router.post('/logout', authController.logoutUser);
 
 // Sprawdzanie stanu autoryzacji
 router.get('/check-auth', auth, authController.checkAuth);
+
+// Odświeżanie tokenu dostępu za pomocą refresh tokenu
+router.post('/refresh-token', authController.refreshToken);
 
 // Wysyłanie kodu SMS 2FA
 router.post('/send-2fa', verificationController.send2FACode);
@@ -107,6 +122,9 @@ router.post('/verify-2fa', verificationController.verify2FACode);
 
 // Weryfikacja kodu email
 router.post('/verify-email', verificationController.verifyEmailCode);
+
+// Wysyłanie kodu weryfikacyjnego podczas rejestracji
+router.post('/send-registration-code', authController.sendRegistrationCode);
 
 // Weryfikacja kodu podczas rejestracji
 router.post('/verify-code', authController.verifyCode);

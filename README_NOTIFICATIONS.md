@@ -55,9 +55,17 @@ System obsługuje następujące typy powiadomień:
 3. **`payment_completed`** - płatność zrealizowana
 4. **`listing_added`** - ogłoszenie dodane
 5. **`listing_expiring`** - ogłoszenie się kończy
-6. **`listing_status_changed`** - zmiana statusu ogłoszenia
-7. **`new_comment`** - nowy komentarz do ogłoszenia
-8. **`system_notification`** - powiadomienie systemowe
+6. **`listing_expired`** - ogłoszenie wygasło
+7. **`listing_status_changed`** - zmiana statusu ogłoszenia
+8. **`listing_viewed`** - ogłoszenie zostało wyświetlone
+9. **`new_comment`** - nowy komentarz do ogłoszenia
+10. **`comment_reply`** - odpowiedź na komentarz
+11. **`payment_failed`** - płatność nieudana
+12. **`payment_refunded`** - zwrot płatności
+13. **`account_activity`** - aktywność na koncie
+14. **`profile_viewed`** - wyświetlenie profilu
+15. **`system_notification`** - powiadomienie systemowe
+16. **`maintenance_notification`** - powiadomienie o konserwacji systemu
 
 Każdy typ powiadomienia ma przypisany szablon wiadomości w pliku `utils/notificationTypes.js`.
 

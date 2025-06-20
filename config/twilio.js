@@ -25,6 +25,30 @@ export const sendVerificationCode = async (phone, code) => {
 };
 
 /**
+ * Symulacja weryfikacji kodu SMS
+ * @param {string} phone - Numer telefonu
+ * @param {string} code - Kod do weryfikacji
+ * @returns {Promise<object>} - Obiekt z wynikiem weryfikacji
+ */
+export const verifyCode = async (phone, code) => {
+  console.log('====================================');
+  console.log(`SYMULACJA TWILIO: Weryfikacja kodu ${code} dla numeru ${phone}`);
+  console.log('====================================');
+  
+  // Symulacja opóźnienia
+  await new Promise(resolve => setTimeout(resolve, 300));
+  
+  // Symulacja weryfikacji (zawsze zwraca sukces dla kodu 4-cyfrowego)
+  const isValid = code && code.length === 4 && /^\d+$/.test(code);
+  
+  return {
+    valid: isValid,
+    status: isValid ? 'approved' : 'denied',
+    phone: phone
+  };
+};
+
+/**
  * Symulacja wysyłania wiadomości powitalnej
  * @param {string} phone - Numer telefonu odbiorcy
  * @param {string} name - Imię użytkownika
@@ -52,5 +76,6 @@ export const sendWelcomeMessage = async (phone, name) => {
 // Eksportowanie funkcji jako domyślnych
 export default {
   sendVerificationCode,
+  verifyCode,
   sendWelcomeMessage
 };

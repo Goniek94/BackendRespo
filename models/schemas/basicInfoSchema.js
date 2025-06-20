@@ -92,6 +92,9 @@ const basicInfoSchema = new mongoose.Schema({
   images: [{
     type: String
   }],
+  cloudinaryIds: [{
+    type: String
+  }],
   mainImageIndex: {
     type: Number,
     default: 0

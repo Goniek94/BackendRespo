@@ -1,6 +1,6 @@
 import express from 'express';
-import auth from '../middleware/auth.js';
 import jwt from 'jsonwebtoken';
+import auth from '../middleware/auth.js';
 import notificationService from '../controllers/notificationController.js';
 import Notification from '../models/notification.js';
 
@@ -71,6 +71,73 @@ testRouter.post('/send', async (req, res) => {
           data.adTitle || 'Ogłoszenie',
           data.daysLeft || 3,
           data.adId || null
+        );
+        break;
+        
+      case 'listing_expired':
+        notification = await notificationService.notifyAdExpired(
+          userId,
+          data.adTitle || 'Ogłoszenie',
+          data.adId || null
+        );
+        break;
+        
+      case 'listing_viewed':
+        notification = await notificationService.notifyAdViewed(
+          userId,
+          data.adTitle || 'Ogłoszenie',
+          data.viewCount || null,
+          data.adId || null
+        );
+        break;
+        
+      case 'comment_reply':
+        notification = await notificationService.notifyCommentReply(
+          userId,
+          data.adTitle || 'Ogłoszenie',
+          data.adId || null,
+          data.commentId || null
+        );
+        break;
+        
+      case 'payment_failed':
+        notification = await notificationService.notifyPaymentFailed(
+          userId,
+          data.reason || null,
+          data.metadata || {}
+        );
+        break;
+        
+      case 'payment_refunded':
+        notification = await notificationService.notifyPaymentRefunded(
+          userId,
+          data.amount || null,
+          data.metadata || {}
+        );
+        break;
+        
+      case 'account_activity':
+        notification = await notificationService.notifyAccountActivity(
+          userId,
+          data.activity || 'Nieznana aktywność',
+          data.metadata || {}
+        );
+        break;
+        
+      case 'profile_viewed':
+        notification = await notificationService.notifyProfileViewed(
+          userId,
+          data.viewerName || null,
+          data.metadata || {}
+        );
+        break;
+        
+      case 'maintenance_notification':
+        notification = await notificationService.notifyMaintenance(
+          userId,
+          data.message || 'Planowana konserwacja systemu',
+          data.scheduledTime || null,
+          data.metadata || {}
         );
         break;
         

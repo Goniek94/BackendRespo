@@ -1,20 +1,84 @@
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import crypto from 'crypto';
 import adminConfig from '../config/adminConfig.js';
 import { addToBlacklist, isBlacklisted } from '../models/TokenBlacklist.js';
+import User from '../models/user.js';
 
 dotenv.config();
+
+// Pobierz sekret JWT z zmiennych środowiskowych lub użyj domyślnego (tylko dla dev)
+const JWT_SECRET = process.env.JWT_SECRET || 'tajnyKluczJWT123';
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'refreshSecretKey456';
+
+// Czas życia tokenów
+const ACCESS_TOKEN_EXPIRY = '1h'; // 1 godzina
+const REFRESH_TOKEN_EXPIRY = '7d'; // 7 dni
+const INACTIVITY_LIMIT = 15 * 60 * 1000; // 15 minut w milisekundach
+
+/**
+ * Generuje nowy token dostępu
+ * @param {Object} payload - Dane do zapisania w tokenie
+ * @returns {string} - Wygenerowany token JWT
+ */
+const generateAccessToken = (payload) => {
+  return jwt.sign(
+    { 
+      ...payload,
+      type: 'access',
+      iat: Math.floor(Date.now() / 1000),
+      lastActivity: Date.now()
+    }, 
+    JWT_SECRET, 
+    { 
+      expiresIn: ACCESS_TOKEN_EXPIRY,
+      // Dodajemy standardowe pola JWT dla bezpieczeństwa
+      audience: 'marketplace-users',
+      issuer: 'marketplace-api',
+      subject: payload.userId.toString()
+    }
+  );
+};
+
+/**
+ * Generuje nowy token odświeżający
+ * @param {Object} payload - Dane do zapisania w tokenie
+ * @returns {string} - Wygenerowany token JWT
+ */
+const generateRefreshToken = (payload) => {
+  // Generujemy unikalny identyfikator tokenu
+  const tokenId = crypto.randomBytes(16).toString('hex');
+  
+  return jwt.sign(
+    { 
+      ...payload,
+      type: 'refresh',
+      iat: Math.floor(Date.now() / 1000),
+      jti: tokenId // Unikalny identyfikator tokenu w payloadzie
+    }, 
+    JWT_REFRESH_SECRET, 
+    { 
+      expiresIn: REFRESH_TOKEN_EXPIRY,
+      // Dodajemy standardowe pola JWT dla bezpieczeństwa
+      audience: 'marketplace-users',
+      issuer: 'marketplace-api',
+      subject: payload.userId.toString()
+    }
+  );
+};
 
 /**
  * Middleware do uwierzytelniania użytkowników
  * Sprawdza token JWT w ciasteczku lub nagłówku Authorization
  * Weryfikuje token i sprawdza czas ostatniej aktywności
+ * Obsługuje refresh tokeny i automatyczne odświeżanie
  * 
  * Authentication middleware
  * Checks JWT token in cookie or Authorization header
  * Verifies token and checks last activity time
+ * Handles refresh tokens and automatic token refresh
  */
-const authMiddleware = (req, res, next) => {
+const authMiddleware = async (req, res, next) => {
   try {
     console.log('Auth middleware - sprawdzam endpoint:', req.originalUrl);
 
@@ -47,73 +111,166 @@ const authMiddleware = (req, res, next) => {
       return res.status(401).json({ message: 'Brak autoryzacji. Wymagane zalogowanie.' });
     }
 
-    // Token blacklist check
-    if (isBlacklisted(token)) {
+    // Token blacklist check - teraz asynchronicznie
+    const isTokenBlacklisted = await isBlacklisted(token);
+    if (isTokenBlacklisted) {
       console.log(`[SECURITY] 401 Unauthorized (blacklisted token) IP: ${req.ip}`);
       return res.status(401).json({ message: 'Token unieważniony. Zaloguj się ponownie.', code: 'TOKEN_BLACKLISTED' });
     }
-
-    const JWT_SECRET = process.env.JWT_SECRET || 'tajnyKluczJWT123';
 
     console.log('Weryfikuję token JWT');
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
       
-      // Sprawdź czas ostatniej aktywności (15 minut = 900000 ms)
-      const inactivityLimit = 15 * 60 * 1000; // 15 minut w milisekundach
+      // Sprawdzamy czy to token dostępu
+      if (decoded.type !== 'access') {
+        console.log('Nieprawidłowy typ tokenu');
+        return res.status(401).json({ 
+          message: 'Nieprawidłowy typ tokenu.',
+          code: 'INVALID_TOKEN_TYPE'
+        });
+      }
+      
+      // Sprawdź czas ostatniej aktywności
       const currentTime = Date.now();
       const lastActivity = decoded.lastActivity || 0;
 
       // Jeśli minęło więcej niż 15 minut od ostatniej aktywności
-      if (currentTime - lastActivity > inactivityLimit) {
+      if (currentTime - lastActivity > INACTIVITY_LIMIT) {
         console.log('Sesja wygasła z powodu braku aktywności');
         console.log(`[SECURITY] 401 SESSION_INACTIVE userId: ${decoded.userId} IP: ${req.ip}`);
-        return res.status(401).json({ 
-          message: 'Sesja wygasła z powodu braku aktywności. Zaloguj się ponownie.',
-          code: 'SESSION_INACTIVE'
-        });
+        
+        // Sprawdź czy mamy refresh token
+        const refreshToken = req.cookies?.refreshToken;
+        if (!refreshToken) {
+          return res.status(401).json({ 
+            message: 'Sesja wygasła z powodu braku aktywności. Zaloguj się ponownie.',
+            code: 'SESSION_INACTIVE'
+          });
+        }
+        
+        // Próba odświeżenia sesji za pomocą refresh tokenu
+        try {
+          const refreshDecoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+          
+          // Sprawdź czy refresh token nie jest na blackliście
+          const isRefreshBlacklisted = await isBlacklisted(refreshToken);
+          if (isRefreshBlacklisted) {
+            return res.status(401).json({ 
+              message: 'Token odświeżający unieważniony. Zaloguj się ponownie.',
+              code: 'REFRESH_TOKEN_BLACKLISTED'
+            });
+          }
+          
+          // Sprawdź czy użytkownik istnieje
+          const user = await User.findById(refreshDecoded.userId);
+          if (!user) {
+            return res.status(401).json({ 
+              message: 'Użytkownik nie istnieje.',
+              code: 'USER_NOT_FOUND'
+            });
+          }
+          
+          // Generuj nowy token dostępu
+          const newAccessToken = generateAccessToken({
+            userId: user._id,
+            role: user.role || 'user'
+          });
+          
+          // Generuj nowy refresh token
+          const newRefreshToken = generateRefreshToken({
+            userId: user._id,
+            role: user.role || 'user'
+          });
+          
+          // Dodaj stary refresh token do blacklisty
+          await addToBlacklist(refreshToken, {
+            reason: 'ROTATION',
+            userId: user._id
+          });
+          
+          // Ustaw nowe tokeny w ciasteczkach
+          res.cookie('token', newAccessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            path: '/',
+            maxAge: 3600000 // 1 godzina
+          });
+          
+          res.cookie('refreshToken', newRefreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            path: '/',
+            maxAge: 7 * 24 * 3600000 // 7 dni
+          });
+          
+          // Zapisujemy dane użytkownika w req.user
+          req.user = {
+            userId: user._id,
+            role: user.role || 'user',
+            isAdmin: user.role === 'admin',
+            isModerator: user.role === 'moderator' || user.role === 'admin',
+            permissions: user.role === 'admin' 
+              ? adminConfig.adminPermissions 
+              : user.role === 'moderator' 
+                ? adminConfig.moderatorPermissions 
+                : {}
+          };
+          
+          console.log('Sesja odświeżona za pomocą refresh tokenu');
+          next();
+        } catch (refreshError) {
+          console.error('Błąd odświeżania sesji:', refreshError);
+          return res.status(401).json({ 
+            message: 'Sesja wygasła. Zaloguj się ponownie.',
+            code: 'SESSION_EXPIRED'
+          });
+        }
+        return;
       }
 
-      // Preemptive refresh: jeśli do końca ważności tokena zostało <3 min, odśwież token
-      const refreshThreshold = 3 * 60 * 1000; // 3 minuty
-      let updatedToken = null;
-      if (currentTime - lastActivity > inactivityLimit - refreshThreshold) {
-        updatedToken = jwt.sign(
-          { 
-            userId: decoded.userId,
-            role: decoded.role || 'user',
-            lastActivity: currentTime
-          }, 
-          JWT_SECRET, 
-          { expiresIn: '24h' }
-        );
+      // Preemptive refresh: jeśli do końca ważności tokena zostało <10 min, odśwież token
+      const refreshThreshold = 10 * 60 * 1000; // 10 minut
+      const tokenExp = decoded.exp * 1000; // exp jest w sekundach, konwertujemy na ms
+      
+      if (tokenExp - currentTime < refreshThreshold) {
+        console.log('Preemptive refresh - token wygasa za mniej niż 10 minut');
+        
+        // Generuj nowy token dostępu
+        const newAccessToken = generateAccessToken({
+          userId: decoded.userId,
+          role: decoded.role || 'user'
+        });
+        
         // Dodaj stary token do blacklisty (rotacja)
-        addToBlacklist(token);
+        await addToBlacklist(token, {
+          reason: 'ROTATION',
+          userId: decoded.userId
+        });
+        
         // Ustaw nowy token w ciasteczku
-        res.cookie('token', updatedToken, {
+        res.cookie('token', newAccessToken, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'strict',
           path: '/',
-          maxAge: 86400000 // 24 godziny w milisekundach
+          maxAge: 3600000 // 1 godzina
         });
       } else {
         // Standardowe odświeżenie lastActivity (nie rotujemy tokena jeśli nie trzeba)
-        updatedToken = jwt.sign(
-          { 
-            userId: decoded.userId,
-            role: decoded.role || 'user',
-            lastActivity: currentTime
-          }, 
-          JWT_SECRET, 
-          { expiresIn: '24h' }
-        );
+        const updatedToken = generateAccessToken({
+          userId: decoded.userId,
+          role: decoded.role || 'user'
+        });
+        
         res.cookie('token', updatedToken, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'strict',
           path: '/',
-          maxAge: 86400000 // 24 godziny w milisekundach
+          maxAge: 3600000 // 1 godzina
         });
       }
       
@@ -151,11 +308,97 @@ const authMiddleware = (req, res, next) => {
       } catch {}
       console.log(`[SECURITY] 401 JWT error: ${jwtError.message} userId: ${userId} IP: ${req.ip}`);
 
+      // Jeśli token wygasł, spróbuj użyć refresh tokenu
       if (jwtError.name === 'TokenExpiredError') {
-        return res.status(401).json({ 
-          message: 'Token wygasł. Zaloguj się ponownie.',
-          code: 'TOKEN_EXPIRED'
-        });
+        const refreshToken = req.cookies?.refreshToken;
+        
+        if (!refreshToken) {
+          return res.status(401).json({ 
+            message: 'Token wygasł. Zaloguj się ponownie.',
+            code: 'TOKEN_EXPIRED'
+          });
+        }
+        
+        // Próba odświeżenia sesji za pomocą refresh tokenu
+        try {
+          const refreshDecoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+          
+          // Sprawdź czy refresh token nie jest na blackliście
+          const isRefreshBlacklisted = await isBlacklisted(refreshToken);
+          if (isRefreshBlacklisted) {
+            return res.status(401).json({ 
+              message: 'Token odświeżający unieważniony. Zaloguj się ponownie.',
+              code: 'REFRESH_TOKEN_BLACKLISTED'
+            });
+          }
+          
+          // Sprawdź czy użytkownik istnieje
+          const user = await User.findById(refreshDecoded.userId);
+          if (!user) {
+            return res.status(401).json({ 
+              message: 'Użytkownik nie istnieje.',
+              code: 'USER_NOT_FOUND'
+            });
+          }
+          
+          // Generuj nowy token dostępu
+          const newAccessToken = generateAccessToken({
+            userId: user._id,
+            role: user.role || 'user'
+          });
+          
+          // Generuj nowy refresh token
+          const newRefreshToken = generateRefreshToken({
+            userId: user._id,
+            role: user.role || 'user'
+          });
+          
+          // Dodaj stary refresh token do blacklisty
+          await addToBlacklist(refreshToken, {
+            reason: 'ROTATION',
+            userId: user._id
+          });
+          
+          // Ustaw nowe tokeny w ciasteczkach
+          res.cookie('token', newAccessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            path: '/',
+            maxAge: 3600000 // 1 godzina
+          });
+          
+          res.cookie('refreshToken', newRefreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            path: '/',
+            maxAge: 7 * 24 * 3600000 // 7 dni
+          });
+          
+          // Zapisujemy dane użytkownika w req.user
+          req.user = {
+            userId: user._id,
+            role: user.role || 'user',
+            isAdmin: user.role === 'admin',
+            isModerator: user.role === 'moderator' || user.role === 'admin',
+            permissions: user.role === 'admin' 
+              ? adminConfig.adminPermissions 
+              : user.role === 'moderator' 
+                ? adminConfig.moderatorPermissions 
+                : {}
+          };
+          
+          console.log('Sesja odświeżona za pomocą refresh tokenu po wygaśnięciu tokenu dostępu');
+          next();
+        } catch (refreshError) {
+          console.error('Błąd odświeżania sesji:', refreshError);
+          return res.status(401).json({ 
+            message: 'Sesja wygasła. Zaloguj się ponownie.',
+            code: 'SESSION_EXPIRED'
+          });
+        }
+        return;
       }
 
       return res.status(401).json({ 
@@ -169,4 +412,6 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
+// Eksportujemy middleware i funkcje pomocnicze
+export { generateAccessToken, generateRefreshToken };
 export default authMiddleware;

@@ -141,6 +141,14 @@
                                 <option value="payment_completed">Płatność zrealizowana</option>
                                 <option value="listing_added">Ogłoszenie dodane</option>
                                 <option value="listing_expiring">Ogłoszenie się kończy</option>
+                                <option value="listing_expired">Ogłoszenie wygasło</option>
+                                <option value="listing_viewed">Ogłoszenie wyświetlone</option>
+                                <option value="comment_reply">Odpowiedź na komentarz</option>
+                                <option value="payment_failed">Płatność nieudana</option>
+                                <option value="payment_refunded">Zwrot płatności</option>
+                                <option value="account_activity">Aktywność na koncie</option>
+                                <option value="profile_viewed">Wyświetlenie profilu</option>
+                                <option value="maintenance_notification">Konserwacja systemu</option>
                             </select>
                         </div>
                         <div class="mb-3">
@@ -618,6 +626,22 @@
                         return 'Ogłoszenie dodane';
                     case 'listing_expiring':
                         return 'Ogłoszenie się kończy';
+                    case 'listing_expired':
+                        return 'Ogłoszenie wygasło';
+                    case 'listing_viewed':
+                        return 'Ogłoszenie wyświetlone';
+                    case 'comment_reply':
+                        return 'Odpowiedź na komentarz';
+                    case 'payment_failed':
+                        return 'Płatność nieudana';
+                    case 'payment_refunded':
+                        return 'Zwrot płatności';
+                    case 'account_activity':
+                        return 'Aktywność na koncie';
+                    case 'profile_viewed':
+                        return 'Wyświetlenie profilu';
+                    case 'maintenance_notification':
+                        return 'Konserwacja systemu';
                     default:
                         return 'Powiadomienie';
                 }
@@ -635,6 +659,22 @@
                     case 'listing_added':
                         return 'info';
                     case 'listing_expiring':
+                        return 'warning';
+                    case 'listing_expired':
+                        return 'danger';
+                    case 'listing_viewed':
+                        return 'info';
+                    case 'comment_reply':
+                        return 'primary';
+                    case 'payment_failed':
+                        return 'danger';
+                    case 'payment_refunded':
+                        return 'warning';
+                    case 'account_activity':
+                        return 'info';
+                    case 'profile_viewed':
+                        return 'info';
+                    case 'maintenance_notification':
                         return 'warning';
                     default:
                         return 'info';

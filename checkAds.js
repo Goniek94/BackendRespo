@@ -15,9 +15,9 @@ async function compareAds() {
   // Pobierz wszystkie ogłoszenia
   const allAds = await Ad.find({});
   // Znajdź ogłoszenie, które jest wyświetlane (listingType: 'standardowe')
-  const displayed = allAds.find(ad => ad.listingType === 'standardowe');
+  const displayed = allAds.find(ad => ad.listingType === 'standardowe' && ad.status === 'active');
   // Znajdź ogłoszenia, które się nie wyświetlają (listingType: 'wyróżnione')
-  const notDisplayed = allAds.filter(ad => ad.listingType === 'wyróżnione');
+  const notDisplayed = allAds.filter(ad => ad.listingType === 'wyróżnione' && ad.status === 'active');
 
   console.log('OGŁOSZENIE WYŚWIETLANE:');
   if (displayed) {

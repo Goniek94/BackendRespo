@@ -213,6 +213,139 @@ class NotificationService {
     
     return this.createNotification(userId, message, NotificationType.NEW_COMMENT, metadata);
   }
+
+  /**
+   * Tworzy powiadomienie o odpowiedzi na komentarz
+   * @param {string} userId - ID użytkownika
+   * @param {string} adTitle - Tytuł ogłoszenia
+   * @param {string} adId - ID ogłoszenia (opcjonalne)
+   * @param {string} commentId - ID komentarza (opcjonalne)
+   * @returns {Promise<Object>} - Utworzone powiadomienie
+   */
+  async notifyCommentReply(userId, adTitle, adId = null, commentId = null) {
+    const message = notificationTemplates[NotificationType.COMMENT_REPLY](adTitle);
+    const metadata = {
+      ...(adId ? { adId } : {}),
+      ...(commentId ? { commentId } : {})
+    };
+    
+    return this.createNotification(userId, message, NotificationType.COMMENT_REPLY, metadata);
+  }
+
+  /**
+   * Tworzy powiadomienie o wygaśnięciu ogłoszenia
+   * @param {string} userId - ID użytkownika
+   * @param {string} adTitle - Tytuł ogłoszenia
+   * @param {string} adId - ID ogłoszenia (opcjonalne)
+   * @returns {Promise<Object>} - Utworzone powiadomienie
+   */
+  async notifyAdExpired(userId, adTitle, adId = null) {
+    const message = notificationTemplates[NotificationType.LISTING_EXPIRED](adTitle);
+    const metadata = adId ? { adId } : {};
+    
+    return this.createNotification(userId, message, NotificationType.LISTING_EXPIRED, metadata);
+  }
+
+  /**
+   * Tworzy powiadomienie o wyświetleniu ogłoszenia
+   * @param {string} userId - ID użytkownika
+   * @param {string} adTitle - Tytuł ogłoszenia
+   * @param {number} viewCount - Liczba wyświetleń (opcjonalnie)
+   * @param {string} adId - ID ogłoszenia (opcjonalne)
+   * @returns {Promise<Object>} - Utworzone powiadomienie
+   */
+  async notifyAdViewed(userId, adTitle, viewCount = null, adId = null) {
+    const message = notificationTemplates[NotificationType.LISTING_VIEWED](adTitle, viewCount);
+    const metadata = {
+      ...(adId ? { adId } : {}),
+      ...(viewCount ? { viewCount } : {})
+    };
+    
+    return this.createNotification(userId, message, NotificationType.LISTING_VIEWED, metadata);
+  }
+
+  /**
+   * Tworzy powiadomienie o nieudanej płatności
+   * @param {string} userId - ID użytkownika
+   * @param {string} reason - Powód niepowodzenia (opcjonalnie)
+   * @param {Object} metadata - Dodatkowe dane (opcjonalnie)
+   * @returns {Promise<Object>} - Utworzone powiadomienie
+   */
+  async notifyPaymentFailed(userId, reason = null, metadata = {}) {
+    const message = notificationTemplates[NotificationType.PAYMENT_FAILED](reason);
+    
+    if (reason) {
+      metadata.reason = reason;
+    }
+    
+    return this.createNotification(userId, message, NotificationType.PAYMENT_FAILED, metadata);
+  }
+
+  /**
+   * Tworzy powiadomienie o zwrocie płatności
+   * @param {string} userId - ID użytkownika
+   * @param {string} amount - Kwota zwrotu (opcjonalnie)
+   * @param {Object} metadata - Dodatkowe dane (opcjonalnie)
+   * @returns {Promise<Object>} - Utworzone powiadomienie
+   */
+  async notifyPaymentRefunded(userId, amount = null, metadata = {}) {
+    const message = notificationTemplates[NotificationType.PAYMENT_REFUNDED](amount);
+    
+    if (amount) {
+      metadata.amount = amount;
+    }
+    
+    return this.createNotification(userId, message, NotificationType.PAYMENT_REFUNDED, metadata);
+  }
+
+  /**
+   * Tworzy powiadomienie o aktywności na koncie
+   * @param {string} userId - ID użytkownika
+   * @param {string} activity - Rodzaj aktywności
+   * @param {Object} metadata - Dodatkowe dane (opcjonalnie)
+   * @returns {Promise<Object>} - Utworzone powiadomienie
+   */
+  async notifyAccountActivity(userId, activity, metadata = {}) {
+    const message = notificationTemplates[NotificationType.ACCOUNT_ACTIVITY](activity);
+    metadata.activity = activity;
+    
+    return this.createNotification(userId, message, NotificationType.ACCOUNT_ACTIVITY, metadata);
+  }
+
+  /**
+   * Tworzy powiadomienie o wyświetleniu profilu
+   * @param {string} userId - ID użytkownika
+   * @param {string} viewerName - Nazwa osoby przeglądającej profil (opcjonalnie)
+   * @param {Object} metadata - Dodatkowe dane (opcjonalnie)
+   * @returns {Promise<Object>} - Utworzone powiadomienie
+   */
+  async notifyProfileViewed(userId, viewerName = null, metadata = {}) {
+    const message = notificationTemplates[NotificationType.PROFILE_VIEWED](viewerName);
+    
+    if (viewerName) {
+      metadata.viewerName = viewerName;
+    }
+    
+    return this.createNotification(userId, message, NotificationType.PROFILE_VIEWED, metadata);
+  }
+
+  /**
+   * Tworzy powiadomienie o konserwacji systemu
+   * @param {string} userId - ID użytkownika
+   * @param {string} message - Treść powiadomienia
+   * @param {string} scheduledTime - Planowany czas konserwacji (opcjonalnie)
+   * @param {Object} metadata - Dodatkowe dane (opcjonalnie)
+   * @returns {Promise<Object>} - Utworzone powiadomienie
+   */
+  async notifyMaintenance(userId, message, scheduledTime = null, metadata = {}) {
+    const notificationMessage = notificationTemplates[NotificationType.MAINTENANCE_NOTIFICATION](message, scheduledTime);
+    
+    if (scheduledTime) {
+      metadata.scheduledTime = scheduledTime;
+    }
+    
+    return this.createNotification(userId, notificationMessage, NotificationType.MAINTENANCE_NOTIFICATION, metadata);
+  }
   
   /**
    * Pobiera nieprzeczytane powiadomienia użytkownika
@@ -334,5 +467,5 @@ class NotificationService {
 }
 
 // Eksport instancji serwisu jako singleton
-const notificationService = new NotificationService();
+export const notificationService = new NotificationService();
 export default notificationService;

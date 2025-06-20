@@ -27,20 +27,28 @@ const checkExpiringAds = async () => {
     // Znajdź ogłoszenia, które wygasają w ciągu najbliższych 3 dni
     // Zakładamy, że ogłoszenia mają pole expiresAt, które określa datę wygaśnięcia
     const expiringAds = await Ad.find({
-      status: 'opublikowane',
+      status: 'active',
       expiresAt: {
         $gte: now,
         $lte: threeDaysFromNow
       },
       // Pole notifiedAboutExpiration pozwala uniknąć wielokrotnego powiadamiania o tym samym ogłoszeniu
       notifiedAboutExpiration: { $ne: true }
-    });
+    }).populate('owner', 'role'); // Pobieramy rolę właściciela
     
     console.log(`Znaleziono ${expiringAds.length} ogłoszeń z kończącym się terminem ważności`);
     
     // Dla każdego ogłoszenia wyślij powiadomienie do właściciela
     for (const ad of expiringAds) {
       try {
+        // Sprawdź, czy właściciel ogłoszenia jest administratorem
+        const isAdminAd = ad.owner && ad.owner.role === 'admin';
+        
+        if (isAdminAd) {
+          console.log(`Pomijam powiadomienie dla ogłoszenia (ID: ${ad._id}) - właściciel jest administratorem`);
+          continue; // Pomijamy ogłoszenia administratorów
+        }
+        
         // Oblicz liczbę dni do wygaśnięcia
         const daysLeft = Math.ceil((ad.expiresAt - now) / (1000 * 60 * 60 * 24));
         
@@ -48,13 +56,13 @@ const checkExpiringAds = async () => {
         const adTitle = ad.headline || `${ad.brand} ${ad.model}`;
         
         // Wyślij powiadomienie
-        await notificationService.notifyAdExpiringSoon(ad.owner, adTitle, daysLeft);
+        await notificationService.notifyAdExpiringSoon(ad.owner._id, adTitle, daysLeft);
         
         // Oznacz ogłoszenie jako powiadomione
         ad.notifiedAboutExpiration = true;
         await ad.save();
         
-        console.log(`Wysłano powiadomienie o kończącym się terminie ogłoszenia ${ad._id} do użytkownika ${ad.owner}`);
+        console.log(`Wysłano powiadomienie o kończącym się terminie ogłoszenia ${ad._id} do użytkownika ${ad.owner._id}`);
       } catch (error) {
         console.error(`Błąd podczas wysyłania powiadomienia dla ogłoszenia ${ad._id}:`, error);
       }
@@ -76,26 +84,37 @@ const archiveExpiredAds = async () => {
     
     // Znajdź ogłoszenia, które wygasły
     const expiredAds = await Ad.find({
-      status: 'opublikowane',
+      status: 'active',
       expiresAt: { $lt: now }
-    });
+    }).populate('owner', 'role'); // Pobieramy rolę właściciela
     
     console.log(`Znaleziono ${expiredAds.length} wygasłych ogłoszeń do archiwizacji`);
     
     // Dla każdego ogłoszenia zmień status na "archiwalne" i wyślij powiadomienie
     for (const ad of expiredAds) {
       try {
-        // Zmień status na "archiwalne"
-        ad.status = 'archiwalne';
+        // Sprawdź, czy właściciel ogłoszenia jest administratorem
+        const isAdminAd = ad.owner && ad.owner.role === 'admin';
+        
+        if (isAdminAd) {
+          console.log(`Pomijam archiwizację ogłoszenia (ID: ${ad._id}) - właściciel jest administratorem`);
+          continue; // Pomijamy ogłoszenia administratorów
+        }
+        
+        // Zmień status na "archived"
+        ad.status = 'archived';
         await ad.save();
         
         // Tytuł ogłoszenia
         const adTitle = ad.headline || `${ad.brand} ${ad.model}`;
         
-        // Wyślij powiadomienie
-        await notificationService.notifyAdStatusChange(ad.owner, adTitle, 'archiwalne');
+        // Wyślij powiadomienie o wygaśnięciu ogłoszenia
+        await notificationService.notifyAdExpired(ad.owner._id, adTitle, ad._id.toString());
         
-        console.log(`Zarchiwizowano ogłoszenie ${ad._id} i wysłano powiadomienie do użytkownika ${ad.owner}`);
+        // Wyślij również powiadomienie o zmianie statusu
+        await notificationService.notifyAdStatusChange(ad.owner._id, adTitle, 'archived');
+        
+        console.log(`Zarchiwizowano ogłoszenie ${ad._id} i wysłano powiadomienie do użytkownika ${ad.owner._id}`);
       } catch (error) {
         console.error(`Błąd podczas archiwizacji ogłoszenia ${ad._id}:`, error);
       }

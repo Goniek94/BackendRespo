@@ -19,7 +19,12 @@ import * as settingsController from './settingsController.js';
     registerUser,
     loginUser,
     logoutUser,
-    checkAuth
+    checkAuth,
+    registerGoogleUser,
+    completeGoogleUserProfile,
+    verifyCode,
+    sendRegistrationCode,
+    refreshToken
   } = authController;
 
   export const {
@@ -30,7 +35,9 @@ import * as settingsController from './settingsController.js';
   export const {
     send2FACode,
     verify2FACode,
-    verifyEmailCode
+    verifyEmailCode,
+    sendVerificationCode,
+    verifyVerificationCode
   } = verificationController;
 
   export const {

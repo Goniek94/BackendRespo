@@ -17,12 +17,11 @@ export const getAds = async (req, res) => {
       page = 1, 
       limit = 10, 
       search = '', 
-      status, 
-      category,
-      featured,
+      status,
+      listingType,
       userId,
-      sortBy = 'createdAt', 
-      sortOrder = 'desc' 
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
     } = req.query;
     
     // Przygotuj zapytanie / Prepare query
@@ -33,14 +32,9 @@ export const getAds = async (req, res) => {
       query.status = status;
     }
     
-    // Filtrowanie po kategorii / Filter by category
-    if (category) {
-      query.category = category;
-    }
-    
-    // Filtrowanie po wyróżnieniu / Filter by featured status
-    if (featured !== undefined) {
-      query.featured = featured === 'true';
+    // Filtrowanie po typie ogłoszenia / Filter by listing type
+    if (listingType) {
+      query.listingType = listingType;
     }
     
     // Filtrowanie po użytkowniku / Filter by user
@@ -109,13 +103,13 @@ export const getAdDetails = async (req, res) => {
 };
 
 /**
- * Aktualizuje ogłoszenie (status, wyróżnienie, zniżka)
- * Updates an ad (status, featured status, discount)
+ * Aktualizuje ogłoszenie (status, typ ogłoszenia, zniżka)
+ * Updates an ad (status, listing type, discount)
  */
 export const updateAd = async (req, res) => {
   try {
     const { adId } = req.params;
-    const { status, featured, discount, title, description, price } = req.body;
+    const { status, listingType, discount, title, description, price } = req.body;
     
     // Sprawdź czy ogłoszenie istnieje / Check if ad exists
     const ad = await Ad.findById(adId);
@@ -125,7 +119,7 @@ export const updateAd = async (req, res) => {
     
     // Aktualizuj dane / Update data
     if (status !== undefined) ad.status = status;
-    if (featured !== undefined) ad.featured = featured;
+    if (listingType !== undefined) ad.listingType = listingType;
     if (discount !== undefined) ad.discount = discount;
     if (title !== undefined) ad.title = title;
     if (description !== undefined) ad.description = description;

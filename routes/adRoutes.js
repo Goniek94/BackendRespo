@@ -667,15 +667,50 @@ router.post('/rotated/refresh', auth, async (req, res, next) => {
       drive: 1,
       doors: 1,
       weight: 1,
-      createdAt: 1
+      createdAt: 1,
+      cloudinaryIds: 1
     })
     .sort({ createdAt: -1 })
     .limit(100);
     
     console.log('Wszystkie ogłoszenia przed filtrowaniem (refresh):', allAds.map(ad => ({ id: ad._id, listingType: ad.listingType, status: ad.status })));
     
+    // Sprawdź i przekształć zdjęcia dla każdego ogłoszenia, aby upewnić się, że używamy tylko zdjęć z Cloudinary
+    const adsWithValidImages = allAds.map(ad => {
+      const adObj = ad.toObject();
+      
+      // Sprawdź, czy ogłoszenie ma zdjęcia
+      if (!adObj.images || adObj.images.length === 0) {
+        console.log(`Ogłoszenie ${adObj._id} nie ma zdjęć`);
+        adObj.images = []; // Ustaw pustą tablicę, aby uniknąć błędów
+        return adObj;
+      }
+      
+      // Przefiltruj obrazy, zatrzymując tylko te z Cloudinary
+      const cloudinaryImages = adObj.images.filter(imageUrl => {
+        if (!imageUrl) return false;
+        return imageUrl.includes('res.cloudinary.com');
+      });
+      
+      // Jeśli mamy zdjęcia Cloudinary, użyj ich
+      if (cloudinaryImages.length > 0) {
+        console.log(`Ogłoszenie ${adObj._id} ma ${cloudinaryImages.length} zdjęć Cloudinary`);
+        adObj.images = cloudinaryImages;
+      } else {
+        console.log(`Ogłoszenie ${adObj._id} nie ma zdjęć Cloudinary, używam domyślnego`);
+        // Jeśli nie ma zdjęć Cloudinary, ustaw pustą tablicę
+        adObj.images = [];
+      }
+      
+      return adObj;
+    });
+    
+    // Odfiltruj ogłoszenia bez zdjęć
+    const adsWithImages = adsWithValidImages.filter(ad => ad.images.length > 0);
+    console.log(`Po filtrowaniu zdjęć: ${adsWithImages.length} ogłoszeń z poprawnymi zdjęciami`);
+
     // Bardziej elastyczne filtrowanie - uwzględnia różne możliwe wartości pola listingType
-    const featuredAds = allAds.filter(ad => {
+    const featuredAds = adsWithImages.filter(ad => {
       // Sprawdź różne możliwe wartości dla wyróżnionych ogłoszeń
       if (!ad.listingType) return false;
       
@@ -695,7 +730,7 @@ router.post('/rotated/refresh', auth, async (req, res, next) => {
     });
     
     // Wszystkie pozostałe ogłoszenia traktuj jako standardowe
-    const standardAds = allAds.filter(ad => !featuredAds.some(featured => featured._id.toString() === ad._id.toString()));
+    const standardAds = adsWithImages.filter(ad => !featuredAds.some(featured => featured._id.toString() === ad._id.toString()));
     
     console.log('Wyróżnione ogłoszenia po filtrowaniu (refresh):', featuredAds.length, featuredAds.map(ad => ad._id));
     console.log('Standardowe ogłoszenia po filtrowaniu (refresh):', standardAds.length, standardAds.map(ad => ad._id));

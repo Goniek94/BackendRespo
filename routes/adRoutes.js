@@ -810,6 +810,7 @@ router.post('/add', auth, createAdLimiter, upload.array('images', 10), uploadToC
       ownerLastName: user.lastName,
       ownerEmail: user.email,
       ownerPhone: user.phoneNumber,
+      ownerRole: user.role, // Dodanie roli właściciela
       
       // Status - zawsze pending (symulacja płatności)
       status: 'pending'

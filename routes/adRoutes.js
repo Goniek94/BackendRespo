@@ -475,7 +475,6 @@ router.get('/rotated', async (req, res, next) => {
     const now = new Date();
 
     // Pobierz tylko aktywne, niewygasłe ogłoszenia
-    const now = new Date();
     const allAds = await Ad.find({
       status: 'active',
       $or: [

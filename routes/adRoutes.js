@@ -79,11 +79,11 @@ const createAdFilter = (query) => {
     if (query.mileageTo) filter.mileage.$lte = parseInt(query.mileageTo);
   }
   
-  // Status ogłoszenia - domyślnie tylko active
+  // Status ogłoszenia - domyślnie tylko opublikowane
   if (query.status) {
     filter.status = query.status;
   } else {
-    filter.status = 'active';
+    filter.status = 'opublikowane';
   }
   
   // Typ ogłoszenia
@@ -155,7 +155,12 @@ router.get('/', async (req, res, next) => {
     listingType
   } = req.query;
 
+  // Usuwamy filtr statusu, aby pokazać wszystkie ogłoszenia
   const filter = createAdFilter({ brand, model, minPrice, maxPrice, listingType });
+  delete filter.status; // Usuwamy filtr statusu, aby pokazać wszystkie ogłoszenia
+  
+  console.log('Filtr dla listy ogłoszeń:', filter);
+  
   const sortOptions = {};
   sortOptions[sortBy] = order === 'desc' ? -1 : 1;
 
@@ -209,6 +214,9 @@ router.get('/', async (req, res, next) => {
     const ads = await query;
     const totalAds = await Ad.countDocuments(filter);
 
+    console.log('Liczba znalezionych ogłoszeń:', ads.length);
+    console.log('Statusy znalezionych ogłoszeń:', ads.map(ad => ad.status));
+
     // Tymczasowe logowanie pierwszego ogłoszenia do analizy struktury
     if (ads && ads.length > 0) {
       console.log('Przykładowy rekord ogłoszenia zwracany do frontu:', ads[0]);
@@ -243,8 +251,11 @@ router.get('/search', async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 30;
     const skip = (page - 1) * limit;
 
-    // Pobieramy WSZYSTKIE aktywne ogłoszenia (nie twardo po filtrach)
-    const allAds = await Ad.find({ status: 'active' });
+    // Pobieramy WSZYSTKIE ogłoszenia bez filtrowania po statusie
+    const allAds = await Ad.find({});
+    
+    console.log('Liczba wszystkich ogłoszeń w wyszukiwarce:', allAds.length);
+    console.log('Statusy ogłoszeń w wyszukiwarce:', allAds.map(ad => ad.status));
 
     // Funkcja licząca match_score względem filtrów
     function calculateMatchScore(ad, filters) {
@@ -464,9 +475,8 @@ router.get('/rotated', async (req, res, next) => {
     const now = new Date();
 
     // Pobierz wszystkie aktywne ogłoszenia z uwzględnieniem mainImageIndex
-    const allAds = await Ad.find({ 
-      status: 'active' 
-    })
+    // Uwzględniamy wszystkie możliwe statusy ogłoszeń
+    const allAds = await Ad.find({})
     .select({
       _id: 1,
       brand: 1,
@@ -489,15 +499,18 @@ router.get('/rotated', async (req, res, next) => {
       drive: 1,
       doors: 1,
       weight: 1,
-      createdAt: 1
+      createdAt: 1,
+      status: 1
     })
-    .sort({ createdAt: -1 })
-    .limit(100);
+    .sort({ createdAt: -1 });
+
+    console.log('Wszystkie ogłoszenia:', allAds.length);
+    console.log('Statusy ogłoszeń:', allAds.map(ad => ad.status));
 
     // Bardziej elastyczne filtrowanie - uwzględnia różne możliwe wartości pola listingType
     const featuredAds = allAds.filter(ad => {
       if (!ad.listingType) return false;
-      const listingType = String(ad.listingType);
+      const listingType = String(ad.listingType).toLowerCase();
       const isFeatured = listingType === 'wyróżnione' || 
                          listingType === 'wyroznione' || 
                          listingType === 'featured' || 
@@ -512,13 +525,16 @@ router.get('/rotated', async (req, res, next) => {
     // Wszystkie pozostałe ogłoszenia traktuj jako standardowe (w tym te bez listingType)
     const standardAds = allAds.filter(ad => !featuredAds.some(featured => featured._id.toString() === ad._id.toString()));
 
-    // Wybierz ogłoszenia do poszczególnych sekcji
-    const featured = getRandomAds(featuredAds, 2); // 2 główne wyróżnione
+    console.log('Wyróżnione ogłoszenia:', featuredAds.length);
+    console.log('Standardowe ogłoszenia:', standardAds.length);
+
+    // Zwracamy wszystkie ogłoszenia bez losowego wybierania
+    const featured = featuredAds.slice(0, Math.min(2, featuredAds.length));
     const remainingFeatured = featuredAds.filter(
       ad => !featured.some(f => f._id.toString() === ad._id.toString())
     );
-    const hot = getRandomAds(remainingFeatured, 4); // 4 "gorące oferty"
-    const regular = getRandomAds(standardAds, 6); // 6 zwykłych ogłoszeń
+    const hot = remainingFeatured.slice(0, Math.min(4, remainingFeatured.length));
+    const regular = standardAds.slice(0, Math.min(6, standardAds.length));
 
     // Aktualizacja cache
     rotationCache.featured = featured;
@@ -529,12 +545,36 @@ router.get('/rotated', async (req, res, next) => {
     // Tymczasowe logowanie przykładowego ogłoszenia do analizy images
     if (featured.length > 0) {
       console.log('FEATURED[0] IMAGES:', featured[0].images);
+      console.log('FEATURED[0] DETAILS:', {
+        id: featured[0]._id,
+        brand: featured[0].brand,
+        model: featured[0].model,
+        listingType: featured[0].listingType,
+        status: featured[0].status,
+        mainImageIndex: featured[0].mainImageIndex
+      });
     }
     if (hot.length > 0) {
       console.log('HOT[0] IMAGES:', hot[0].images);
+      console.log('HOT[0] DETAILS:', {
+        id: hot[0]._id,
+        brand: hot[0].brand,
+        model: hot[0].model,
+        listingType: hot[0].listingType,
+        status: hot[0].status,
+        mainImageIndex: hot[0].mainImageIndex
+      });
     }
     if (regular.length > 0) {
       console.log('REGULAR[0] IMAGES:', regular[0].images);
+      console.log('REGULAR[0] DETAILS:', {
+        id: regular[0]._id,
+        brand: regular[0].brand,
+        model: regular[0].model,
+        listingType: regular[0].listingType,
+        status: regular[0].status,
+        mainImageIndex: regular[0].mainImageIndex
+      });
     }
 
     res.status(200).json({
@@ -561,9 +601,9 @@ router.post('/rotated/refresh', auth, async (req, res, next) => {
     // Pobierz nowe rotowane ogłoszenia
     const now = new Date();
     
-    // Pobierz wszystkie aktywne ogłoszenia z uwzględnieniem mainImageIndex
+    // Pobierz wszystkie opublikowane ogłoszenia z uwzględnieniem mainImageIndex
     const allAds = await Ad.find({ 
-      status: 'active' 
+      status: 'opublikowane'
     })
     .select({
       _id: 1,

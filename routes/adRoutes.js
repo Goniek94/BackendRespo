@@ -680,10 +680,13 @@ router.post('/rotated/refresh', auth, async (req, res, next) => {
     const adsWithValidImages = allAds.map(ad => {
       const adObj = ad.toObject();
       
+      // Domyślne zdjęcie do użycia, jeśli ogłoszenie nie ma zdjęć Cloudinary
+      const defaultImage = "https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg";
+      
       // Sprawdź, czy ogłoszenie ma zdjęcia
       if (!adObj.images || adObj.images.length === 0) {
-        console.log(`Ogłoszenie ${adObj._id} nie ma zdjęć`);
-        adObj.images = []; // Ustaw pustą tablicę, aby uniknąć błędów
+        console.log(`Ogłoszenie ${adObj._id} nie ma zdjęć, dodaję domyślne`);
+        adObj.images = [defaultImage]; // Dodaj domyślne zdjęcie
         return adObj;
       }
       
@@ -699,8 +702,8 @@ router.post('/rotated/refresh', auth, async (req, res, next) => {
         adObj.images = cloudinaryImages;
       } else {
         console.log(`Ogłoszenie ${adObj._id} nie ma zdjęć Cloudinary, używam domyślnego`);
-        // Jeśli nie ma zdjęć Cloudinary, ustaw pustą tablicę
-        adObj.images = [];
+        // Jeśli nie ma zdjęć Cloudinary, użyj domyślnego zdjęcia
+        adObj.images = [defaultImage];
       }
       
       return adObj;

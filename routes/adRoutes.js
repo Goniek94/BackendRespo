@@ -505,15 +505,50 @@ router.get('/rotated', async (req, res, next) => {
       doors: 1,
       weight: 1,
       createdAt: 1,
-      status: 1
+      status: 1,
+      cloudinaryIds: 1
     })
     .sort({ createdAt: -1 });
 
     console.log('Wszystkie ogłoszenia:', allAds.length);
     console.log('Statusy ogłoszeń:', allAds.map(ad => ad.status));
 
+    // Sprawdź i przekształć zdjęcia dla każdego ogłoszenia, aby upewnić się, że używamy tylko zdjęć z Cloudinary
+    const adsWithValidImages = allAds.map(ad => {
+      const adObj = ad.toObject();
+      
+      // Sprawdź, czy ogłoszenie ma zdjęcia
+      if (!adObj.images || adObj.images.length === 0) {
+        console.log(`Ogłoszenie ${adObj._id} nie ma zdjęć`);
+        adObj.images = []; // Ustaw pustą tablicę, aby uniknąć błędów
+        return adObj;
+      }
+      
+      // Przefiltruj obrazy, zatrzymując tylko te z Cloudinary
+      const cloudinaryImages = adObj.images.filter(imageUrl => {
+        if (!imageUrl) return false;
+        return imageUrl.includes('res.cloudinary.com');
+      });
+      
+      // Jeśli mamy zdjęcia Cloudinary, użyj ich
+      if (cloudinaryImages.length > 0) {
+        console.log(`Ogłoszenie ${adObj._id} ma ${cloudinaryImages.length} zdjęć Cloudinary`);
+        adObj.images = cloudinaryImages;
+      } else {
+        console.log(`Ogłoszenie ${adObj._id} nie ma zdjęć Cloudinary, używam domyślnego`);
+        // Jeśli nie ma zdjęć Cloudinary, ustaw pustą tablicę
+        adObj.images = [];
+      }
+      
+      return adObj;
+    });
+    
+    // Odfiltruj ogłoszenia bez zdjęć
+    const adsWithImages = adsWithValidImages.filter(ad => ad.images.length > 0);
+    console.log(`Po filtrowaniu zdjęć: ${adsWithImages.length} ogłoszeń z poprawnymi zdjęciami`);
+
     // Bardziej elastyczne filtrowanie - uwzględnia różne możliwe wartości pola listingType
-    const featuredAds = allAds.filter(ad => {
+    const featuredAds = adsWithImages.filter(ad => {
       if (!ad.listingType) return false;
       const listingType = String(ad.listingType).toLowerCase();
       const isFeatured = listingType === 'wyróżnione' || 
@@ -528,7 +563,7 @@ router.get('/rotated', async (req, res, next) => {
     });
 
     // Wszystkie pozostałe ogłoszenia traktuj jako standardowe (w tym te bez listingType)
-    const standardAds = allAds.filter(ad => !featuredAds.some(featured => featured._id.toString() === ad._id.toString()));
+    const standardAds = adsWithImages.filter(ad => !featuredAds.some(featured => featured._id.toString() === ad._id.toString()));
 
     console.log('Wyróżnione ogłoszenia:', featuredAds.length);
     console.log('Standardowe ogłoszenia:', standardAds.length);

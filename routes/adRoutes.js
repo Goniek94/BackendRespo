@@ -1051,6 +1051,59 @@ router.delete('/:id/images/:index', auth, async (req, res, next) => {
   }
 }, errorHandler);
 
+// Odnowienie wygasłego ogłoszenia
+router.post('/:id/renew', auth, async (req, res, next) => {
+  try {
+    const ad = await Ad.findById(req.params.id);
+
+    if (!ad) {
+      return res.status(404).json({ message: 'Ogłoszenie nie znalezione' });
+    }
+
+    // Sprawdź czy użytkownik jest właścicielem lub adminem
+    if (ad.owner.toString() !== req.user.userId.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Brak uprawnień do odnowienia tego ogłoszenia' });
+    }
+
+    // Sprawdź czy ogłoszenie ma status archived
+    if (ad.status !== 'archived') {
+      return res.status(400).json({ message: 'Tylko zakończone ogłoszenia mogą być odnowione' });
+    }
+
+    // Ustaw nowy termin wygaśnięcia (30 dni od teraz) - tylko dla zwykłych użytkowników
+    if (ad.ownerRole !== 'admin') {
+      const newExpiryDate = new Date();
+      newExpiryDate.setDate(newExpiryDate.getDate() + 30);
+      ad.expiresAt = newExpiryDate;
+    }
+
+    // Zmień status na active
+    ad.status = 'active';
+    
+    // Zapisz zmiany
+    await ad.save();
+
+    // Tworzenie powiadomienia o odnowieniu ogłoszenia
+    try {
+      const adTitle = ad.headline || `${ad.brand} ${ad.model}`;
+      await notificationService.notifyAdStatusChange(ad.owner.toString(), adTitle, 'odnowione');
+      console.log(`Utworzono powiadomienie o odnowieniu ogłoszenia dla użytkownika ${ad.owner}`);
+    } catch (notificationError) {
+      console.error('Błąd podczas tworzenia powiadomienia:', notificationError);
+      // Nie przerywamy głównego procesu w przypadku błędu powiadomienia
+    }
+
+    res.status(200).json({ 
+      message: 'Ogłoszenie zostało odnowione', 
+      ad,
+      expiresAt: ad.expiresAt 
+    });
+  } catch (err) {
+    console.error('Błąd podczas odnawiania ogłoszenia:', err);
+    next(err);
+  }
+}, errorHandler);
+
 // Dodawanie zdjęć do ogłoszenia
 router.post('/:id/images', auth, upload.array('images', 20), uploadToCloudinaryMiddleware, async (req, res, next) => {
   try {

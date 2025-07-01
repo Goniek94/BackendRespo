@@ -474,9 +474,15 @@ router.get('/rotated', async (req, res, next) => {
   try {
     const now = new Date();
 
-    // Pobierz wszystkie aktywne ogłoszenia z uwzględnieniem mainImageIndex
-    // Uwzględniamy wszystkie możliwe statusy ogłoszeń
-    const allAds = await Ad.find({})
+    // Pobierz tylko aktywne, niewygasłe ogłoszenia
+    const now = new Date();
+    const allAds = await Ad.find({
+      status: 'active',
+      $or: [
+        { expiresAt: { $gt: now } }, // Niewygasłe ogłoszenia
+        { expiresAt: null }          // Ogłoszenia bez daty wygaśnięcia (admin)
+      ]
+    })
     .select({
       _id: 1,
       brand: 1,

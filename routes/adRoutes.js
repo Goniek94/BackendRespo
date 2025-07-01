@@ -564,7 +564,7 @@ router.get('/rotated', async (req, res, next) => {
     });
 
     // Wszystkie pozostałe ogłoszenia traktuj jako standardowe (w tym te bez listingType)
-    const standardAds = adsWithImages.filter(ad => !featuredAds.some(featured => featured._id.toString() === ad._id.toString()));
+    const standardAds = processedAds.filter(ad => !featuredAds.some(featured => featured._id.toString() === ad._id.toString()));
 
     console.log('Wyróżnione ogłoszenia:', featuredAds.length);
     console.log('Standardowe ogłoszenia:', standardAds.length);

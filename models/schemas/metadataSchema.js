@@ -12,11 +12,22 @@ const metadataSchema = new mongoose.Schema({
   expiresAt: {
     type: Date,
     default: function() {
-      // Domyślnie ogłoszenie wygasa po 30 dniach od utworzenia
-      const date = new Date();
-      date.setDate(date.getDate() + 30);
-      return date;
+      // Sprawdzamy czy dokument jest inicjalizowany i ma pole owner
+      if (this.ownerRole === 'admin') {
+        // Ogłoszenia administratora nie wygasają
+        return null;
+      } else {
+        // Zwykłe ogłoszenia wygasają po 30 dniach od utworzenia
+        const date = new Date();
+        date.setDate(date.getDate() + 30);
+        return date;
+      }
     }
+  },
+  ownerRole: {
+    type: String,
+    enum: ['user', 'admin', 'moderator'],
+    default: 'user'
   },
   notifiedAboutExpiration: {
     type: Boolean,

@@ -999,7 +999,7 @@ router.patch('/:id/images', auth, async (req, res, next) => {
 
 // Ustawienie głównego zdjęcia ogłoszenia
 router.put('/:id/main-image', auth, async (req, res, next) => {
-  const { mainImage } = req.body;
+  const { mainImageIndex } = req.body;
 
   try {
     const ad = await Ad.findById(req.params.id);
@@ -1013,15 +1013,10 @@ router.put('/:id/main-image', auth, async (req, res, next) => {
       return res.status(403).json({ message: 'Brak uprawnień do zmiany głównego zdjęcia tego ogłoszenia' });
     }
 
-    // Sprawdź czy URL zdjęcia jest prawidłowy
-    if (!ad.images.includes(mainImage)) {
-      return res.status(400).json({ message: 'Nieprawidłowy URL zdjęcia' });
-    }
-
-    ad.mainImage = mainImage;
+    ad.mainImage = ad.images[mainImageIndex];
     await ad.save();
 
-    res.status(200).json({ message: 'Główne zdjęcie ogłoszenia zaktualizowane', ad });
+    res.status(200).json(ad);
   } catch (err) {
     next(err);
   }
@@ -1097,48 +1092,17 @@ router.get('/car-data', async (req, res, next) => {
   }
 }, errorHandler);
 
-// Usuwanie zdjęcia z ogłoszenia (teraz usuwa tylko URL z bazy danych)
+// Usuwanie zdjęcia z ogłoszenia
 router.delete('/:id/images/:index', auth, async (req, res, next) => {
   try {
     const ad = await Ad.findById(req.params.id);
-
-    if (!ad) {
-      return res.status(404).json({ message: 'Ogłoszenie nie znalezione' });
+    ad.images.splice(req.params.index, 1);
+    if (ad.mainImage === ad.images[req.params.index]) {
+      ad.mainImage = ad.images[0];
     }
-
-    // Sprawdź czy użytkownik jest właścicielem lub adminem
-    if (ad.owner.toString() !== req.user.userId.toString() && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Brak uprawnień do usuwania zdjęć z tego ogłoszenia' });
-    }
-
-    const index = parseInt(req.params.index);
-    
-    // Sprawdź czy indeks jest prawidłowy
-    if (isNaN(index) || index < 0 || index >= ad.images.length) {
-      return res.status(400).json({ message: 'Nieprawidłowy indeks zdjęcia' });
-    }
-
-    // Pobierz URL zdjęcia do usunięcia
-    const imageUrl = ad.images[index];
-    console.log(`Usuwanie URL-a zdjęcia z bazy danych: ${imageUrl}`);
-    
-    // UWAGA: Ta operacja nie usuwa pliku z Supabase.
-    // Implementacja usuwania z Supabase wymagałaby osobnego endpointu
-    // lub wywołania funkcji `deleteCarImages` z frontendu.
-
-    // Usuń zdjęcie z tablicy zdjęć ogłoszenia
-    ad.images.splice(index, 1);
-    
-    // Jeśli usunięto główne zdjęcie, ustaw nowe główne na pierwsze z listy (jeśli jakieś zostało)
-    if (ad.mainImage === imageUrl) {
-      ad.mainImage = ad.images.length > 0 ? ad.images[0] : null;
-    }
-
     await ad.save();
-
-    res.status(200).json({ message: 'Zdjęcie usunięte', ad });
+    res.json(ad);
   } catch (err) {
-    console.error('Błąd podczas usuwania zdjęcia:', err);
     next(err);
   }
 }, errorHandler);
@@ -1196,39 +1160,16 @@ router.post('/:id/renew', auth, async (req, res, next) => {
   }
 }, errorHandler);
 
-// Dodawanie zdjęć do ogłoszenia (URL-e z Supabase)
+// Dodawanie zdjęć do ogłoszenia
 router.post('/:id/images', auth, async (req, res, next) => {
   try {
-    const ad = await Ad.findById(req.params.id);
-
-    if (!ad) {
-      return res.status(404).json({ message: 'Ogłoszenie nie znalezione' });
-    }
-
-    // Sprawdź czy użytkownik jest właścicielem lub adminem
-    if (ad.owner.toString() !== req.user.userId.toString() && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Brak uprawnień do dodawania zdjęć do tego ogłoszenia' });
-    }
-
-    const { images: newImageUrls } = req.body;
-
-    if (!newImageUrls || !Array.isArray(newImageUrls) || newImageUrls.length === 0) {
-      return res.status(400).json({ message: 'Brak URL-i zdjęć w żądaniu.' });
-    }
-
-    // Sprawdź limit zdjęć
-    if (ad.images.length + newImageUrls.length > 20) {
-      return res.status(400).json({ 
-        message: `Przekroczono limit zdjęć. Maksymalnie można dodać 20 zdjęć. Obecnie masz ${ad.images.length} zdjęć.` 
-      });
-    }
-
-    // Dodaj nowe URL-e zdjęć
-    ad.images = [...ad.images, ...newImageUrls];
-
-    await ad.save();
-
-    res.status(200).json({ message: 'Zdjęcia dodane', ad });
+    const { images } = req.body;
+    const ad = await Ad.findByIdAndUpdate(
+      req.params.id,
+      { $push: { images: { $each: images } } },
+      { new: true }
+    );
+    res.json(ad);
   } catch (err) {
     next(err);
   }

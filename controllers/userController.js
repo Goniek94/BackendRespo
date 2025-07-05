@@ -1,5 +1,6 @@
 // src/controllers/userController.js
 import crypto from 'crypto';
+import mongoose from 'mongoose';
 import { sendVerificationCode } from '../config/twilio.js'; 
 import User from '../models/user.js';
 import bcrypt from 'bcryptjs';
@@ -187,42 +188,137 @@ export const loginUser = async (req, res) => {
 
   const { email, password } = req.body;
   try {
+    // Sprawdź czy baza danych jest podłączona
+    if (!mongoose.connection || mongoose.connection.readyState !== 1) {
+      console.warn('Ostrzeżenie: Baza danych nie jest podłączona podczas próby logowania.');
+      return res.status(503).json({ 
+        message: 'Usługa bazy danych jest niedostępna. Prosimy spróbować ponownie później.',
+        error: 'DB_UNAVAILABLE'
+      });
+    }
+
+    // Sprawdź użytkownika w bazie danych
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ message: 'Użytkownik nie istnieje.' });
+      return res.status(404).json({ 
+        message: 'Użytkownik nie istnieje.',
+        error: 'USER_NOT_FOUND'
+      });
+    }
+
+    // Sprawdź czy konto nie jest zablokowane
+    if (user.status === 'banned') {
+      return res.status(403).json({ 
+        message: 'Konto zostało zablokowane. Skontaktuj się z administracją.',
+        error: 'ACCOUNT_BANNED'
+      });
+    }
+
+    if (user.status === 'suspended' && user.suspendedUntil && user.suspendedUntil > new Date()) {
+      return res.status(403).json({ 
+        message: `Konto jest tymczasowo zawieszone do ${user.suspendedUntil.toLocaleDateString()}.`,
+        error: 'ACCOUNT_SUSPENDED'
+      });
     }
 
     // Sprawdź hasło
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: 'Niepoprawne hasło.' });
+      // Zwiększ licznik nieudanych prób
+      user.loginAttempts = (user.loginAttempts || 0) + 1;
+      
+      // Jeśli przekroczono limit prób, zablokuj konto tymczasowo
+      if (user.loginAttempts >= 5) {
+        user.lockUntil = new Date(Date.now() + 30 * 60 * 1000); // 30 minut
+        await user.save();
+        return res.status(403).json({ 
+          message: 'Zbyt wiele nieudanych prób logowania. Konto zostało tymczasowo zablokowane na 30 minut.',
+          error: 'ACCOUNT_LOCKED'
+        });
+      }
+      
+      await user.save();
+      return res.status(400).json({ 
+        message: 'Niepoprawne hasło.',
+        error: 'INVALID_PASSWORD',
+        attemptsLeft: 5 - user.loginAttempts
+      });
     }
     
+    // Sprawdź czy konto nie jest zablokowane czasowo
+    if (user.lockUntil && user.lockUntil > new Date()) {
+      const remainingTime = Math.ceil((user.lockUntil - new Date()) / (60 * 1000)); // w minutach
+      return res.status(403).json({ 
+        message: `Konto jest tymczasowo zablokowane. Spróbuj ponownie za ${remainingTime} minut.`,
+        error: 'ACCOUNT_LOCKED',
+        unlockTime: user.lockUntil
+      });
+    }
+    
+    // Resetujemy licznik nieudanych prób i blokadę po udanym logowaniu
+    user.loginAttempts = 0;
+    user.lockUntil = null;
+    
     // Sprawdź czy email jest na liście administratorów i aktualizuj rolę jeśli potrzeba
-    if (adminConfig.adminEmails.includes(email) && user.role !== 'admin') {
+    if (adminConfig.adminEmails && adminConfig.adminEmails.includes(email) && user.role !== 'admin') {
       console.log(`Wykryto administratora: ${email} - aktualizacja roli`);
-      user.role = adminConfig.defaultAdminRole;
-      await user.save();
+      user.role = adminConfig.defaultAdminRole || 'admin';
     }
 
+    // Zapisz zmiany w użytkowniku
+    await user.save();
+
     // Generuj token JWT z uwzględnieniem roli
+    const jwtSecret = process.env.JWT_SECRET || 'default_jwt_secret_key';
     const token = jwt.sign(
       { 
         userId: user._id,
         role: user.role,  // Dodajemy rolę do tokenu
+        type: 'access',   // Dodajemy typ tokenu
         lastActivity: Date.now() // Dodajemy timestamp ostatniej aktywności
       }, 
-      process.env.JWT_SECRET, 
-      { expiresIn: '24h' } // Zwiększamy czas ważności tokenu do 24h
+      jwtSecret, 
+      { 
+        expiresIn: '24h', // Zwiększamy czas ważności tokenu do 24h
+        audience: 'marketplace-users',
+        issuer: 'marketplace-api',
+        subject: user._id.toString()
+      }
     );
     
-    // Ustawiamy token w HttpOnly cookie
+    // Generuj refresh token
+    const refreshSecret = process.env.JWT_REFRESH_SECRET || 'default_refresh_secret_key';
+    const refreshToken = jwt.sign(
+      { 
+        userId: user._id,
+        role: user.role,
+        type: 'refresh',
+        jti: crypto.randomBytes(16).toString('hex')
+      }, 
+      refreshSecret, 
+      { 
+        expiresIn: '7d', // 7 dni
+        audience: 'marketplace-users',
+        issuer: 'marketplace-api',
+        subject: user._id.toString()
+      }
+    );
+    
+    // Ustawiamy tokeny w HttpOnly cookie
     res.cookie('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production', // Tylko HTTPS na produkcji
       sameSite: 'strict',
       path: '/',
       maxAge: 86400000 // 24 godziny w milisekundach
+    });
+    
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 7 * 24 * 3600000 // 7 dni
     });
     
     // Zwróć dane użytkownika i token
@@ -243,7 +339,10 @@ export const loginUser = async (req, res) => {
     });
   } catch (error) {
     console.error('Błąd podczas logowania:', error);
-    return res.status(500).json({ message: 'Błąd podczas logowania użytkownika.' });
+    return res.status(500).json({ 
+      message: 'Wystąpił błąd podczas logowania. Prosimy spróbować ponownie.',
+      error: 'SERVER_ERROR'
+    });
   }
 };
 

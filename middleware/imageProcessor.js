@@ -39,18 +39,17 @@ const generateCacheKey = (imagePath, params) => {
  * - quality: jakość obrazu (1-100)
  */
 const imageProcessor = async (req, res, next) => {
-  // Sprawdź, czy żądanie dotyczy obrazu
-  const imagePath = req.path;
-  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
-  const ext = path.extname(imagePath).toLowerCase();
-  
-  // Jeśli to nie jest obraz lub nie ma parametrów przetwarzania, przejdź dalej
-  if (!imageExtensions.includes(ext) || 
-      (!req.query.w && !req.query.h && !req.query.format)) {
-    return next();
-  }
-  
   try {
+    // Sprawdź, czy żądanie dotyczy obrazu
+    const imagePath = req.path;
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif'];
+    const ext = path.extname(imagePath).toLowerCase();
+    
+    // Jeśli to nie jest obraz lub nie ma parametrów przetwarzania, przejdź dalej
+    if (!imageExtensions.includes(ext) || 
+        (!req.query.w && !req.query.h && !req.query.format)) {
+      return next();
+    }
     // Pełna ścieżka do pliku
     const fullPath = path.join(process.cwd(), imagePath.startsWith('/') ? imagePath.substring(1) : imagePath);
     

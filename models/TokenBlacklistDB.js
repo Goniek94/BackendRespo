@@ -28,8 +28,8 @@ const tokenBlacklistSchema = new mongoose.Schema({
   }
 });
 
-// Indeks dla szybkiego wyszukiwania
-tokenBlacklistSchema.index({ token: 1 });
+// Indeks jest już tworzony przez "unique: true" powyżej, nie potrzebujemy duplikatu
+// tokenBlacklistSchema.index({ token: 1 });
 
 const TokenBlacklist = mongoose.model('TokenBlacklist', tokenBlacklistSchema);
 

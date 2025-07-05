@@ -10,7 +10,6 @@ import adValidationSchema from '../validationSchemas/adValidation.js';
 import rateLimit from 'express-rate-limit';
 import errorHandler from '../middleware/errorHandler.js';
 import { notificationService } from '../controllers/notificationController.js';
-import { upload, uploadToCloudinaryMiddleware, deleteCloudinaryImage, extractPublicIdFromUrl } from '../middleware/cloudinaryUploader.js';
 
 // Upewniamy się, że folder temp istnieje z odpowiednimi uprawnieniami
 if (!fs.existsSync('temp')) {
@@ -196,7 +195,7 @@ router.get('/', async (req, res, next) => {
           shortDescription: 1,
           description: 1,
           images: 1,
-          mainImageIndex: 1,
+          mainImage: 1,
           price: 1,
           year: 1,
           mileage: 1,
@@ -474,12 +473,98 @@ router.get('/rotated', async (req, res, next) => {
   try {
     const now = new Date();
 
-    // Pobierz tylko aktywne, niewygasłe ogłoszenia
-    const allAds = await Ad.find({
-      status: 'active',
+    // Log all ads before filtering
+    const allAds = await Ad.find({ status: { $in: ['active', 'opublikowane'] } });
+    console.log("All ads found in DB:", allAds.map(ad => ({ id: ad._id, listingType: ad.listingType, status: ad.status })));
+
+    // Pobierz 6 najnowszych wyróżnionych ogłoszeń
+    const featuredAds = await Ad.find({
+      status: { $in: ['active', 'opublikowane'] },
+      listingType: { $in: ['wyróżnione', 'featured', 'premium'] },
       $or: [
-        { expiresAt: { $gt: now } }, // Niewygasłe ogłoszenia
-        { expiresAt: null }          // Ogłoszenia bez daty wygaśnięcia (admin)
+        { expiresAt: { $gt: now } },
+        { expiresAt: null },
+        { ownerRole: 'admin' }
+      ]
+    })
+    .sort({ createdAt: -1 })
+    .limit(6);
+    
+    console.log(`Found ${featuredAds.length} featured ads.`);
+
+    // Pobierz 6 najnowszych zwykłych ogłoszeń
+    const regularAds = await Ad.find({
+      status: { $in: ['active', 'opublikowane'] },
+      listingType: { $nin: ['wyróżnione', 'featured', 'premium'] },
+      $or: [
+        { expiresAt: { $gt: now } },
+        { expiresAt: null },
+        { ownerRole: 'admin' }
+      ]
+    })
+    .sort({ createdAt: -1 })
+    .limit(6);
+
+    console.log(`Found ${regularAds.length} regular ads.`);
+
+    // Funkcja pomocnicza do przetwarzania obrazów
+    const processAdImages = (ad) => {
+      const adObj = ad.toObject();
+      const defaultImage = "https://via.placeholder.com/800x600?text=No+Image";
+      
+      if (!adObj.images || adObj.images.length === 0) {
+        adObj.images = [defaultImage];
+        return adObj;
+      }
+      
+      const validImages = adObj.images.filter(imageUrl => imageUrl);
+      
+      if (validImages.length > 0) {
+        adObj.images = validImages.map(imageUrl => {
+          if (imageUrl.startsWith('http')) return imageUrl;
+          return `${process.env.BACKEND_URL || 'http://localhost:5000'}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+        });
+      } else {
+        adObj.images = [defaultImage];
+      }
+      return adObj;
+    };
+
+    const processedFeatured = featuredAds.map(processAdImages);
+    const processedRegular = regularAds.map(processAdImages);
+
+    const featured = processedFeatured.slice(0, 2);
+    const hot = processedFeatured.slice(2, 6);
+    const regular = processedRegular;
+
+    res.status(200).json({
+      featured,
+      hot,
+      regular
+    });
+
+  } catch (err) {
+    console.error('Błąd w endpointzie /api/ads/rotated:', err);
+    next(err);
+  }
+}, errorHandler);
+
+// Wymuszenie nowej rotacji
+router.post('/rotated/refresh', auth, async (req, res, next) => {
+  try {
+    // Resetuj cache
+    rotationCache.lastRotation = null;
+    
+    // Pobierz nowe rotowane ogłoszenia
+    const now = new Date();
+    
+// Pobierz wszystkie aktywne ogłoszenia z uwzględnieniem mainImageIndex
+    const allAds = await Ad.find({ 
+      status: { $in: ['active', 'opublikowane', 'pending'] }, // Uwzględniamy wszystkie możliwe statusy aktywnych ogłoszeń
+      $or: [
+        { expiresAt: { $gt: now } },  // Niewygasłe ogłoszenia
+        { expiresAt: null },          // Ogłoszenia bez daty wygaśnięcia (admin)
+        { ownerRole: 'admin' }        // Wszystkie ogłoszenia admina, niezależnie od daty wygaśnięcia
       ]
     })
     .select({
@@ -496,7 +581,7 @@ router.get('/rotated', async (req, res, next) => {
       headline: 1,
       description: 1,
       images: 1,
-      mainImageIndex: 1,
+      mainImage: 1,
       listingType: 1,
       condition: 1,
       power: 1,
@@ -505,212 +590,49 @@ router.get('/rotated', async (req, res, next) => {
       doors: 1,
       weight: 1,
       createdAt: 1,
-      status: 1,
-      cloudinaryIds: 1
-    })
-    .sort({ createdAt: -1 });
-
-    console.log('Wszystkie ogłoszenia:', allAds.length);
-    console.log('Statusy ogłoszeń:', allAds.map(ad => ad.status));
-
-    // Sprawdź i przekształć zdjęcia dla każdego ogłoszenia, zachowaj wszystkie ogłoszenia ale z poprawnymi zdjęciami
-    const processedAds = allAds.map(ad => {
-      const adObj = ad.toObject();
-      
-      // Domyślne zdjęcie do użycia, jeśli ogłoszenie nie ma zdjęć Cloudinary
-      const defaultImage = "https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg";
-      
-      // Sprawdź, czy ogłoszenie ma zdjęcia
-      if (!adObj.images || adObj.images.length === 0) {
-        console.log(`Ogłoszenie ${adObj._id} nie ma zdjęć, dodaję domyślne`);
-        adObj.images = [defaultImage]; // Dodaj domyślne zdjęcie
-        return adObj;
-      }
-      
-      // Przefiltruj obrazy, zatrzymując tylko te z Cloudinary
-      const cloudinaryImages = adObj.images.filter(imageUrl => {
-        if (!imageUrl) return false;
-        return imageUrl.includes('res.cloudinary.com');
-      });
-      
-      // Jeśli mamy zdjęcia Cloudinary, użyj ich
-      if (cloudinaryImages.length > 0) {
-        console.log(`Ogłoszenie ${adObj._id} ma ${cloudinaryImages.length} zdjęć Cloudinary`);
-        adObj.images = cloudinaryImages;
-      } else {
-        console.log(`Ogłoszenie ${adObj._id} nie ma zdjęć Cloudinary, używam domyślnego`);
-        // Jeśli nie ma zdjęć Cloudinary, użyj domyślnego zdjęcia
-        adObj.images = [defaultImage];
-      }
-      
-      return adObj;
-    });
-    
-    console.log(`Liczba wszystkich ogłoszeń po przetworzeniu zdjęć: ${processedAds.length}`);
-
-    // Bardziej elastyczne filtrowanie - uwzględnia różne możliwe wartości pola listingType
-    const featuredAds = processedAds.filter(ad => {
-      if (!ad.listingType) return false;
-      const listingType = String(ad.listingType).toLowerCase();
-      const isFeatured = listingType === 'wyróżnione' || 
-                         listingType === 'wyroznione' || 
-                         listingType === 'featured' || 
-                         listingType === 'premium' ||
-                         listingType === 'vip' ||
-                         listingType.includes('wyróżnione') || 
-                         listingType.includes('wyroznione') || 
-                         listingType.includes('featured');
-      return isFeatured;
-    });
-
-    // Wszystkie pozostałe ogłoszenia traktuj jako standardowe (w tym te bez listingType)
-    const standardAds = processedAds.filter(ad => !featuredAds.some(featured => featured._id.toString() === ad._id.toString()));
-
-    console.log('Wyróżnione ogłoszenia:', featuredAds.length);
-    console.log('Standardowe ogłoszenia:', standardAds.length);
-
-    // Zwracamy wszystkie ogłoszenia bez losowego wybierania
-    const featured = featuredAds.slice(0, Math.min(2, featuredAds.length));
-    const remainingFeatured = featuredAds.filter(
-      ad => !featured.some(f => f._id.toString() === ad._id.toString())
-    );
-    const hot = remainingFeatured.slice(0, Math.min(4, remainingFeatured.length));
-    const regular = standardAds.slice(0, Math.min(6, standardAds.length));
-
-    // Aktualizacja cache
-    rotationCache.featured = featured;
-    rotationCache.hot = hot;
-    rotationCache.regular = regular;
-    rotationCache.lastRotation = now;
-
-    // Tymczasowe logowanie przykładowego ogłoszenia do analizy images
-    if (featured.length > 0) {
-      console.log('FEATURED[0] IMAGES:', featured[0].images);
-      console.log('FEATURED[0] DETAILS:', {
-        id: featured[0]._id,
-        brand: featured[0].brand,
-        model: featured[0].model,
-        listingType: featured[0].listingType,
-        status: featured[0].status,
-        mainImageIndex: featured[0].mainImageIndex
-      });
-    }
-    if (hot.length > 0) {
-      console.log('HOT[0] IMAGES:', hot[0].images);
-      console.log('HOT[0] DETAILS:', {
-        id: hot[0]._id,
-        brand: hot[0].brand,
-        model: hot[0].model,
-        listingType: hot[0].listingType,
-        status: hot[0].status,
-        mainImageIndex: hot[0].mainImageIndex
-      });
-    }
-    if (regular.length > 0) {
-      console.log('REGULAR[0] IMAGES:', regular[0].images);
-      console.log('REGULAR[0] DETAILS:', {
-        id: regular[0]._id,
-        brand: regular[0].brand,
-        model: regular[0].model,
-        listingType: regular[0].listingType,
-        status: regular[0].status,
-        mainImageIndex: regular[0].mainImageIndex
-      });
-    }
-
-    res.status(200).json({
-      featured,
-      hot,
-      regular,
-      nextRotationTime: new Date(rotationCache.lastRotation.getTime() + rotationCache.rotationInterval)
-    });
-  } catch (err) {
-    console.error('Błąd w endpointzie /api/ads/rotated:', err);
-    if (err && err.stack) {
-      console.error('Stacktrace:', err.stack);
-    }
-    next(err);
-  }
-}, errorHandler);
-
-// Wymuszenie nowej rotacji
-router.post('/rotated/refresh', auth, async (req, res, next) => {
-  try {
-    // Resetuj cache
-    rotationCache.lastRotation = null;
-    
-    // Pobierz nowe rotowane ogłoszenia
-    const now = new Date();
-    
-    // Pobierz wszystkie opublikowane ogłoszenia z uwzględnieniem mainImageIndex
-    const allAds = await Ad.find({ 
-      status: 'opublikowane'
-    })
-    .select({
-      _id: 1,
-      brand: 1,
-      model: 1,
-      generation: 1,
-      version: 1,
-      year: 1,
-      price: 1,
-      mileage: 1,
-      fuelType: 1,
-      transmission: 1,
-      headline: 1,
-      description: 1,
-      images: 1,
-      mainImageIndex: 1,
-      listingType: 1,
-      condition: 1,
-      power: 1,
-      engineSize: 1,
-      drive: 1,
-      doors: 1,
-      weight: 1,
-      createdAt: 1,
-      cloudinaryIds: 1
     })
     .sort({ createdAt: -1 })
     .limit(100);
     
     console.log('Wszystkie ogłoszenia przed filtrowaniem (refresh):', allAds.map(ad => ({ id: ad._id, listingType: ad.listingType, status: ad.status })));
     
-    // Sprawdź i przekształć zdjęcia dla każdego ogłoszenia, aby upewnić się, że używamy tylko zdjęć z Cloudinary
-    const adsWithValidImages = allAds.map(ad => {
+    // Sprawdź i przekształć zdjęcia dla każdego ogłoszenia
+    const processedAds = allAds.map(ad => {
       const adObj = ad.toObject();
       
-      // Domyślne zdjęcie do użycia, jeśli ogłoszenie nie ma zdjęć Cloudinary
-      const defaultImage = "https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg";
-      
-      // Sprawdź, czy ogłoszenie ma zdjęcia
+      // Jeśli ogłoszenie nie ma zdjęć, pomiń je
       if (!adObj.images || adObj.images.length === 0) {
-        console.log(`Ogłoszenie ${adObj._id} nie ma zdjęć, dodaję domyślne`);
-        adObj.images = [defaultImage]; // Dodaj domyślne zdjęcie
-        return adObj;
+        return null;
       }
       
-      // Przefiltruj obrazy, zatrzymując tylko te z Cloudinary
-      const cloudinaryImages = adObj.images.filter(imageUrl => {
-        if (!imageUrl) return false;
-        return imageUrl.includes('res.cloudinary.com');
-      });
+      // Filtruj tylko niepuste zdjęcia
+      const validImages = adObj.images.filter(imageUrl => imageUrl);
       
-      // Jeśli mamy zdjęcia Cloudinary, użyj ich
-      if (cloudinaryImages.length > 0) {
-        console.log(`Ogłoszenie ${adObj._id} ma ${cloudinaryImages.length} zdjęć Cloudinary`);
-        adObj.images = cloudinaryImages;
+      if (validImages.length > 0) {
+        console.log(`Ogłoszenie ${adObj._id} ma ${validImages.length} zdjęć`);
+        
+      // Przekształć ścieżki zdjęć, aby były pełnymi URL-ami
+        adObj.images = validImages.map(imageUrl => {
+          if (imageUrl.startsWith('http')) {
+            return imageUrl;
+          } else if (imageUrl.startsWith('/uploads/')) {
+            return `${process.env.BACKEND_URL || 'http://localhost:5000'}${imageUrl}`;
+          } else if (imageUrl.startsWith('uploads/')) {
+            return `${process.env.BACKEND_URL || 'http://localhost:5000'}/${imageUrl}`;
+          } else {
+            return `${process.env.BACKEND_URL || 'http://localhost:5000'}/uploads/${imageUrl}`;
+          }
+        });
       } else {
-        console.log(`Ogłoszenie ${adObj._id} nie ma zdjęć Cloudinary, używam domyślnego`);
-        // Jeśli nie ma zdjęć Cloudinary, użyj domyślnego zdjęcia
-        adObj.images = [defaultImage];
+        // Jeśli po filtrowaniu nie ma poprawnych zdjęć, pomiń ogłoszenie
+        return null;
       }
       
       return adObj;
-    });
+    }).filter(ad => ad !== null); // Usuń puste wpisy
     
     // Odfiltruj ogłoszenia bez zdjęć
-    const adsWithImages = adsWithValidImages.filter(ad => ad.images.length > 0);
+    const adsWithImages = processedAds.filter(ad => ad.images.length > 0);
     console.log(`Po filtrowaniu zdjęć: ${adsWithImages.length} ogłoszeń z poprawnymi zdjęciami`);
 
     // Bardziej elastyczne filtrowanie - uwzględnia różne możliwe wartości pola listingType
@@ -787,28 +709,103 @@ router.get('/:id', async (req, res, next) => {
       return res.status(404).json({ message: 'Ogłoszenie nie znalezione' });
     }
 
-    res.status(200).json(ad);
+    // Konwertuj dokument Mongoose na zwykły obiekt JavaScript
+    const adObj = ad.toObject();
+    
+    // Sprawdź, czy ogłoszenie ma zdjęcia
+    if (!adObj.images || adObj.images.length === 0) {
+      adObj.images = [];
+    } else {
+      // Filtruj tylko niepuste zdjęcia
+      adObj.images = adObj.images.filter(imageUrl => imageUrl);
+      
+      // Jeśli po filtrowaniu nie ma zdjęć, zwróć pustą tablicę
+      if (adObj.images.length === 0) {
+        adObj.images = [];
+      }
+      
+      // Przekształć ścieżki zdjęć, aby były pełnymi URL-ami
+      adObj.images = adObj.images.map(imageUrl => {
+        if (imageUrl.startsWith('http')) {
+          return imageUrl;
+        } else if (imageUrl.startsWith('/uploads/')) {
+          return `${process.env.BACKEND_URL || 'http://localhost:5000'}${imageUrl}`;
+        } else if (imageUrl.startsWith('uploads/')) {
+          return `${process.env.BACKEND_URL || 'http://localhost:5000'}/${imageUrl}`;
+        } else {
+          return `${process.env.BACKEND_URL || 'http://localhost:5000'}/uploads/${imageUrl}`;
+        }
+      });
+    }
+
+    console.log(`Zwracam ogłoszenie ${adObj._id} ze zdjęciami:`, adObj.images);
+    res.status(200).json(adObj);
   } catch (err) {
     next(err);
   }
 }, errorHandler);
 
-// Dodawanie ogłoszenia ze zdjęciami w Cloudinary i danymi użytkownika
-router.post('/add', auth, createAdLimiter, upload.array('images', 10), uploadToCloudinaryMiddleware, validate(adValidationSchema), async (req, res, next) => {
+// Dodawanie ogłoszenia z URL-ami zdjęć z Supabase
+router.post('/add', auth, createAdLimiter, validate(adValidationSchema), async (req, res, next) => {
   try {
-    console.log('Rozpoczęto dodawanie ogłoszenia');
+    console.log('Rozpoczęto dodawanie ogłoszenia z Supabase');
+    console.log('Oryginalne dane z frontendu:', req.body);
+    
+    // Mapowanie wartości z frontendu na backend
+    const mapFormDataToBackend = (data) => {
+      const fuelTypeMapping = {
+        'Benzyna': 'benzyna',
+        'Diesel': 'diesel', 
+        'Elektryczny': 'elektryczny',
+        'Hybryda': 'hybryda',
+        'Hybrydowy': 'hybrydowy',
+        'Benzyna+LPG': 'benzyna+LPG',
+        'Benzyna+CNG': 'benzyna+LPG',
+        'Etanol': 'inne'
+      };
+
+      const transmissionMapping = {
+        'Manualna': 'manualna',
+        'Automatyczna': 'automatyczna',
+        'Półautomatyczna': 'półautomatyczna',
+        'Bezstopniowa CVT': 'automatyczna'
+      };
+
+      const purchaseOptionsMapping = {
+        'sprzedaz': 'Sprzedaż',
+        'faktura': 'Faktura VAT', 
+        'inne': 'Inne',
+        'najem': 'Inne',
+        'leasing': 'Inne'
+      };
+
+      return {
+        ...data,
+        // Mapowanie roku produkcji
+        year: parseInt(data.productionYear || data.year || '2010'),
+        // Mapowanie paliwa
+        fuelType: fuelTypeMapping[data.fuelType] || data.fuelType?.toLowerCase() || 'benzyna',
+        // Mapowanie skrzyni biegów
+        transmission: transmissionMapping[data.transmission] || data.transmission?.toLowerCase() || 'manualna',
+        // Mapowanie opcji zakupu
+        purchaseOptions: purchaseOptionsMapping[data.purchaseOption] || data.purchaseOptions || 'Sprzedaż'
+      };
+    };
+
+    // Mapowanie danych
+    const mappedData = mapFormDataToBackend(req.body);
     
     const {
       brand, model, generation, version, year, price, mileage, fuelType, transmission, vin,
       registrationNumber, headline, description, purchaseOptions, listingType, condition,
       accidentStatus, damageStatus, tuning, imported, registeredInPL, firstOwner, disabledAdapted,
       bodyType, color, lastOfficialMileage, power, engineSize, drive, doors, weight,
-      voivodeship, city, rentalPrice, status, sellerType
-    } = req.body;
+      voivodeship, city, rentalPrice, status, sellerType, images, mainImage // Odbieramy tablicę URL-i i główne zdjęcie
+    } = mappedData;
 
-    console.log('Otrzymane dane ogłoszenia:', {
+    console.log('Dane po mapowaniu:', {
       brand, model, year, price, mileage, fuelType, transmission,
-      description, purchaseOptions, listingType, sellerType
+      description, purchaseOptions, listingType, sellerType, images
     });
 
     // Pobieranie danych użytkownika
@@ -817,19 +814,18 @@ router.post('/add', auth, createAdLimiter, upload.array('images', 10), uploadToC
       return res.status(404).json({ message: 'Użytkownik nie znaleziony' });
     }
 
-    // Logowanie plików
-    console.log('Odebrano pliki:', req.files ? req.files.length : 0);
-    if (req.files && req.files.length > 0) {
-      req.files.forEach((file, index) => {
-        console.log(`Plik ${index+1}: ${file.originalname}, ${file.mimetype}, ${file.size} bajtów, zapisany jako ${file.filename}`);
-      });
-    } else {
-      console.warn('Brak plików w żądaniu!');
+    // Walidacja czy tablica `images` istnieje i nie jest pusta
+    if (!images || !Array.isArray(images) || images.length === 0) {
+      return res.status(400).json({ message: 'Ogłoszenie musi zawierać przynajmniej jedno zdjęcie.' });
     }
+    console.log(`Otrzymano ${images.length} URL-i zdjęć z Supabase:`, images);
 
-    // Pobieranie URL-i zdjęć z Cloudinary
-    const images = req.cloudinaryResults ? req.cloudinaryResults.map(result => result.cloudinaryUrl) : [];
-    console.log(`Dodano ${images.length} zdjęć do Cloudinary:`, images);
+    // Walidacja, czy `mainImage` jest jednym z URL-i w `images`
+    if (!mainImage || !images.includes(mainImage)) {
+        // Jeśli nie ma `mainImage` lub nie ma go w `images`, ustaw pierwszy obraz jako główny
+        console.log('Brak `mainImage` lub nieprawidłowy URL. Ustawiam pierwszy obraz jako główny.');
+        req.body.mainImage = images[0];
+    }
 
     // Generowanie krótkiego opisu z nagłówka (do 120 znaków)
     const shortDescription = headline
@@ -854,7 +850,9 @@ router.post('/add', auth, createAdLimiter, upload.array('images', 10), uploadToC
       description,
       shortDescription, // <-- dodane pole
       images,
+      mainImage: req.body.mainImage, // Używamy zwalidowanego lub domyślnego mainImage
       purchaseOptions,
+      negotiable: req.body.negotiable || 'Nie', // <-- dodane pole negotiable
       listingType,
       sellerType, // <-- dodane pole sellerType
       
@@ -967,9 +965,41 @@ router.put('/:id/status', auth, async (req, res, next) => {
   }
 }, errorHandler);
 
+// Aktualizacja zdjęć w ogłoszeniu
+router.patch('/:id/images', auth, async (req, res, next) => {
+  try {
+    const ad = await Ad.findById(req.params.id);
+
+    if (!ad) {
+      return res.status(404).json({ message: 'Ogłoszenie nie znalezione' });
+    }
+
+    // Sprawdź czy użytkownik jest właścicielem lub adminem
+    if (ad.owner.toString() !== req.user.userId.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Brak uprawnień do aktualizacji zdjęć tego ogłoszenia' });
+    }
+
+    const { images, mainImage } = req.body;
+
+    if (images && Array.isArray(images)) {
+      ad.images = images;
+    }
+
+    if (mainImage) {
+      ad.mainImage = mainImage;
+    }
+
+    await ad.save();
+
+    res.status(200).json({ message: 'Zdjęcia ogłoszenia zaktualizowane', ad });
+  } catch (err) {
+    next(err);
+  }
+}, errorHandler);
+
 // Ustawienie głównego zdjęcia ogłoszenia
 router.put('/:id/main-image', auth, async (req, res, next) => {
-  const { mainImageIndex } = req.body;
+  const { mainImage } = req.body;
 
   try {
     const ad = await Ad.findById(req.params.id);
@@ -983,12 +1013,12 @@ router.put('/:id/main-image', auth, async (req, res, next) => {
       return res.status(403).json({ message: 'Brak uprawnień do zmiany głównego zdjęcia tego ogłoszenia' });
     }
 
-    // Sprawdź czy indeks jest prawidłowy
-    if (mainImageIndex < 0 || mainImageIndex >= ad.images.length) {
-      return res.status(400).json({ message: 'Nieprawidłowy indeks zdjęcia' });
+    // Sprawdź czy URL zdjęcia jest prawidłowy
+    if (!ad.images.includes(mainImage)) {
+      return res.status(400).json({ message: 'Nieprawidłowy URL zdjęcia' });
     }
 
-    ad.mainImageIndex = mainImageIndex;
+    ad.mainImage = mainImage;
     await ad.save();
 
     res.status(200).json({ message: 'Główne zdjęcie ogłoszenia zaktualizowane', ad });
@@ -1014,7 +1044,7 @@ router.put('/:id', auth, async (req, res, next) => {
     // Pola, które można aktualizować
     const updatableFields = [
       'description', 'price', 'city', 'voivodeship', 'color',
-      'headline', 'mainImageIndex'
+      'headline', 'mainImage', 'images'
     ];
 
     // Aktualizuj tylko dozwolone pola
@@ -1067,7 +1097,7 @@ router.get('/car-data', async (req, res, next) => {
   }
 }, errorHandler);
 
-// Usuwanie zdjęcia z ogłoszenia
+// Usuwanie zdjęcia z ogłoszenia (teraz usuwa tylko URL z bazy danych)
 router.delete('/:id/images/:index', auth, async (req, res, next) => {
   try {
     const ad = await Ad.findById(req.params.id);
@@ -1090,30 +1120,18 @@ router.delete('/:id/images/:index', auth, async (req, res, next) => {
 
     // Pobierz URL zdjęcia do usunięcia
     const imageUrl = ad.images[index];
+    console.log(`Usuwanie URL-a zdjęcia z bazy danych: ${imageUrl}`);
     
-    // Usuń zdjęcie z Cloudinary
-    try {
-      const publicId = extractPublicIdFromUrl(imageUrl);
-      if (publicId) {
-        await deleteCloudinaryImage(publicId);
-        console.log(`Usunięto zdjęcie z Cloudinary: ${publicId}`);
-      } else {
-        console.warn(`Nie można wyodrębnić publicId z URL: ${imageUrl}`);
-      }
-    } catch (cloudinaryError) {
-      console.error('Błąd podczas usuwania zdjęcia z Cloudinary:', cloudinaryError);
-      // Nie przerywamy głównego procesu w przypadku błędu Cloudinary
-    }
+    // UWAGA: Ta operacja nie usuwa pliku z Supabase.
+    // Implementacja usuwania z Supabase wymagałaby osobnego endpointu
+    // lub wywołania funkcji `deleteCarImages` z frontendu.
 
     // Usuń zdjęcie z tablicy zdjęć ogłoszenia
     ad.images.splice(index, 1);
     
-    // Jeśli usunięto główne zdjęcie, zresetuj mainImageIndex
-    if (ad.mainImageIndex === index) {
-      ad.mainImageIndex = 0;
-    } else if (ad.mainImageIndex > index) {
-      // Jeśli usunięto zdjęcie przed głównym, przesuń indeks
-      ad.mainImageIndex--;
+    // Jeśli usunięto główne zdjęcie, ustaw nowe główne na pierwsze z listy (jeśli jakieś zostało)
+    if (ad.mainImage === imageUrl) {
+      ad.mainImage = ad.images.length > 0 ? ad.images[0] : null;
     }
 
     await ad.save();
@@ -1178,8 +1196,8 @@ router.post('/:id/renew', auth, async (req, res, next) => {
   }
 }, errorHandler);
 
-// Dodawanie zdjęć do ogłoszenia
-router.post('/:id/images', auth, upload.array('images', 20), uploadToCloudinaryMiddleware, async (req, res, next) => {
+// Dodawanie zdjęć do ogłoszenia (URL-e z Supabase)
+router.post('/:id/images', auth, async (req, res, next) => {
   try {
     const ad = await Ad.findById(req.params.id);
 
@@ -1192,16 +1210,21 @@ router.post('/:id/images', auth, upload.array('images', 20), uploadToCloudinaryM
       return res.status(403).json({ message: 'Brak uprawnień do dodawania zdjęć do tego ogłoszenia' });
     }
 
+    const { images: newImageUrls } = req.body;
+
+    if (!newImageUrls || !Array.isArray(newImageUrls) || newImageUrls.length === 0) {
+      return res.status(400).json({ message: 'Brak URL-i zdjęć w żądaniu.' });
+    }
+
     // Sprawdź limit zdjęć
-    if (ad.images.length + req.files.length > 20) {
+    if (ad.images.length + newImageUrls.length > 20) {
       return res.status(400).json({ 
         message: `Przekroczono limit zdjęć. Maksymalnie można dodać 20 zdjęć. Obecnie masz ${ad.images.length} zdjęć.` 
       });
     }
 
-    // Dodaj nowe zdjęcia z Cloudinary
-    const newImages = req.cloudinaryResults ? req.cloudinaryResults.map(result => result.cloudinaryUrl) : [];
-    ad.images = [...ad.images, ...newImages];
+    // Dodaj nowe URL-e zdjęć
+    ad.images = [...ad.images, ...newImageUrls];
 
     await ad.save();
 

@@ -159,26 +159,7 @@ export const deleteAd = async (req, res) => {
       return res.status(404).json({ message: 'Ogłoszenie nie zostało znalezione.' });
     }
     
-    // Usuń zdjęcia z Cloudinary, jeśli istnieją
-    if (ad.cloudinaryIds && ad.cloudinaryIds.length > 0) {
-      try {
-        const { deleteFromCloudinary } = await import('../../config/cloudinary.js');
-        
-        // Usuń każde zdjęcie z Cloudinary
-        for (const cloudinaryId of ad.cloudinaryIds) {
-          try {
-            await deleteFromCloudinary(cloudinaryId);
-            console.log(`✅ Usunięto zdjęcie ${cloudinaryId} z Cloudinary dla ogłoszenia ${adId}`);
-          } catch (cloudinaryError) {
-            console.error(`❌ Błąd podczas usuwania zdjęcia ${cloudinaryId} z Cloudinary:`, cloudinaryError);
-            // Kontynuuj usuwanie pozostałych zdjęć
-          }
-        }
-      } catch (cloudinaryImportError) {
-        console.error('❌ Błąd podczas importowania modułu Cloudinary:', cloudinaryImportError);
-        // Kontynuuj usuwanie ogłoszenia, nawet jeśli nie udało się usunąć zdjęć
-      }
-    }
+    // Zdjęcia są automatycznie usuwane z Supabase przez frontend
     
     await Ad.findByIdAndDelete(adId);
     

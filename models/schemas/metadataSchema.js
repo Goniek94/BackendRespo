@@ -35,7 +35,7 @@ const metadataSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'active', 'rejected', 'needs_changes', 'sold', 'archived'],
+    enum: ['pending', 'active', 'rejected', 'needs_changes', 'sold', 'archived', 'opublikowane'],
     default: 'pending'
   },
   
@@ -69,6 +69,20 @@ const metadataSchema = new mongoose.Schema({
   },
   discountedPrice: {
     type: Number
+  },
+  
+  // Dodatkowe pola potrzebne dla frontendu
+  sellerType: {
+    type: String,
+    enum: ['prywatny', 'firma'],
+    default: 'prywatny'
+  },
+  shortDescription: {
+    type: String,
+    maxlength: 120
+  },
+  productionYear: {
+    type: Number // Alias dla year - dla kompatybilności z frontendem
   }
 });
 

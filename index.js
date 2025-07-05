@@ -40,19 +40,20 @@ const configureApp = () => {
     next();
   });
 
-  // Podstawowa konfiguracja middleware
-  app.use(express.json());
+  // Podstawowa konfiguracja middleware z limitami dla zdjęć
+  app.use(express.json({ limit: '15mb' }));
+  app.use(express.urlencoded({ limit: '15mb', extended: true }));
   app.use(cookieParser());
   
-  // Konfiguracja zabezpieczeń z Helmet
+  // Konfiguracja zabezpieczeń z Helmet - bardziej permisywna dla rozwoju
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
         styleSrc: ["'self'", 'https:', "'unsafe-inline'"],
         scriptSrc: ["'self'", 'https:', "'unsafe-inline'"],
-        imgSrc: ["'self'", 'data:', 'https://res.cloudinary.com', 'http://localhost:*'],
-        connectSrc: ["'self'", 'https://api.cloudinary.com'],
+        imgSrc: ["'self'", 'data:', 'http://localhost:*', 'https://*', 'blob:'],
+        connectSrc: ["'self'", 'http://localhost:*', 'https://*'],
         fontSrc: ["'self'", 'https:', 'data:'],
         objectSrc: ["'none'"],
         upgradeInsecureRequests: [],
@@ -75,7 +76,7 @@ const configureApp = () => {
   
   // Konfiguracja CORS
   app.use(cors({
-    origin: [FRONTEND_URL, 'http://localhost:3001'],
+    origin: [FRONTEND_URL, 'http://localhost:3000'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Cache-Control']
@@ -253,35 +254,18 @@ const configureErrorHandling = (app) => {
  */
 const connectToDatabase = async () => {
   try {
+    // Usunięto przestarzałe opcje, które powodują ostrzeżenia
     await mongoose.connect(process.env.MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000, // 5 sekund timeout
+      connectTimeoutMS: 10000,        // 10 sekund timeout połączenia
+      socketTimeoutMS: 45000,         // 45 sekund timeout socketów
     });
     
     console.log('✅ Połączono z bazą danych MongoDB');
     
-    // Usunięcie indeksów unikalnych, które mogą powodować problemy
-    try {
-      const db = mongoose.connection.db;
-      const collections = await db.listCollections().toArray();
-      
-      // Sprawdź, czy kolekcja ads istnieje
-      if (collections.some(col => col.name === 'ads')) {
-        try {
-          await db.collection('ads').dropIndex('registrationNumber_1');
-        } catch (err) {
-          if (isDev) console.log('ℹ️ Indeks registrationNumber_1:', err.message);
-        }
-        
-        try {
-          await db.collection('ads').dropIndex('vin_1');
-        } catch (err) {
-          if (isDev) console.log('ℹ️ Indeks vin_1:', err.message);
-        }
-      }
-    } catch (error) {
-      if (isDev) console.log('ℹ️ Informacja o indeksach:', error.message);
-    }
+    // Operacje na indeksach zostały przeniesione do osobnego skryptu utils/db-maintenance.js
+    // Nie wykonujemy ich przy każdym starcie serwera, co przyspiesza uruchomienie
+    if (isDev) console.log('ℹ️ Operacje na indeksach przeniesione do osobnego skryptu');
     
     return true;
   } catch (err) {
@@ -294,7 +278,36 @@ const connectToDatabase = async () => {
  * Główna funkcja inicjalizująca aplikację
  */
 const startServer = async () => {
-  // Połączenie z bazą danych - ZAKOMENTOWANE NA CZAS TESTÓW
+  // Funkcja do znajdowania wolnego portu
+  const findFreePort = (startPort) => {
+    return new Promise((resolve, reject) => {
+      let port = startPort;
+      const tryPort = () => {
+        const server = http.createServer();
+        server.listen(port, () => {
+          server.close(() => resolve(port));
+        });
+        server.on('error', (err) => {
+          if (err.code === 'EADDRINUSE') {
+            console.warn(`⚠️ Port ${port} jest zajęty, sprawdzam następny...`);
+            port++;
+            tryPort();
+          } else {
+            reject(err);
+          }
+        });
+      };
+      tryPort();
+    });
+  };
+
+  // Znajdź wolny port, zaczynając od domyślnego
+  const finalPort = await findFreePort(PORT);
+  if (finalPort !== PORT) {
+    console.log(`✅ Znaleziono wolny port: ${finalPort}`);
+  }
+
+  // Połączenie z bazą danych
   const dbConnected = await connectToDatabase();
   if (!dbConnected) {
     console.error('Nie można uruchomić serwera bez połączenia z bazą danych');
@@ -325,23 +338,33 @@ const startServer = async () => {
     });
   });
   
-  // Konfiguracja panelu administracyjnego
-  configureAdminPanel(app);
+  // Leniwe ładowanie panelu administracyjnego - tylko gdy ktoś wejdzie na ścieżkę /admin
+  app.use('/admin*', (req, res, next) => {
+    if (!app.adminJsConfigured) {
+      configureAdminPanel(app);
+      app.adminJsConfigured = true;
+      console.log('✅ Panel administracyjny załadowany na żądanie');
+    }
+    next();
+  });
   
   // Konfiguracja obsługi błędów
   configureErrorHandling(app);
   
   // Uruchomienie serwera
-  server.listen(PORT, () => {
+  server.listen(finalPort, () => {
     console.log(`
-🚀 Serwer uruchomiony na porcie ${PORT}
-📝 Panel administratora: http://localhost:${PORT}/admin
+🚀 Serwer uruchomiony na porcie ${finalPort}
+📝 Panel administratora: http://localhost:${finalPort}/admin
 🔧 Środowisko: ${process.env.NODE_ENV || 'development'}
 🔌 Socket.IO: Aktywny
     `);
     
-    // Inicjalizacja zadań cyklicznych
-    initScheduledTasks();
+    // Opóźnione uruchomienie zadań cyklicznych
+    setTimeout(() => {
+      console.log("🕒 Uruchamianie zadań cyklicznych...");
+      initScheduledTasks();
+    }, 5000); // Opóźnienie 5 sekund
   });
 };
 

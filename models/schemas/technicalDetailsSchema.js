@@ -4,38 +4,38 @@ import mongoose from 'mongoose';
  * Schemat danych technicznych pojazdu
  */
 const technicalDetailsSchema = new mongoose.Schema({
-  // Stan pojazdu
+  // Stan pojazdu - akceptujemy różne formaty z frontendu
   condition: {
     type: String,
-    enum: ['Nowy', 'Używany']
+    enum: ['Nowy', 'Używany', 'nowy', 'używany', 'uzywany']
   },
   accidentStatus: {
     type: String,
-    enum: ['Bezwypadkowy', 'Powypadkowy']
+    enum: ['Bezwypadkowy', 'Powypadkowy', 'bezwypadkowy', 'powypadkowy', 'tak', 'nie', 'Tak', 'Nie']
   },
   damageStatus: {
     type: String,
-    enum: ['Nieuszkodzony', 'Uszkodzony']
+    enum: ['Nieuszkodzony', 'Uszkodzony', 'nieuszkodzony', 'uszkodzony', 'tak', 'nie', 'Tak', 'Nie']
   },
   tuning: {
     type: String,
-    enum: ['Tak', 'Nie']
+    enum: ['Tak', 'Nie', 'tak', 'nie']
   },
   imported: {
     type: String,
-    enum: ['Tak', 'Nie']
+    enum: ['Tak', 'Nie', 'tak', 'nie']
   },
   registeredInPL: {
     type: String,
-    enum: ['Tak', 'Nie']
+    enum: ['Tak', 'Nie', 'tak', 'nie']
   },
   firstOwner: {
     type: String,
-    enum: ['Tak', 'Nie']
+    enum: ['Tak', 'Nie', 'tak', 'nie']
   },
   disabledAdapted: {
     type: String,
-    enum: ['Tak', 'Nie']
+    enum: ['Tak', 'Nie', 'tak', 'nie']
   },
   
   // Dane techniczne

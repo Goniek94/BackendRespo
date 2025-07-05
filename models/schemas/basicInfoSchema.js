@@ -47,13 +47,16 @@ const basicInfoSchema = new mongoose.Schema({
   fuelType: {
     type: String,
     required: true,
-    enum: ['benzyna', 'diesel', 'elektryczny', 'hybryda', 'benzyna+LPG', 'inne'],
+    enum: ['benzyna', 'diesel', 'elektryczny', 'hybryda', 'hybrydowy', 'benzyna+LPG', 'inne',
+           'Benzyna', 'Diesel', 'Elektryczny', 'Hybryda', 'Hybrydowy', 'Benzyna+LPG', 'Inne',
+           'Benzyna+CNG', 'Etanol'],
     default: 'benzyna'
   },
   transmission: {
     type: String,
     required: true,
-    enum: ['manualna', 'automatyczna', 'półautomatyczna'],
+    enum: ['manualna', 'automatyczna', 'półautomatyczna',
+           'Manualna', 'Automatyczna', 'Półautomatyczna', 'Bezstopniowa CVT'],
     default: 'manualna'
   },
   
@@ -92,20 +95,22 @@ const basicInfoSchema = new mongoose.Schema({
   images: [{
     type: String
   }],
-  cloudinaryIds: [{
-    type: String
-  }],
-  mainImageIndex: {
-    type: Number,
-    default: 0
+  mainImage: {
+    type: String,
+    trim: true
   },
   
   // Opcje ogłoszenia
   purchaseOptions: {
     type: String,
     required: true,
-    enum: ['faktura VAT', 'umowa kupna-sprzedaży', 'inne'],
-    default: 'umowa kupna-sprzedaży'
+    enum: ['Sprzedaż', 'Faktura VAT', 'Inne'],
+    default: 'Sprzedaż'
+  },
+  negotiable: {
+    type: String,
+    enum: ['Tak', 'Nie'],
+    default: 'Nie'
   },
   listingType: {
     type: String,
@@ -116,8 +121,8 @@ const basicInfoSchema = new mongoose.Schema({
   status: {
     type: String,
     required: true,
-    enum: ['opublikowane', 'w toku', 'archiwalne'],
-    default: 'opublikowane'
+    enum: ['pending', 'opublikowane', 'w toku', 'archiwalne'],
+    default: 'pending'
   }
 });
 

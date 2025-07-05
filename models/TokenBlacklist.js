@@ -4,6 +4,11 @@
  */
 import TokenBlacklistDB from './TokenBlacklistDB.js';
 
+// Sprawdź czy połączenie z bazą danych jest aktywne
+const isDbConnected = () => {
+  return !!TokenBlacklistDB.db && TokenBlacklistDB.db.readyState === 1;
+};
+
 // Fallback in-memory cache dla szybszego sprawdzania (bez ciągłego odpytywania DB)
 const memoryCache = new Set();
 
@@ -20,12 +25,17 @@ export const addToBlacklist = async (token, options = {}) => {
     // Dodaj do pamięci podręcznej
     memoryCache.add(token);
     
-    // Dodaj do bazy danych
-    await TokenBlacklistDB.create({
-      token,
-      reason: options.reason || 'OTHER',
-      userId: options.userId || null
-    });
+    // Sprawdź czy baza danych jest podłączona
+    if (isDbConnected()) {
+      // Dodaj do bazy danych
+      await TokenBlacklistDB.create({
+        token,
+        reason: options.reason || 'OTHER',
+        userId: options.userId || null
+      });
+    } else {
+      console.warn('Baza danych nie jest podłączona. Token dodany tylko do pamięci podręcznej.');
+    }
     
     return true;
   } catch (error) {
@@ -44,6 +54,12 @@ export const isBlacklisted = async (token) => {
   // Szybkie sprawdzenie w pamięci
   if (memoryCache.has(token)) {
     return true;
+  }
+  
+  // Jeśli baza danych nie jest podłączona, zwróć wynik z pamięci
+  if (!isDbConnected()) {
+    console.warn('Baza danych nie jest podłączona. Sprawdzanie tokenu tylko w pamięci podręcznej.');
+    return memoryCache.has(token);
   }
   
   try {
@@ -73,8 +89,13 @@ export const clearBlacklist = async () => {
     // Czyścimy pamięć podręczną
     memoryCache.clear();
     
-    // Czyścimy bazę danych
-    await TokenBlacklistDB.deleteMany({});
+    // Sprawdź czy baza danych jest podłączona
+    if (isDbConnected()) {
+      // Czyścimy bazę danych
+      await TokenBlacklistDB.deleteMany({});
+    } else {
+      console.warn('Baza danych nie jest podłączona. Wyczyszczono tylko pamięć podręczną.');
+    }
     
     return true;
   } catch (error) {

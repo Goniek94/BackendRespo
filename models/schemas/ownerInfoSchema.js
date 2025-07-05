@@ -25,8 +25,8 @@ const ownerInfoSchema = new mongoose.Schema({
   // Typ sprzedającego (osoba prywatna / firma)
   sellerType: {
     type: String,
-    enum: ['prywatny', 'firma'],
-    default: 'prywatny'
+    enum: ['Prywatny', 'Firma'],
+    default: 'Prywatny'
   }
 });
 

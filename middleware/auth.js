@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import adminConfig from '../config/adminConfig.js';
 import { addToBlacklist, isBlacklisted } from '../models/TokenBlacklist.js';
 import User from '../models/user.js';
+import mongoose from 'mongoose';
 
 dotenv.config();
 
@@ -80,6 +81,12 @@ const generateRefreshToken = (payload) => {
  */
 const authMiddleware = async (req, res, next) => {
   try {
+    // Sprawdź połączenie z bazą danych
+    const isDBConnected = mongoose.connection.readyState === 1;
+    if (!isDBConnected) {
+      console.warn('Uwaga: Baza danych nie jest podłączona. Autentykacja może działać w trybie awaryjnym.');
+    }
+    
     console.log('Auth middleware - sprawdzam endpoint:', req.originalUrl);
 
     // 1. Sprawdź token w ciasteczku
@@ -112,10 +119,15 @@ const authMiddleware = async (req, res, next) => {
     }
 
     // Token blacklist check - teraz asynchronicznie
-    const isTokenBlacklisted = await isBlacklisted(token);
-    if (isTokenBlacklisted) {
-      console.log(`[SECURITY] 401 Unauthorized (blacklisted token) IP: ${req.ip}`);
-      return res.status(401).json({ message: 'Token unieważniony. Zaloguj się ponownie.', code: 'TOKEN_BLACKLISTED' });
+    try {
+      const isTokenBlacklisted = await isBlacklisted(token);
+      if (isTokenBlacklisted) {
+        console.log(`[SECURITY] 401 Unauthorized (blacklisted token) IP: ${req.ip}`);
+        return res.status(401).json({ message: 'Token unieważniony. Zaloguj się ponownie.', code: 'TOKEN_BLACKLISTED' });
+      }
+    } catch (blacklistError) {
+      console.error('Błąd podczas sprawdzania blacklisty:', blacklistError);
+      // Kontynuujemy mimo błędu blacklisty, żeby nie blokować uwierzytelniania
     }
 
     console.log('Weryfikuję token JWT');
@@ -184,10 +196,15 @@ const authMiddleware = async (req, res, next) => {
           });
           
           // Dodaj stary refresh token do blacklisty
-          await addToBlacklist(refreshToken, {
-            reason: 'ROTATION',
-            userId: user._id
-          });
+          try {
+            await addToBlacklist(refreshToken, {
+              reason: 'ROTATION',
+              userId: user._id
+            });
+          } catch (blacklistError) {
+            console.error('Błąd podczas dodawania tokenu do blacklisty:', blacklistError);
+            // Kontynuujemy mimo błędu blacklisty
+          }
           
           // Ustaw nowe tokeny w ciasteczkach
           res.cookie('token', newAccessToken, {
@@ -245,10 +262,15 @@ const authMiddleware = async (req, res, next) => {
         });
         
         // Dodaj stary token do blacklisty (rotacja)
-        await addToBlacklist(token, {
-          reason: 'ROTATION',
-          userId: decoded.userId
-        });
+        try {
+          await addToBlacklist(token, {
+            reason: 'ROTATION',
+            userId: decoded.userId
+          });
+        } catch (blacklistError) {
+          console.error('Błąd podczas dodawania tokenu do blacklisty:', blacklistError);
+          // Kontynuujemy mimo błędu blacklisty
+        }
         
         // Ustaw nowy token w ciasteczku
         res.cookie('token', newAccessToken, {
@@ -354,10 +376,15 @@ const authMiddleware = async (req, res, next) => {
           });
           
           // Dodaj stary refresh token do blacklisty
-          await addToBlacklist(refreshToken, {
-            reason: 'ROTATION',
-            userId: user._id
-          });
+          try {
+            await addToBlacklist(refreshToken, {
+              reason: 'ROTATION',
+              userId: user._id
+            });
+          } catch (blacklistError) {
+            console.error('Błąd podczas dodawania tokenu do blacklisty:', blacklistError);
+            // Kontynuujemy mimo błędu blacklisty
+          }
           
           // Ustaw nowe tokeny w ciasteczkach
           res.cookie('token', newAccessToken, {

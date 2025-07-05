@@ -1,13 +1,14 @@
-import userRoutes from '../routes/userRoutes.js';
-import adRoutes from '../routes/adRoutes.js';
-import notificationRoutes from '../routes/notificationRoutes.js';
-import paymentRoutes from '../routes/paymentRoutes.js';
-import commentRoutes from '../routes/commentRoutes.js';
-import cepikRoutes from '../routes/cepikRoutes.js';
-import messagesRoutes from '../routes/messagesRoutes.js';
-import favoriteRoutes from '../routes/favoriteRoutes.js';
-import adminRoutes from '../routes/adminRoutes.js';
-import statsRoutes from '../routes/statsRoutes.js';
+import userRoutes from './userRoutes.js';
+import adRoutes from './adRoutes.js';
+import notificationRoutes from './notificationRoutes.js';
+import paymentRoutes from './paymentRoutes.js';
+import commentRoutes from './commentRoutes.js';
+import cepikRoutes from './cepikRoutes.js';
+import messagesRoutes from './messagesRoutes.js';
+import favoriteRoutes from './favoriteRoutes.js';
+import adminRoutes from './adminRoutes.js';
+import statsRoutes from './statsRoutes.js';
+import imageRoutes from './imageRoutes.js';
 
 /**
  * Konfiguracja tras API z obsługą wstecznej kompatybilności
@@ -25,7 +26,8 @@ export default (app) => {
     'cepik': cepikRoutes,
     'messages': messagesRoutes,
     'favorites': favoriteRoutes,
-    'admin': adminRoutes
+    'admin': adminRoutes,
+    'images': imageRoutes
   };
   
   // Dodatkowe trasy specjalne

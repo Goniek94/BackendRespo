@@ -14,20 +14,13 @@ const adValidationSchema = Joi.object({
   }),
   generation: Joi.string().allow(''),
   version: Joi.string().allow(''),
-  year: Joi.number().min(1886).max(currentYear).required().messages({
-    'number.base': 'Rok produkcji musi być liczbą.',
-    'number.min': 'Rok produkcji nie może być starszy niż 1886.',
-    'number.max': `Rok produkcji nie może być nowszy niż ${currentYear}.`,
+  year: Joi.any().required().messages({
     'any.required': 'Rok produkcji jest wymagany.'
   }),
-  price: Joi.number().min(0).required().messages({
-    'number.base': 'Cena musi być liczbą.',
-    'number.min': 'Cena nie może być mniejsza niż 0.',
+  price: Joi.any().required().messages({
     'any.required': 'Cena jest wymagana.'
   }),
-  mileage: Joi.number().min(0).required().messages({
-    'number.base': 'Przebieg musi być liczbą.',
-    'number.min': 'Przebieg nie może być mniejszy niż 0.',
+  mileage: Joi.any().required().messages({
     'any.required': 'Przebieg jest wymagany.'
   }),
   description: Joi.string().min(10).required().messages({
@@ -35,22 +28,23 @@ const adValidationSchema = Joi.object({
     'any.required': 'Opis jest wymagany.'
   }),
 
-  // Paliwo
+  // Paliwo - akceptujemy różne formaty z frontendu
   fuelType: Joi.string()
-    .valid('benzyna', 'diesel', 'elektryczny', 'hybryda', 'benzyna+LPG', 'inne')
-    .required()
+    .valid('benzyna', 'diesel', 'elektryczny', 'hybryda', 'hybrydowy', 'benzyna+LPG', 'inne',
+           'Benzyna', 'Diesel', 'Elektryczny', 'Hybryda', 'Hybrydowy', 'Benzyna+LPG', 'Inne',
+           'Benzyna+CNG', 'Etanol')
+    .default('benzyna')
     .messages({
-      'any.required': 'Rodzaj paliwa jest wymagany.',
-      'any.only': 'Dopuszczalne typy paliwa to: benzyna, diesel, elektryczny, hybryda, benzyna+LPG, inne.'
+      'any.only': 'Nieprawidłowy typ paliwa.'
     }),
 
-  // Skrzynia biegów
+  // Skrzynia biegów - akceptujemy różne formaty z frontendu
   transmission: Joi.string()
-    .valid('manualna', 'automatyczna', 'półautomatyczna')
-    .required()
+    .valid('manualna', 'automatyczna', 'półautomatyczna',
+           'Manualna', 'Automatyczna', 'Półautomatyczna', 'Bezstopniowa CVT')
+    .default('manualna')
     .messages({
-      'any.required': 'Typ skrzyni biegów jest wymagany.',
-      'any.only': 'Dopuszczalne typy skrzyni biegów to: manualna, automatyczna, półautomatyczna.'
+      'any.only': 'Nieprawidłowy typ skrzyni biegów.'
     }),
 
   // VIN (17 znaków, bez I/O/Q – opcjonalny)
@@ -71,13 +65,21 @@ const adValidationSchema = Joi.object({
       'string.pattern.base': 'Numer rejestracyjny może zawierać maksymalnie 8 znaków (litery i cyfry).'
     }),
 
-  // purchaseOptions
+  // purchaseOptions - akceptujemy różne formaty z frontendu
   purchaseOptions: Joi.string()
-    .valid('umowa kupna-sprzedaży', 'faktura VAT', 'inne')
-    .required()
+    .valid('Sprzedaż', 'Faktura VAT', 'Inne', 'sprzedaz', 'faktura', 'inne', 
+           'umowa kupna-sprzedaży', 'najem', 'leasing')
+    .default('Sprzedaż')
     .messages({
-      'any.required': 'Opcje zakupu są wymagane.',
-      'any.only': 'Dopuszczalne opcje zakupu to: umowa kupna-sprzedaży, faktura VAT, inne.'
+      'any.only': 'Nieprawidłowa opcja zakupu.'
+    }),
+  
+  // negotiable
+  negotiable: Joi.string()
+    .valid('Tak', 'Nie')
+    .default('Nie')
+    .messages({
+      'any.only': 'Dopuszczalne wartości to: Tak, Nie.'
     }),
 
   // listingType
@@ -89,20 +91,11 @@ const adValidationSchema = Joi.object({
       'any.only': 'Dopuszczalne typy ogłoszeń to: standardowe, wyróżnione.'
     }),
 
-  // status
-  status: Joi.string()
-    .valid('w toku', 'opublikowane', 'archiwalne')
-    .optional()
-    .default('w toku')
-    .messages({
-      'any.only': 'Dopuszczalne statusy to: w toku, opublikowane, archiwalne.'
-    }),
-
   // Pozostałe pola (opcjonalne)
   headline: Joi.string().max(120).allow('').messages({
     'string.max': 'Tytuł ogłoszenia nie może przekraczać 120 znaków.'
   }),
-  sellerType: Joi.string().valid('prywatny', 'firma').default('prywatny').messages({
+  sellerType: Joi.string().valid('prywatny', 'firma', 'Prywatny', 'Firma').default('prywatny').messages({
     'any.only': 'Dopuszczalne typy sprzedawcy to: prywatny, firma.'
   }),
   condition: Joi.string().allow(''),
@@ -117,22 +110,22 @@ const adValidationSchema = Joi.object({
   bodyType: Joi.string().allow(''),
   color: Joi.string().allow(''),
 
-  lastOfficialMileage: Joi.number().allow(null),
+  lastOfficialMileage: Joi.any().allow(null),
   countryOfOrigin: Joi.string().allow(''),
-  power: Joi.number().allow(null),
-  engineSize: Joi.number().allow(null),
+  power: Joi.any().allow(null),
+  engineSize: Joi.any().allow(null),
   drive: Joi.string().allow(''),
-  doors: Joi.number().allow(null), // Zmieniono z string na number
-  weight: Joi.number().allow(null), // Zmieniono z string na number
+  doors: Joi.any().allow(null),
+  weight: Joi.any().allow(null),
 
   voivodeship: Joi.string().allow(''),
   city: Joi.string().allow(''),
 
   photos: Joi.array().items(Joi.string()).optional(),
   images: Joi.array().items(Joi.string()).optional(),
-  mainImageIndex: Joi.number().optional(),
+  mainImageIndex: Joi.any().optional(),
 
-  rentalPrice: Joi.number().allow(null),
+  rentalPrice: Joi.any().allow(null),
   purchaseOption: Joi.string().allow(''),
   
   // Dane właściciela ogłoszenia (opcjonalne w walidacji)
@@ -140,6 +133,6 @@ const adValidationSchema = Joi.object({
   ownerLastName: Joi.string().allow(''),
   ownerEmail: Joi.string().allow(''),
   ownerPhone: Joi.string().allow('')
-});
+}).options({ allowUnknown: true });
 
 export default adValidationSchema;

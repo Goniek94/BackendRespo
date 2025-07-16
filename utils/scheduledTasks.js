@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { exec } from 'child_process';
 import Ad from '../models/ad.js';
-import notificationService from '../controllers/notificationController.js';
+import notificationService from '../controllers/notifications/notificationController.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

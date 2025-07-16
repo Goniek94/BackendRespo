@@ -1,15 +1,26 @@
-import userRoutes from './userRoutes.js';
-import adRoutes from './adRoutes.js';
-import notificationRoutes from './notificationRoutes.js';
-import transactionRoutes from './transactionRoutes.js';
-import paymentRoutes from './paymentRoutes.js';
-import commentRoutes from './commentRoutes.js';
-import cepikRoutes from './cepikRoutes.js';
-import messagesRoutes from './messagesRoutes.js';
-import favoriteRoutes from './favoriteRoutes.js';
-import adminRoutes from './adminRoutes.js';
-import statsRoutes from './statsRoutes.js';
-import imageRoutes from './imageRoutes.js';
+// Organized imports from new structure
+import userRoutes from './user/userRoutes.js';
+import adRoutes from './listings/adRoutes.js';
+import notificationRoutes from './notifications/notificationRoutes.js';
+import transactionRoutes from './payments/transactionRoutes.js';
+import paymentRoutes from './payments/paymentRoutes.js';
+import commentRoutes from './listings/commentRoutes.js';
+import cepikRoutes from './external/cepikRoutes.js';
+import messagesRoutes from './communication/messagesRoutes.js';
+import favoriteRoutes from './listings/favoriteRoutes.js';
+import adminRoutes from './admin/adminRoutes.js';
+import statsRoutes from './listings/statsRoutes.js';
+import imageRoutes from './media/imageRoutes.js';
+
+// Import organized route modules
+import * as userRoutesModule from './user/index.js';
+import * as listingsRoutesModule from './listings/index.js';
+import * as mediaRoutesModule from './media/index.js';
+import * as communicationRoutesModule from './communication/index.js';
+import * as notificationsRoutesModule from './notifications/index.js';
+import * as paymentsRoutesModule from './payments/index.js';
+import * as adminRoutesModule from './admin/index.js';
+import * as externalRoutesModule from './external/index.js';
 
 // New Enterprise Admin Panel
 import enterpriseAdminRoutes from '../admin/routes/index.js';

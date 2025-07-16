@@ -1,534 +1,495 @@
-import User from '../../models/user.js';
+/**
+ * Authentication Controller
+ * Handles user authentication operations: login, logout, registration, 2FA
+ */
+
+import crypto from 'crypto';
+import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { validationResult } from 'express-validator';
+import { sendVerificationCode } from '../../config/twilio.js';
+import User from '../../models/user.js';
 import adminConfig from '../../config/adminConfig.js';
-import { sendVerificationCode as sendTwilioCode } from '../../config/twilio.js';
 
 /**
- * Rejestracja użytkownika
+ * Register new user
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
  */
 export const registerUser = async (req, res) => {
+  // Handle validation errors
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const { name, lastName, email, phone, password, dob } = req.body;
+
   try {
-    // Sprawdzenie błędów walidacji
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { name, email, password, phone, dob } = req.body;
-
-    // Sprawdzenie, czy użytkownik już istnieje
-    let user = await User.findOne({ email });
-    if (user) {
-      return res.status(400).json({ message: 'Użytkownik z tym adresem email już istnieje' });
-    }
-
-    // Sprawdzenie, czy numer telefonu już istnieje
-    if (phone) {
-      const phoneExists = await User.findOne({ phoneNumber: phone });
-      if (phoneExists) {
-        return res.status(400).json({ message: 'Użytkownik z tym numerem telefonu już istnieje' });
+    // Validate date of birth
+    let dobDate;
+    try {
+      dobDate = new Date(dob);
+      if (isNaN(dobDate.getTime())) {
+        return res.status(400).json({ 
+          message: 'Invalid date of birth format.',
+          field: 'dob' 
+        });
       }
+      
+      // Check age range (16-100 years)
+      const today = new Date();
+      let age = today.getFullYear() - dobDate.getFullYear();
+      const monthDiff = today.getMonth() - dobDate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dobDate.getDate())) {
+        age--;
+      }
+      
+      if (age < 16) {
+        return res.status(400).json({ 
+          message: 'Musisz mieć co najmniej 16 lat, aby się zarejestrować.',
+          field: 'dob',
+          code: 'AGE_TOO_YOUNG'
+        });
+      }
+      
+      if (age > 100) {
+        return res.status(400).json({ 
+          message: 'Podana data urodzenia jest nieprawidłowa.',
+          field: 'dob',
+          code: 'INVALID_DATE'
+        });
+      }
+    } catch (err) {
+      return res.status(400).json({ 
+        message: 'Invalid date of birth format.',
+        field: 'dob' 
+      });
+    }
+    
+    // Validate Polish phone number format
+    if (phone.startsWith('+48') && !phone.match(/^\+48\d{9}$/)) {
+      return res.status(400).json({ 
+        message: 'Invalid Polish phone number format. Should contain +48 prefix and exactly 9 digits.',
+        field: 'phone' 
+      });
+    }
+    
+    // General phone format validation for other countries
+    if (!phone.match(/^\+\d{1,4}\d{6,14}$/)) {
+      return res.status(400).json({ 
+        message: 'Invalid phone number format.',
+        field: 'phone' 
+      });
+    }
+    
+    // Check if user with this email already exists
+    const existingUserEmail = await User.findOne({ email });
+    if (existingUserEmail) {
+      return res.status(400).json({ 
+        message: 'Ten adres email jest już zarejestrowany. Spróbuj się zalogować lub użyj innego adresu.',
+        field: 'email',
+        code: 'EMAIL_ALREADY_EXISTS'
+      });
     }
 
-    // Generowanie 6-cyfrowego kodu weryfikacyjnego
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minut
+    // Check if user with this phone number already exists
+    const existingUserPhone = await User.findOne({ phoneNumber: phone });
+    if (existingUserPhone) {
+      return res.status(400).json({ 
+        message: 'Ten numer telefonu jest już przypisany do innego konta. Użyj innego numeru.',
+        field: 'phone',
+        code: 'PHONE_ALREADY_EXISTS'
+      });
+    }
 
-    // Utworzenie nowego użytkownika
-    user = new User({
+    // Generate 2FA code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Create new user
+    const user = new User({
       name,
+      lastName,
       email,
-      password,
       phoneNumber: phone,
-      dob: new Date(dob),
-      role: 'user',
-      verificationCode,
-      verificationCodeExpires,
-      isVerified: false
+      password, // Will be hashed by pre-save hook
+      dob: dobDate,
+      is2FAEnabled: true, 
+      twoFACode: code, 
+      twoFACodeExpires: Date.now() + 10 * 60 * 1000
     });
 
-    // Hashowanie hasła
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(password, salt);
+    // Send verification code
+    await sendVerificationCode(phone, code);
 
+    // Save user to database
     await user.save();
 
-    // Wysłanie kodu weryfikacyjnego przez SMS
-    if (phone) {
-      try {
-        await sendTwilioCode(phone, verificationCode);
-      } catch (smsError) {
-        console.error('Błąd wysyłania SMS:', smsError);
-        // Kontynuujemy mimo błędu wysyłania SMS
-      }
-    }
-
-    res.status(201).json({
-      message: 'Użytkownik zarejestrowany pomyślnie. Sprawdź telefon, aby zweryfikować konto.',
-      userId: user._id,
-      email: user.email,
-      phone: user.phoneNumber,
-      requiresVerification: true,
-      // W trybie deweloperskim zwracamy kod
-      devCode: process.env.NODE_ENV !== 'production' ? verificationCode : undefined
+    return res.status(201).json({ 
+      message: 'Registration successful. Verification code has been sent.'
     });
   } catch (error) {
-    console.error('Błąd rejestracji:', error);
-    res.status(500).json({ message: 'Błąd serwera' });
+    console.error('Registration error:', error);
+    return res.status(500).json({ message: 'Error during user registration.' });
   }
 };
 
 /**
- * Logowanie użytkownika
+ * Login user
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
  */
 export const loginUser = async (req, res) => {
+  console.log('🔍 LOGIN REQUEST RECEIVED:', {
+    method: req.method,
+    url: req.originalUrl,
+    body: req.body,
+    headers: {
+      'content-type': req.headers['content-type'],
+      'user-agent': req.headers['user-agent'],
+      'origin': req.headers.origin
+    },
+    timestamp: new Date().toISOString()
+  });
+
+  // Validation - tylko email i password dla logowania
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    console.log('❌ VALIDATION ERRORS:', errors.array());
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const { email, password } = req.body;
+  
+  // Sprawdź czy mamy wymagane pola do logowania
+  if (!email || !password) {
+    return res.status(400).json({ 
+      message: 'Email and password are required for login.',
+      error: 'MISSING_CREDENTIALS'
+    });
+  }
+
   try {
-    // Sprawdzenie błędów walidacji
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+    console.log('🔍 Starting login process for email:', email);
+    
+    // Check if database is connected
+    console.log('📊 Database connection state:', mongoose.connection.readyState);
+    if (!mongoose.connection || mongoose.connection.readyState !== 1) {
+      console.warn('Warning: Database not connected during login attempt.');
+      return res.status(503).json({ 
+        message: 'Database service is unavailable. Please try again later.',
+        error: 'DB_UNAVAILABLE'
+      });
     }
 
-    const { email, password } = req.body;
-
-    // Sprawdzenie, czy użytkownik istnieje
+    // Find user in database - nie próbuj tworzyć nowego użytkownika
+    console.log('🔍 Searching for user in database...');
     const user = await User.findOne({ email });
+    console.log('👤 User found:', !!user);
+    
     if (!user) {
-      return res.status(400).json({ message: 'Nieprawidłowe dane logowania' });
+      console.log('❌ User not found in database');
+      return res.status(404).json({ 
+        message: 'User does not exist.',
+        error: 'USER_NOT_FOUND'
+      });
+    }
+    
+    console.log('✅ User found, checking password...');
+    console.log('👤 User data:', {
+      id: user._id,
+      email: user.email,
+      name: user.name,
+      lastName: user.lastName,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+      status: user.status
+    });
+
+    // Check if account is not banned
+    if (user.status === 'banned') {
+      return res.status(403).json({ 
+        message: 'Account has been banned. Contact administration.',
+        error: 'ACCOUNT_BANNED'
+      });
     }
 
-    // Sprawdzenie hasła
+    if (user.status === 'suspended' && user.suspendedUntil && user.suspendedUntil > new Date()) {
+      return res.status(403).json({ 
+        message: `Account is temporarily suspended until ${user.suspendedUntil.toLocaleDateString()}.`,
+        error: 'ACCOUNT_SUSPENDED'
+      });
+    }
+
+    console.log('🔐 Starting password comparison...');
+    // Check password
     const isMatch = await bcrypt.compare(password, user.password);
+    console.log('🔐 Password match result:', isMatch);
     if (!isMatch) {
-      return res.status(400).json({ message: 'Nieprawidłowe dane logowania' });
+      // Increase failed attempts counter
+      user.loginAttempts = (user.loginAttempts || 0) + 1;
+      
+      // If limit exceeded, temporarily lock account
+      if (user.loginAttempts >= 5) {
+        user.lockUntil = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+        try {
+          await user.save();
+        } catch (saveError) {
+          console.warn('Could not save failed login attempt:', saveError.message);
+        }
+        return res.status(403).json({ 
+          message: 'Too many failed login attempts. Account temporarily locked for 30 minutes.',
+          error: 'ACCOUNT_LOCKED'
+        });
+      }
+      
+      try {
+        await user.save();
+      } catch (saveError) {
+        console.warn('Could not save failed login attempt:', saveError.message);
+      }
+      return res.status(400).json({ 
+        message: 'Incorrect password.',
+        error: 'INVALID_PASSWORD',
+        attemptsLeft: 5 - user.loginAttempts
+      });
+    }
+    
+    // Check if account is not temporarily locked
+    if (user.lockUntil && user.lockUntil > new Date()) {
+      const remainingTime = Math.ceil((user.lockUntil - new Date()) / (60 * 1000)); // in minutes
+      return res.status(403).json({ 
+        message: `Account is temporarily locked. Try again in ${remainingTime} minutes.`,
+        error: 'ACCOUNT_LOCKED',
+        unlockTime: user.lockUntil
+      });
+    }
+    
+    // Reset failed attempts counter and lock after successful login
+    user.loginAttempts = 0;
+    user.lockUntil = null;
+    
+    // Check if email is in admin list and update role if needed
+    if (adminConfig.adminEmails && adminConfig.adminEmails.includes(email) && user.role !== 'admin') {
+      console.log(`Admin detected: ${email} - updating role`);
+      user.role = adminConfig.defaultAdminRole || 'admin';
     }
 
-  // Importujemy funkcje generujące tokeny z middleware/auth.js
-  const { generateAccessToken, generateRefreshToken } = await import('../../middleware/auth.js');
-  
-  // Generowanie tokenu dostępu (krótszy czas życia - 1h)
-  const accessToken = generateAccessToken({
-    userId: user._id,
-    role: user.role
-  });
-  
-  // Generowanie tokenu odświeżającego (dłuższy czas życia - 7 dni)
-  const refreshToken = generateRefreshToken({
-    userId: user._id,
-    role: user.role
-  });
+    // Fix user data if needed before saving
+    if (!user.lastName) {
+      user.lastName = user.name || 'User';
+    }
+    
+    // Fix phone number format if needed
+    if (user.phoneNumber && !user.phoneNumber.startsWith('+')) {
+      if (user.phoneNumber.length === 9) {
+        user.phoneNumber = '+48' + user.phoneNumber;
+      }
+    }
 
-  // Ustawienie tokenu dostępu w ciasteczku HttpOnly
-  res.cookie('token', accessToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    path: '/',
-    maxAge: 3600000 // 1 godzina
-  });
-  
-  // Ustawienie tokenu odświeżającego w ciasteczku HttpOnly
-  res.cookie('refreshToken', refreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    path: '/',
-    maxAge: 7 * 24 * 3600000 // 7 dni
-  });
+    // Save user changes only if role was updated
+    if (adminConfig.adminEmails && adminConfig.adminEmails.includes(email) && user.role === 'admin') {
+      try {
+        await user.save();
+      } catch (saveError) {
+        console.warn('Could not save user role update:', saveError.message);
+        // Continue with login even if role update fails
+      }
+    }
 
-    res.status(200).json({
-      message: 'Zalogowano pomyślnie',
-      token: accessToken,
-      refreshToken: refreshToken,
+    // Generate JWT token with role
+    const jwtSecret = process.env.JWT_SECRET || 'default_jwt_secret_key';
+    const token = jwt.sign(
+      { 
+        userId: user._id,
+        role: user.role,
+        type: 'access',
+        lastActivity: Date.now()
+      }, 
+      jwtSecret, 
+      { 
+        expiresIn: '24h',
+        audience: 'marketplace-users',
+        issuer: 'marketplace-api',
+        subject: user._id.toString()
+      }
+    );
+    
+    // Generate refresh token
+    const refreshSecret = process.env.JWT_REFRESH_SECRET || 'default_refresh_secret_key';
+    const refreshToken = jwt.sign(
+      { 
+        userId: user._id,
+        role: user.role,
+        type: 'refresh',
+        jti: crypto.randomBytes(16).toString('hex')
+      }, 
+      refreshSecret, 
+      { 
+        expiresIn: '7d',
+        audience: 'marketplace-users',
+        issuer: 'marketplace-api',
+        subject: user._id.toString()
+      }
+    );
+    
+    // Set tokens in HttpOnly cookies
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 86400000 // 24 hours in milliseconds
+    });
+    
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 7 * 24 * 3600000 // 7 days
+    });
+    
+    // Return user data and token
+    return res.status(200).json({ 
       user: {
         id: user._id,
-        name: user.name,
         email: user.email,
-        role: user.role
-      }
+        role: user.role,
+        name: user.name || user.email.split('@')[0],
+        lastName: user.lastName,
+        phoneNumber: user.phoneNumber,
+        dob: user.dob ? user.dob.toISOString().split('T')[0] : null,
+        isAuthenticated: true,
+        isAdmin: user.role === 'admin',
+        isModerator: user.role === 'moderator'
+      },
+      token: token
     });
   } catch (error) {
-    console.error('Błąd logowania:', error);
-    res.status(500).json({ message: 'Błąd serwera' });
-  }
-};
-
-/**
- * Wylogowanie użytkownika
- */
-export const logoutUser = async (req, res) => {
-  try {
-    // Pobierz tokeny z ciasteczek
-    const accessToken = req.cookies?.token;
-    const refreshToken = req.cookies?.refreshToken;
-    
-    // Importuj funkcję dodawania do blacklisty
-    const { addToBlacklist } = await import('../../models/TokenBlacklist.js');
-    
-    // Dodaj tokeny do blacklisty jeśli istnieją
-    if (accessToken) {
-      await addToBlacklist(accessToken, {
-        reason: 'LOGOUT',
-        userId: req.user?.userId
-      });
-    }
-    
-    if (refreshToken) {
-      await addToBlacklist(refreshToken, {
-        reason: 'LOGOUT',
-        userId: req.user?.userId
-      });
-    }
-    
-    // Usuń token dostępu z ciasteczka
-    res.cookie('token', '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 0
+    console.error('❌ LOGIN ERROR DETAILS:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      email: email,
+      timestamp: new Date().toISOString()
     });
-    
-    // Usuń token odświeżający z ciasteczka
-    res.cookie('refreshToken', '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 0
-    });
-    
-    res.status(200).json({ message: 'Wylogowano pomyślnie' });
-  } catch (error) {
-    console.error('Błąd podczas wylogowywania:', error);
-    res.status(500).json({ message: 'Błąd serwera podczas wylogowywania' });
-  }
-};
-
-/**
- * Sprawdzenie stanu autentykacji
- */
-export const checkAuth = async (req, res) => {
-  try {
-    // Token już sprawdzony przez middleware auth
-    const userId = req.user.userId;
-    
-    const user = await User.findById(userId).select('-password');
-    if (!user) {
-      return res.status(404).json({ message: 'Użytkownik nie znaleziony' });
-    }
-    
-    res.status(200).json({ 
-      isAuthenticated: true,
-      user
-    });
-  } catch (error) {
-    console.error('Błąd sprawdzania autentykacji:', error);
-    res.status(500).json({ 
-      isAuthenticated: false,
-      message: 'Błąd sprawdzania autentykacji' 
+    return res.status(500).json({ 
+      message: 'An error occurred during login. Please try again.',
+      error: 'SERVER_ERROR'
     });
   }
 };
 
 /**
- * Weryfikacja kodu podczas rejestracji
- * Obsługuje weryfikację zarówno przez email jak i przez SMS
+ * Logout user
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
  */
-/**
- * Wysyłanie kodu weryfikacyjnego podczas rejestracji
- */
-export const sendRegistrationCode = async (req, res) => {
-  try {
-    const { email, phone } = req.body;
-    
-    if (!email && !phone) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Email lub numer telefonu jest wymagany' 
-      });
-    }
-    
-    // Przygotowanie kryteriów wyszukiwania
-    const searchCriteria = {};
-    if (email) searchCriteria.email = email;
-    if (phone) searchCriteria.phoneNumber = phone;
-    
-    // Sprawdzenie, czy użytkownik istnieje
-    const user = await User.findOne(searchCriteria);
-    if (!user) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'Użytkownik nie znaleziony' 
-      });
-    }
-    
-    // Generowanie 6-cyfrowego kodu
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    
-    // Zapisz kod w bazie danych
-    user.verificationCode = verificationCode;
-    user.verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minut
-    await user.save();
-    
-    // Wysłanie kodu przez SMS
-    if (phone) {
-      try {
-        await sendTwilioCode(phone, verificationCode);
-      } catch (smsError) {
-        console.error('Błąd wysyłania SMS:', smsError);
-        return res.status(500).json({ 
-          success: false,
-          message: 'Błąd wysyłania kodu weryfikacyjnego przez SMS' 
-        });
-      }
-    }
-    
-    return res.status(200).json({
-      success: true,
-      message: 'Kod weryfikacyjny został wysłany',
-      // W trybie deweloperskim zwracamy kod
-      devCode: process.env.NODE_ENV !== 'production' ? verificationCode : undefined
-    });
-  } catch (error) {
-    console.error('Błąd wysyłania kodu weryfikacyjnego:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Błąd serwera podczas wysyłania kodu weryfikacyjnego'
-    });
-  }
+export const logoutUser = (req, res) => {
+  // Clear token cookie
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/'
+  });
+  
+  return res.status(200).json({ message: 'Logged out successfully.' });
 };
 
 /**
- * Weryfikacja kodu podczas rejestracji
- * Obsługuje weryfikację zarówno przez email jak i przez SMS
+ * Verify 2FA code
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
  */
-/**
- * Odświeżanie tokenu dostępu za pomocą refresh tokenu
- */
-export const refreshToken = async (req, res) => {
-  try {
-    // Pobierz refresh token z ciasteczka
-    const refreshToken = req.cookies?.refreshToken;
-    
-    if (!refreshToken) {
-      return res.status(401).json({ 
-        success: false,
-        message: 'Brak tokenu odświeżającego. Zaloguj się ponownie.',
-        code: 'NO_REFRESH_TOKEN'
-      });
-    }
-    
-    // Importuj funkcje
-    const jwt = await import('jsonwebtoken');
-    const { isBlacklisted, addToBlacklist } = await import('../../models/TokenBlacklist.js');
-    const { generateAccessToken, generateRefreshToken } = await import('../../middleware/auth.js');
-    const User = (await import('../../models/user.js')).default;
-    
-    // Pobierz sekret JWT z zmiennych środowiskowych
-    const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'refreshSecretKey456';
-    
-    // Sprawdź czy refresh token nie jest na blackliście
-    const isTokenBlacklisted = await isBlacklisted(refreshToken);
-    if (isTokenBlacklisted) {
-      return res.status(401).json({ 
-        success: false,
-        message: 'Token odświeżający unieważniony. Zaloguj się ponownie.',
-        code: 'REFRESH_TOKEN_BLACKLISTED'
-      });
-    }
-    
-    try {
-      // Weryfikuj refresh token
-      const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
-      
-      // Sprawdź czy to token odświeżający
-      if (decoded.type !== 'refresh') {
-        return res.status(401).json({ 
-          success: false,
-          message: 'Nieprawidłowy typ tokenu.',
-          code: 'INVALID_TOKEN_TYPE'
-        });
-      }
-      
-      // Sprawdź czy użytkownik istnieje
-      const user = await User.findById(decoded.userId);
-      if (!user) {
-        return res.status(401).json({ 
-          success: false,
-          message: 'Użytkownik nie istnieje.',
-          code: 'USER_NOT_FOUND'
-        });
-      }
-      
-      // Generuj nowy token dostępu
-      const newAccessToken = generateAccessToken({
-        userId: user._id,
-        role: user.role || 'user'
-      });
-      
-      // Generuj nowy refresh token
-      const newRefreshToken = generateRefreshToken({
-        userId: user._id,
-        role: user.role || 'user'
-      });
-      
-      // Dodaj stary refresh token do blacklisty
-      await addToBlacklist(refreshToken, {
-        reason: 'ROTATION',
-        userId: user._id
-      });
-      
-      // Ustaw nowe tokeny w ciasteczkach
-      res.cookie('token', newAccessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        path: '/',
-        maxAge: 3600000 // 1 godzina
-      });
-      
-      res.cookie('refreshToken', newRefreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        path: '/',
-        maxAge: 7 * 24 * 3600000 // 7 dni
-      });
-      
-      return res.status(200).json({
-        success: true,
-        message: 'Tokeny odświeżone pomyślnie',
-        token: newAccessToken,
-        refreshToken: newRefreshToken,
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role
-        }
-      });
-    } catch (jwtError) {
-      console.error('Błąd weryfikacji refresh tokenu:', jwtError);
-      return res.status(401).json({ 
-        success: false,
-        message: 'Nieprawidłowy lub wygasły token odświeżający. Zaloguj się ponownie.',
-        code: 'INVALID_REFRESH_TOKEN'
-      });
-    }
-  } catch (error) {
-    console.error('Błąd podczas odświeżania tokenów:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Błąd serwera podczas odświeżania tokenów'
-    });
+export const verify2FACode = async (req, res) => {
+  const { email, code } = req.body;
+  if (!/^\d{6}$/.test(code)) {
+    return res.status(400).json({ message: 'Invalid 2FA code format.' });
   }
-};
 
-export const verifyCode = async (req, res) => {
   try {
-    const { email, phone, code } = req.body;
-    
-    if ((!email && !phone) || !code) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Email lub numer telefonu oraz kod weryfikacyjny są wymagane' 
-      });
+    const user = await User.findOne({ email });
+    if (!user || !user.is2FAEnabled) {
+      return res.status(400).json({ message: '2FA is not enabled or user does not exist.' });
     }
-    
-    // Przygotowanie kryteriów wyszukiwania
-    const searchCriteria = {};
-    if (email) searchCriteria.email = email;
-    if (phone) searchCriteria.phoneNumber = phone;
-    
-    // Sprawdzenie, czy użytkownik istnieje
-    const user = await User.findOne(searchCriteria);
-    if (!user) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'Użytkownik nie znaleziony' 
-      });
+
+    if (user.twoFACodeExpires < Date.now()) {
+      return res.status(400).json({ message: 'Code expired. Please request a new code.' });
     }
-    
-    // W trybie deweloperskim akceptujemy uniwersalny kod
-    const isTestCode = code === '123456' || process.env.NODE_ENV === 'development';
-    
-    // Sprawdzenie czy kod wygasł
-    const isCodeExpired = user.verificationCodeExpires && new Date(user.verificationCodeExpires) < new Date();
-    if (isCodeExpired && !isTestCode) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Kod weryfikacyjny wygasł. Proszę wygenerować nowy kod.' 
-      });
-    }
-    
-    // Sprawdzenie kodu
-    if (isTestCode || user.verificationCode === code) {
-      // Oznaczenie użytkownika jako zweryfikowanego
-      user.isVerified = true;
-      user.verificationCode = null;
-      user.verificationCodeExpires = null;
-      
+
+    if (user.twoFACode === code) {
+      user.twoFACode = null;
+      user.twoFACodeExpires = null;
       await user.save();
       
-      // Importujemy funkcje generujące tokeny z middleware/auth.js
-      const { generateAccessToken, generateRefreshToken } = await import('../../middleware/auth.js');
+      // JWT token after 2FA
+      const token = jwt.sign(
+        { userId: user._id }, 
+        process.env.JWT_SECRET, 
+        { expiresIn: '1h' }
+      );
       
-      // Generowanie tokenu dostępu (krótszy czas życia - 1h)
-      const accessToken = generateAccessToken({
-        userId: user._id,
-        role: user.role
-      });
-      
-      // Generowanie tokenu odświeżającego (dłuższy czas życia - 7 dni)
-      const refreshToken = generateRefreshToken({
-        userId: user._id,
-        role: user.role
-      });
-      
-      // Ustawienie tokenu dostępu w ciasteczku HttpOnly
-      res.cookie('token', accessToken, {
+      // Set token in HttpOnly cookie
+      res.cookie('token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
         path: '/',
-        maxAge: 3600000 // 1 godzina
+        maxAge: 3600000 // 1 hour in milliseconds
       });
       
-      // Ustawienie tokenu odświeżającego w ciasteczku HttpOnly
-      res.cookie('refreshToken', refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        path: '/',
-        maxAge: 7 * 24 * 3600000 // 7 dni
-      });
-      
-      return res.status(200).json({
-        success: true,
-        message: 'Kod zweryfikowany pomyślnie',
-        token: accessToken,
-        refreshToken: refreshToken,
+      return res.status(200).json({ 
+        message: 'Verification code correct, logged in.',
         user: {
           id: user._id,
-          name: user.name,
           email: user.email,
-          role: user.role
+          role: user.role,
+          name: user.name,
+          lastName: user.lastName,
+          phoneNumber: user.phoneNumber,
+          dob: user.dob ? user.dob.toISOString().split('T')[0] : null,
+          isAuthenticated: true
         }
       });
     }
-    
-    return res.status(400).json({
-      success: false,
-      message: 'Nieprawidłowy kod weryfikacyjny'
-    });
+    return res.status(400).json({ message: 'Invalid verification code.' });
   } catch (error) {
-    console.error('Błąd weryfikacji kodu:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Błąd serwera podczas weryfikacji kodu'
-    });
+    console.error('Code verification error:', error);
+    return res.status(500).json({ message: 'Error during code verification.' });
   }
+};
+
+/**
+ * Send 2FA code
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+export const send2FACode = async (req, res) => {
+  const { phone } = req.body;
+  try {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    await sendVerificationCode(phone, code);
+    return res.status(200).json({ message: 'Verification code has been sent.' });
+  } catch (error) {
+    console.error('Error sending code:', error);
+    return res.status(500).json({ message: 'Error sending verification code.' });
+  }
+};
+
+/**
+ * Check authentication status
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+export const checkAuth = (req, res) => {
+  return res.status(200).json({ 
+    isAuthenticated: true,
+    user: {
+      id: req.user.userId,
+      role: req.user.role
+    }
+  });
 };

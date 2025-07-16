@@ -1,16 +1,25 @@
+/**
+ * Profile Controller
+ * Handles user profile operations: get profile, update profile
+ */
+
 import User from '../../models/user.js';
 
-// Pobranie danych użytkownika
+/**
+ * Get user profile
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
 export const getUserProfile = async (req, res) => {
   try {
     const userId = req.user.userId;
     const user = await User.findById(userId);
-
+    
     if (!user) {
-      return res.status(404).json({ message: 'Użytkownik nie został znaleziony.' });
+      return res.status(404).json({ message: 'User not found.' });
     }
-
-    // Zwracamy dane włącznie ze statusem weryfikacji
+    
+    // Return only safe data
     return res.status(200).json({
       id: user._id,
       name: user.name,
@@ -19,53 +28,52 @@ export const getUserProfile = async (req, res) => {
       phoneNumber: user.phoneNumber,
       dob: user.dob ? user.dob.toISOString().split('T')[0] : null,
       role: user.role,
-      createdAt: user.createdAt,
-      // Dane weryfikacji
-      isEmailVerified: user.isEmailVerified || false,
-      isPhoneVerified: user.isPhoneVerified || false,
-      isVerified: user.isVerified || false,
-      registrationType: user.registrationType || 'standard'
+      createdAt: user.createdAt
     });
   } catch (error) {
-    console.error('Błąd pobierania profilu użytkownika:', error);
-    return res.status(500).json({ message: 'Błąd serwera podczas pobierania danych użytkownika.' });
+    console.error('Error fetching user profile:', error);
+    return res.status(500).json({ message: 'Server error while fetching user data.' });
   }
 };
 
-// Aktualizacja danych użytkownika
+/**
+ * Update user profile
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
 export const updateUserProfile = async (req, res) => {
   try {
     const userId = req.user.userId;
     const { name, lastName } = req.body;
-
-    // Sprawdź czy pola są poprawne
+    
+    // Validate fields
     if (name && name.length < 2) {
-      return res.status(400).json({
-        message: 'Imię musi zawierać co najmniej 2 znaki.',
+      return res.status(400).json({ 
+        message: 'Name must contain at least 2 characters.',
         field: 'name'
       });
     }
-
+    
     if (lastName && lastName.length < 2) {
-      return res.status(400).json({
-        message: 'Nazwisko musi zawierać co najmniej 2 znaki.',
+      return res.status(400).json({ 
+        message: 'Last name must contain at least 2 characters.',
         field: 'lastName'
       });
     }
-
+    
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: 'Użytkownik nie został znaleziony.' });
+      return res.status(404).json({ message: 'User not found.' });
     }
-
-    // Aktualizuj tylko dozwolone pola
+    
+    // Update only allowed fields
     if (name) user.name = name;
     if (lastName) user.lastName = lastName;
-
+    
     await user.save();
-
+    
     return res.status(200).json({
-      message: 'Profil został zaktualizowany pomyślnie.',
+      message: 'Profile updated successfully.',
       user: {
         id: user._id,
         name: user.name,
@@ -73,16 +81,11 @@ export const updateUserProfile = async (req, res) => {
         email: user.email,
         phoneNumber: user.phoneNumber,
         dob: user.dob ? user.dob.toISOString().split('T')[0] : null,
-        role: user.role,
-        // Dane weryfikacji
-        isEmailVerified: user.isEmailVerified || false,
-        isPhoneVerified: user.isPhoneVerified || false,
-        isVerified: user.isVerified || false,
-        registrationType: user.registrationType || 'standard'
+        role: user.role
       }
     });
   } catch (error) {
-    console.error('Błąd aktualizacji profilu użytkownika:', error);
-    return res.status(500).json({ message: 'Błąd serwera podczas aktualizacji danych użytkownika.' });
+    console.error('Error updating user profile:', error);
+    return res.status(500).json({ message: 'Server error while updating user data.' });
   }
 };

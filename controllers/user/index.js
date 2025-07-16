@@ -1,53 +1,36 @@
-import * as authController from './authController.js';
-  import * as profileController from './profileController.js';
-  import * as verificationController from './verificationController.js';
-  import * as passwordController from './passwordController.js';
-  import * as validationController from './validationController.js';
-import * as settingsController from './settingsController.js';
+/**
+ * User Controllers Index
+ * Main export file for all user-related controllers
+ * Maintains backward compatibility with existing imports
+ */
 
-  export {
-    authController,
-    profileController,
-    verificationController,
-    passwordController,
-    validationController,
-    settingsController
-  };
+// Authentication Controller
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  verify2FACode,
+  send2FACode,
+  checkAuth
+} from './authController.js';
 
-  // Eksportowanie wszystkich funkcji bezpośrednio (alternatywny sposób importu)
-  export const {
-    registerUser,
-    loginUser,
-    logoutUser,
-    checkAuth,
-    registerGoogleUser,
-    completeGoogleUserProfile,
-    verifyCode,
-    sendRegistrationCode,
-    refreshToken
-  } = authController;
+// Profile Controller
+export {
+  getUserProfile,
+  updateUserProfile
+} from './profileController.js';
 
-  export const {
-    getUserProfile,
-    updateUserProfile
-  } = profileController;
+// Password Controller
+export {
+  changePassword,
+  requestPasswordReset,
+  verifyResetToken,
+  resetPassword
+} from './passwordController.js';
 
-  export const {
-    send2FACode,
-    verify2FACode,
-    verifyEmailCode,
-    sendVerificationCode,
-    verifyVerificationCode
-  } = verificationController;
-
-  export const {
-    requestPasswordReset,
-    verifyResetToken,
-    resetPassword,
-    changePassword
-  } = passwordController;
-
-  export const {
-    checkEmailExists,
-    checkPhoneExists
-  } = validationController;
+// Validation Controller
+export {
+  checkEmailExists,
+  checkPhoneExists,
+  verifyEmailCode
+} from './validationController.js';

@@ -231,15 +231,20 @@ router.get('/', auth, async (req, res) => {
     const unreadCount = await Notification.getUnreadCount(req.user.userId);
     
     // Konwersja do formatu API
-    const formattedNotifications = notifications.map(notification => ({
-      id: notification._id,
-      message: notification.message,
-      type: notification.type,
-      isRead: notification.isRead,
-      metadata: notification.metadata,
-      createdAt: notification.createdAt,
-      updatedAt: notification.updatedAt
-    }));
+    const formattedNotifications = notifications.map(notification => 
+      notification.toApiResponse ? notification.toApiResponse() : {
+        id: notification._id,
+        title: notification.title,
+        message: notification.message,
+        type: notification.type,
+        isRead: notification.isRead,
+        link: notification.link,
+        adId: notification.adId,
+        metadata: notification.metadata,
+        createdAt: notification.createdAt,
+        updatedAt: notification.updatedAt
+      }
+    );
     
     res.status(200).json({
       notifications: formattedNotifications,
@@ -266,15 +271,20 @@ router.get('/unread', auth, async (req, res) => {
     const notifications = await notificationService.getUnreadNotifications(req.user.userId, parseInt(limit));
     
     // Konwersja do formatu API
-    const formattedNotifications = notifications.map(notification => ({
-      id: notification._id,
-      message: notification.message,
-      type: notification.type,
-      isRead: notification.isRead,
-      metadata: notification.metadata,
-      createdAt: notification.createdAt,
-      updatedAt: notification.updatedAt
-    }));
+    const formattedNotifications = notifications.map(notification => 
+      notification.toApiResponse ? notification.toApiResponse() : {
+        id: notification._id,
+        title: notification.title,
+        message: notification.message,
+        type: notification.type,
+        isRead: notification.isRead,
+        link: notification.link,
+        adId: notification.adId,
+        metadata: notification.metadata,
+        createdAt: notification.createdAt,
+        updatedAt: notification.updatedAt
+      }
+    );
     
     res.status(200).json({
       notifications: formattedNotifications,
@@ -302,11 +312,11 @@ router.get('/unread/count', auth, async (req, res) => {
 });
 
 /**
- * @route PUT /api/notifications/:id/read
+ * @route PATCH /api/notifications/:id/read
  * @desc Oznaczanie powiadomienia jako przeczytane
  * @access Private
  */
-router.put('/:id/read', auth, async (req, res) => {
+router.patch('/:id/read', auth, async (req, res) => {
   try {
     const notification = await notificationService.markAsRead(req.params.id, req.user.userId);
     

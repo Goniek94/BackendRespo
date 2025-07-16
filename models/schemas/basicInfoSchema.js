@@ -92,6 +92,11 @@ const basicInfoSchema = new mongoose.Schema({
     trim: true,
     minlength: [10, 'Opis musi zawierać co najmniej 10 znaków.']
   },
+  shortDescription: {
+    type: String,
+    trim: true,
+    maxlength: 120
+  },
   images: [{
     type: String
   }],
@@ -121,7 +126,7 @@ const basicInfoSchema = new mongoose.Schema({
   status: {
     type: String,
     required: true,
-    enum: ['pending', 'opublikowane', 'w toku', 'archiwalne'],
+    enum: ['pending', 'active', 'opublikowane', 'w toku', 'archiwalne', 'archived', 'rejected', 'needs_changes', 'sold'],
     default: 'pending'
   }
 });

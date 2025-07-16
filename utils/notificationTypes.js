@@ -1,15 +1,11 @@
 /**
- * Typy powiadomień w systemie
+ * Typy powiadomień w systemie - Backend
  * 
  * UWAGA: Ten plik musi być zsynchronizowany z odpowiadającym mu plikiem w frontendzie:
  * frontend/src/utils/NotificationTypes.js
  */
 
-/**
- * Typy powiadomień
- * @enum {string}
- */
-export const NOTIFICATION_TYPES = {
+export const NotificationType = {
   // Powiadomienia systemowe
   SYSTEM_NOTIFICATION: 'system_notification',
   MAINTENANCE_NOTIFICATION: 'maintenance_notification',
@@ -39,182 +35,74 @@ export const NOTIFICATION_TYPES = {
   PROFILE_VIEWED: 'profile_viewed'
 };
 
-// Dla zachowania kompatybilności wstecznej
-export const NotificationType = NOTIFICATION_TYPES;
+/**
+ * Mapowanie typów powiadomień na ich czytelne nazwy
+ */
+export const NotificationTypeNames = {
+  [NotificationType.SYSTEM_NOTIFICATION]: 'Powiadomienie systemowe',
+  [NotificationType.MAINTENANCE_NOTIFICATION]: 'Konserwacja systemu',
+  [NotificationType.LISTING_ADDED]: 'Ogłoszenie opublikowane!',
+  [NotificationType.LISTING_EXPIRING]: 'Ogłoszenie za 3 dni traci ważność',
+  [NotificationType.LISTING_EXPIRED]: 'Ogłoszenie wygasło',
+  [NotificationType.LISTING_STATUS_CHANGED]: 'Zmiana statusu ogłoszenia',
+  [NotificationType.LISTING_LIKED]: 'Dodano do ulubionych',
+  [NotificationType.LISTING_VIEWED]: 'Wyświetlenie ogłoszenia',
+  [NotificationType.NEW_MESSAGE]: 'Nowa wiadomość',
+  [NotificationType.NEW_COMMENT]: 'Nowy komentarz',
+  [NotificationType.COMMENT_REPLY]: 'Odpowiedź na komentarz',
+  [NotificationType.PAYMENT_COMPLETED]: 'Płatność zrealizowana',
+  [NotificationType.PAYMENT_FAILED]: 'Płatność nieudana',
+  [NotificationType.PAYMENT_REFUNDED]: 'Zwrot płatności',
+  [NotificationType.ACCOUNT_ACTIVITY]: 'Aktywność na koncie',
+  [NotificationType.PROFILE_VIEWED]: 'Wyświetlenie profilu'
+};
 
 /**
- * Szablony wiadomości dla różnych typów powiadomień
- * @type {Object.<string, function>}
+ * Mapowanie typów powiadomień na ich opisy
  */
-export const notificationTemplates = {
-  /**
-   * Szablon powiadomienia o dodaniu nowego ogłoszenia
-   * @param {string} adTitle - Tytuł ogłoszenia
-   * @returns {string} - Treść powiadomienia
-   */
-  [NotificationType.LISTING_ADDED]: (adTitle) => {
-    return `Twoje ogłoszenie "${adTitle}" zostało pomyślnie dodane.`;
-  },
-  
-  /**
-   * Szablon powiadomienia o kończącym się terminie ogłoszenia
-   * @param {string} adTitle - Tytuł ogłoszenia
-   * @param {number} daysLeft - Liczba dni do końca
-   * @returns {string} - Treść powiadomienia
-   */
-  [NotificationType.LISTING_EXPIRING]: (adTitle, daysLeft) => {
-    return `Twoje ogłoszenie "${adTitle}" wygaśnie za ${daysLeft} dni. Rozważ jego odnowienie.`;
-  },
-  
-  /**
-   * Szablon powiadomienia o wygaśnięciu ogłoszenia
-   * @param {string} adTitle - Tytuł ogłoszenia
-   * @returns {string} - Treść powiadomienia
-   */
-  [NotificationType.LISTING_EXPIRED]: (adTitle) => {
-    return `Twoje ogłoszenie "${adTitle}" wygasło. Możesz je odnowić w panelu ogłoszeń.`;
-  },
-  
-  /**
-   * Szablon powiadomienia o zmianie statusu ogłoszenia
-   * @param {string} adTitle - Tytuł ogłoszenia
-   * @param {string} status - Nowy status ogłoszenia
-   * @returns {string} - Treść powiadomienia
-   */
-  [NotificationType.LISTING_STATUS_CHANGED]: (adTitle, status) => {
-    const statusMessages = {
-      'opublikowane': `Twoje ogłoszenie "${adTitle}" zostało opublikowane.`,
-      'archiwalne': `Twoje ogłoszenie "${adTitle}" zostało zarchiwizowane.`,
-      'w toku': `Twoje ogłoszenie "${adTitle}" jest w trakcie weryfikacji.`
-    };
-    
-    return statusMessages[status] || `Status Twojego ogłoszenia "${adTitle}" został zmieniony na "${status}".`;
-  },
-  
-  /**
-   * Szablon powiadomienia o dodaniu ogłoszenia do ulubionych
-   * @param {string} adTitle - Tytuł ogłoszenia
-   * @returns {string} - Treść powiadomienia
-   */
-  [NotificationType.LISTING_LIKED]: (adTitle) => {
-    return `Twoje ogłoszenie "${adTitle}" zostało dodane do ulubionych przez innego użytkownika.`;
-  },
-  
-  /**
-   * Szablon powiadomienia o wyświetleniu ogłoszenia
-   * @param {string} adTitle - Tytuł ogłoszenia
-   * @param {number} viewCount - Liczba wyświetleń (opcjonalnie)
-   * @returns {string} - Treść powiadomienia
-   */
-  [NotificationType.LISTING_VIEWED]: (adTitle, viewCount = null) => {
-    return viewCount 
-      ? `Twoje ogłoszenie "${adTitle}" osiągnęło ${viewCount} wyświetleń.`
-      : `Twoje ogłoszenie "${adTitle}" zostało wyświetlone.`;
-  },
-  
-  /**
-   * Szablon powiadomienia o nowej wiadomości
-   * @param {string} senderName - Nazwa nadawcy
-   * @param {string} adTitle - Tytuł ogłoszenia (opcjonalnie)
-   * @returns {string} - Treść powiadomienia
-   */
-  [NotificationType.NEW_MESSAGE]: (senderName, adTitle = null) => {
-    if (adTitle) {
-      return `Otrzymałeś nową wiadomość od ${senderName} dotyczącą ogłoszenia "${adTitle}".`;
-    } else {
-      return `Otrzymałeś nową wiadomość od ${senderName}.`;
-    }
-  },
-  
-  /**
-   * Szablon powiadomienia o nowym komentarzu
-   * @param {string} adTitle - Tytuł ogłoszenia
-   * @returns {string} - Treść powiadomienia
-   */
-  [NotificationType.NEW_COMMENT]: (adTitle) => {
-    return `Dodano nowy komentarz do Twojego ogłoszenia "${adTitle}".`;
-  },
-  
-  /**
-   * Szablon powiadomienia o odpowiedzi na komentarz
-   * @param {string} adTitle - Tytuł ogłoszenia
-   * @returns {string} - Treść powiadomienia
-   */
-  [NotificationType.COMMENT_REPLY]: (adTitle) => {
-    return `Ktoś odpowiedział na Twój komentarz w ogłoszeniu "${adTitle}".`;
-  },
-  
-  /**
-   * Szablon powiadomienia o zrealizowanej płatności
-   * @param {string} adTitle - Tytuł ogłoszenia (opcjonalnie)
-   * @returns {string} - Treść powiadomienia
-   */
-  [NotificationType.PAYMENT_COMPLETED]: (adTitle = null) => {
-    return adTitle 
-      ? `Płatność za ogłoszenie "${adTitle}" została zrealizowana.` 
-      : `Twoja płatność została zrealizowana.`;
-  },
-  
-  /**
-   * Szablon powiadomienia o nieudanej płatności
-   * @param {string} reason - Powód niepowodzenia (opcjonalnie)
-   * @returns {string} - Treść powiadomienia
-   */
-  [NotificationType.PAYMENT_FAILED]: (reason = null) => {
-    return reason
-      ? `Twoja płatność nie została zrealizowana. Powód: ${reason}`
-      : `Twoja płatność nie została zrealizowana. Sprawdź szczegóły w historii płatności.`;
-  },
-  
-  /**
-   * Szablon powiadomienia o zwrocie płatności
-   * @param {string} amount - Kwota zwrotu (opcjonalnie)
-   * @returns {string} - Treść powiadomienia
-   */
-  [NotificationType.PAYMENT_REFUNDED]: (amount = null) => {
-    return amount
-      ? `Otrzymałeś zwrot płatności w wysokości ${amount}.`
-      : `Otrzymałeś zwrot płatności. Szczegóły znajdziesz w historii płatności.`;
-  },
-  
-  /**
-   * Szablon powiadomienia o aktywności na koncie
-   * @param {string} activity - Rodzaj aktywności
-   * @returns {string} - Treść powiadomienia
-   */
-  [NotificationType.ACCOUNT_ACTIVITY]: (activity) => {
-    return `Wykryto nową aktywność na Twoim koncie: ${activity}`;
-  },
-  
-  /**
-   * Szablon powiadomienia o wyświetleniu profilu
-   * @param {string} viewerName - Nazwa osoby przeglądającej profil (opcjonalnie)
-   * @returns {string} - Treść powiadomienia
-   */
-  [NotificationType.PROFILE_VIEWED]: (viewerName = null) => {
-    return viewerName
-      ? `Użytkownik ${viewerName} wyświetlił Twój profil.`
-      : `Ktoś wyświetlił Twój profil.`;
-  },
-  
-  /**
-   * Szablon powiadomienia o konserwacji systemu
-   * @param {string} message - Treść powiadomienia
-   * @param {string} scheduledTime - Planowany czas konserwacji (opcjonalnie)
-   * @returns {string} - Treść powiadomienia
-   */
-  [NotificationType.MAINTENANCE_NOTIFICATION]: (message, scheduledTime = null) => {
-    return scheduledTime
-      ? `Informacja o konserwacji systemu: ${message}. Planowany czas: ${scheduledTime}.`
-      : `Informacja o konserwacji systemu: ${message}`;
-  },
-  
-  /**
-   * Szablon powiadomienia systemowego
-   * @param {string} message - Treść powiadomienia
-   * @returns {string} - Treść powiadomienia
-   */
-  [NotificationType.SYSTEM_NOTIFICATION]: (message) => {
-    return message;
-  }
+export const NotificationTypeDescriptions = {
+  [NotificationType.SYSTEM_NOTIFICATION]: 'Ważne informacje od administratorów serwisu',
+  [NotificationType.MAINTENANCE_NOTIFICATION]: 'Informacje o planowanych pracach konserwacyjnych',
+  [NotificationType.LISTING_ADDED]: 'Twoje ogłoszenie zostało pomyślnie opublikowane',
+  [NotificationType.LISTING_EXPIRING]: 'Twoje ogłoszenie wygaśnie za 3 dni',
+  [NotificationType.LISTING_EXPIRED]: 'Twoje ogłoszenie wygasło',
+  [NotificationType.LISTING_STATUS_CHANGED]: 'Status Twojego ogłoszenia został zmieniony',
+  [NotificationType.LISTING_LIKED]: 'Ktoś dodał Twoje ogłoszenie do ulubionych',
+  [NotificationType.LISTING_VIEWED]: 'Ktoś wyświetlił Twoje ogłoszenie',
+  [NotificationType.NEW_MESSAGE]: 'Otrzymałeś nową wiadomość',
+  [NotificationType.NEW_COMMENT]: 'Ktoś skomentował Twoje ogłoszenie',
+  [NotificationType.COMMENT_REPLY]: 'Ktoś odpowiedział na Twój komentarz',
+  [NotificationType.PAYMENT_COMPLETED]: 'Płatność została zrealizowana',
+  [NotificationType.PAYMENT_FAILED]: 'Płatność nie powiodła się',
+  [NotificationType.PAYMENT_REFUNDED]: 'Otrzymałeś zwrot płatności',
+  [NotificationType.ACCOUNT_ACTIVITY]: 'Wykryto aktywność na Twoim koncie',
+  [NotificationType.PROFILE_VIEWED]: 'Ktoś wyświetlił Twój profil'
 };
+
+/**
+ * Funkcja pomocnicza do tworzenia powiadomienia
+ * @param {string} userId - ID użytkownika
+ * @param {string} type - Typ powiadomienia
+ * @param {string} title - Tytuł powiadomienia
+ * @param {string} message - Treść powiadomienia
+ * @param {string} link - Link do przekierowania (opcjonalny)
+ * @param {string} adId - ID ogłoszenia (opcjonalny)
+ * @param {Object} metadata - Dodatkowe metadane (opcjonalny)
+ * @returns {Object} - Obiekt powiadomienia
+ */
+export const createNotificationData = (userId, type, title, message, link = null, adId = null, metadata = {}) => {
+  return {
+    userId,
+    user: userId, // Dla kompatybilności wstecznej
+    type,
+    title,
+    message,
+    link,
+    adId,
+    metadata,
+    isRead: false,
+    createdAt: new Date()
+  };
+};
+
+export default NotificationType;

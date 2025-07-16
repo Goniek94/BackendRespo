@@ -7,12 +7,51 @@ import { NotificationType } from '../utils/notificationTypes.js';
  */
 const notificationSchema = new mongoose.Schema(
   {
-    // Użytkownik, do którego należy powiadomienie
-    user: {
+    // Użytkownik, do którego należy powiadomienie (userId)
+    userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
       index: true // Dodanie indeksu dla wydajności zapytań
+    },
+    
+    // Zachowujemy też pole user dla kompatybilności wstecznej
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true
+    },
+    
+    // Typ powiadomienia (enum) - zgodny z wymaganiami
+    type: {
+      type: String,
+      enum: [
+        'listing_added',
+        'listing_expiring', 
+        'listing_liked',
+        'new_message',
+        'system_notification',
+        'maintenance_notification',
+        'listing_expired',
+        'listing_status_changed',
+        'listing_viewed',
+        'new_comment',
+        'comment_reply',
+        'payment_completed',
+        'payment_failed',
+        'payment_refunded',
+        'account_activity',
+        'profile_viewed'
+      ],
+      default: 'system_notification',
+      index: true // Dodanie indeksu dla wydajności zapytań
+    },
+    
+    // Tytuł powiadomienia
+    title: {
+      type: String,
+      required: true,
     },
     
     // Treść powiadomienia
@@ -21,12 +60,10 @@ const notificationSchema = new mongoose.Schema(
       required: true,
     },
     
-    // Typ powiadomienia (z enum NotificationType)
-    type: {
+    // Link do przekierowania (opcjonalny)
+    link: {
       type: String,
-      enum: Object.values(NotificationType),
-      default: NotificationType.SYSTEM_NOTIFICATION,
-      index: true // Dodanie indeksu dla wydajności zapytań
+      default: null
     },
     
     // Status przeczytania
@@ -36,7 +73,14 @@ const notificationSchema = new mongoose.Schema(
       index: true // Dodanie indeksu dla wydajności zapytań
     },
     
-    // Metadane - dodatkowe informacje o powiadomieniu (np. ID ogłoszenia, ID komentarza, itp.)
+    // ID ogłoszenia (jeśli powiadomienie dotyczy ogłoszenia)
+    adId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Ad',
+      default: null
+    },
+    
+    // Metadane - dodatkowe informacje o powiadomieniu (np. ID komentarza, itp.)
     metadata: {
       type: mongoose.Schema.Types.Mixed,
       default: {}
@@ -74,9 +118,12 @@ const notificationSchema = new mongoose.Schema(
       toApiResponse() {
         return {
           id: this._id,
+          title: this.title,
           message: this.message,
           type: this.type,
           isRead: this.isRead,
+          link: this.link,
+          adId: this.adId,
           metadata: this.metadata,
           createdAt: this.createdAt,
           updatedAt: this.updatedAt

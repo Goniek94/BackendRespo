@@ -423,6 +423,40 @@ router.get('/models', async (req, res, next) => {
   }
 }, errorHandler);
 
+// Endpoint do pobierania danych o markach i modelach samochodów
+router.get('/car-data', async (req, res, next) => {
+  try {
+    // Pobierz wszystkie unikalne marki i modele z bazy danych
+    const ads = await Ad.find({}, 'brand model').lean();
+    
+    // Utwórz obiekt z markami jako kluczami i tablicami modeli jako wartościami
+    const carData = {};
+    
+    ads.forEach(ad => {
+      if (ad.brand && ad.model) {
+        if (!carData[ad.brand]) {
+          carData[ad.brand] = [];
+        }
+        
+        // Dodaj model tylko jeśli jeszcze nie istnieje w tablicy
+        if (!carData[ad.brand].includes(ad.model)) {
+          carData[ad.brand].push(ad.model);
+        }
+      }
+    });
+    
+    // Posortuj modele dla każdej marki
+    Object.keys(carData).forEach(brand => {
+      carData[brand].sort();
+    });
+    
+    res.status(200).json(carData);
+  } catch (err) {
+    console.error('Błąd podczas pobierania danych o markach i modelach:', err);
+    next(err);
+  }
+}, errorHandler);
+
 // Pobieranie ogłoszeń użytkownika
 router.get('/user/listings', auth, async (req, res, next) => {
   try {
@@ -1036,73 +1070,107 @@ router.put('/:id', auth, async (req, res, next) => {
       return res.status(403).json({ message: 'Brak uprawnień do edycji tego ogłoszenia' });
     }
 
-    // Pola, które można aktualizować
+    // Pola, które można aktualizować - rozszerzona lista
     const updatableFields = [
+      // Podstawowe informacje
       'description', 'price', 'city', 'voivodeship', 'color',
-      'headline', 'mainImage', 'images'
+      'headline', 'mainImage', 'images', 'mileage', 'negotiable',
+      
+      // Dane techniczne
+      'condition', 'accidentStatus', 'damageStatus', 'tuning', 
+      'imported', 'registeredInPL', 'firstOwner', 'disabledAdapted',
+      'bodyType', 'lastOfficialMileage', 'power', 'engineSize', 
+      'drive', 'doors', 'weight', 'rentalPrice', 'countryOfOrigin',
+      
+      // Identyfikatory (tylko dla adminów)
+      ...(req.user.role === 'admin' ? ['vin', 'registrationNumber'] : []),
+      
+      // Opcje zakupu
+      'purchaseOptions'
     ];
+
+    console.log('Aktualizacja ogłoszenia:', req.params.id);
+    console.log('Dane do aktualizacji:', req.body);
 
     // Aktualizuj tylko dozwolone pola
     updatableFields.forEach(field => {
       if (req.body[field] !== undefined) {
+        console.log(`Aktualizuję pole ${field}: ${ad[field]} -> ${req.body[field]}`);
         ad[field] = req.body[field];
       }
     });
 
+    // Specjalna obsługa dla mainImageIndex - konwertuj na mainImage
+    if (req.body.mainImageIndex !== undefined && ad.images && ad.images.length > 0) {
+      const index = parseInt(req.body.mainImageIndex);
+      if (index >= 0 && index < ad.images.length) {
+        ad.mainImage = ad.images[index];
+        console.log(`Ustawiono główne zdjęcie na indeks ${index}: ${ad.mainImage}`);
+      }
+    }
+
+    // Automatyczne generowanie shortDescription z headline lub description
+    if (req.body.description || req.body.headline) {
+      const sourceText = req.body.headline || ad.headline || req.body.description || ad.description;
+      ad.shortDescription = sourceText ? sourceText.substring(0, 120) : '';
+      console.log('Wygenerowano shortDescription:', ad.shortDescription);
+    }
+
     // Zapisz zmiany
     await ad.save();
 
+    console.log('Ogłoszenie zaktualizowane pomyślnie');
     res.status(200).json({ message: 'Ogłoszenie zaktualizowane', ad });
   } catch (err) {
+    console.error('Błąd podczas aktualizacji ogłoszenia:', err);
     next(err);
   }
 }, errorHandler);
 
-// Endpoint do pobierania danych o markach i modelach samochodów
-router.get('/car-data', async (req, res, next) => {
-  try {
-    // Pobierz wszystkie unikalne marki i modele z bazy danych
-    const ads = await Ad.find({}, 'brand model').lean();
-    
-    // Utwórz obiekt z markami jako kluczami i tablicami modeli jako wartościami
-    const carData = {};
-    
-    ads.forEach(ad => {
-      if (ad.brand && ad.model) {
-        if (!carData[ad.brand]) {
-          carData[ad.brand] = [];
-        }
-        
-        // Dodaj model tylko jeśli jeszcze nie istnieje w tablicy
-        if (!carData[ad.brand].includes(ad.model)) {
-          carData[ad.brand].push(ad.model);
-        }
-      }
-    });
-    
-    // Posortuj modele dla każdej marki
-    Object.keys(carData).forEach(brand => {
-      carData[brand].sort();
-    });
-    
-    res.status(200).json(carData);
-  } catch (err) {
-    console.error('Błąd podczas pobierania danych o markach i modelach:', err);
-    next(err);
-  }
-}, errorHandler);
 
 // Usuwanie zdjęcia z ogłoszenia
 router.delete('/:id/images/:index', auth, async (req, res, next) => {
   try {
     const ad = await Ad.findById(req.params.id);
-    ad.images.splice(req.params.index, 1);
-    if (ad.mainImage === ad.images[req.params.index]) {
+
+    if (!ad) {
+      return res.status(404).json({ message: 'Ogłoszenie nie znalezione' });
+    }
+
+    // Sprawdź czy użytkownik jest właścicielem lub adminem
+    if (ad.owner.toString() !== req.user.userId.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Brak uprawnień do usunięcia zdjęcia z tego ogłoszenia' });
+    }
+
+    const imageIndex = parseInt(req.params.index);
+    
+    // Sprawdź czy indeks jest prawidłowy
+    if (imageIndex < 0 || imageIndex >= ad.images.length) {
+      return res.status(400).json({ message: 'Nieprawidłowy indeks zdjęcia' });
+    }
+
+    // Nie pozwól na usunięcie ostatniego zdjęcia
+    if (ad.images.length <= 1) {
+      return res.status(400).json({ message: 'Nie można usunąć ostatniego zdjęcia z ogłoszenia' });
+    }
+
+    // Usuń zdjęcie z tablicy
+    const removedImage = ad.images[imageIndex];
+    ad.images.splice(imageIndex, 1);
+    
+    // Jeśli usunięte zdjęcie było głównym, ustaw nowe główne
+    if (ad.mainImage === removedImage) {
       ad.mainImage = ad.images[0];
     }
+
     await ad.save();
-    res.json(ad);
+
+    res.status(200).json({ 
+      message: 'Zdjęcie zostało usunięte',
+      ad: ad
+    });
   } catch (err) {
+    console.error('Błąd podczas usuwania zdjęcia:', err);
     next(err);
   }
 }, errorHandler);
@@ -1171,6 +1239,43 @@ router.post('/:id/images', auth, async (req, res, next) => {
     );
     res.json(ad);
   } catch (err) {
+    next(err);
+  }
+}, errorHandler);
+
+// Usuwanie ogłoszenia
+router.delete('/:id', auth, async (req, res, next) => {
+  try {
+    const ad = await Ad.findById(req.params.id);
+
+    if (!ad) {
+      return res.status(404).json({ message: 'Ogłoszenie nie znalezione' });
+    }
+
+    // Sprawdź czy użytkownik jest właścicielem lub adminem
+    if (ad.owner.toString() !== req.user.userId.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Brak uprawnień do usunięcia tego ogłoszenia' });
+    }
+
+    // Usuń ogłoszenie z bazy danych
+    await Ad.findByIdAndDelete(req.params.id);
+
+    // Tworzenie powiadomienia o usunięciu ogłoszenia
+    try {
+      const adTitle = ad.headline || `${ad.brand} ${ad.model}`;
+      await notificationService.notifyAdStatusChange(ad.owner.toString(), adTitle, 'usunięte');
+      console.log(`Utworzono powiadomienie o usunięciu ogłoszenia dla użytkownika ${ad.owner}`);
+    } catch (notificationError) {
+      console.error('Błąd podczas tworzenia powiadomienia:', notificationError);
+      // Nie przerywamy głównego procesu w przypadku błędu powiadomienia
+    }
+
+    // Resetowanie cache rotacji
+    rotationCache.lastRotation = null;
+
+    res.status(200).json({ message: 'Ogłoszenie zostało usunięte' });
+  } catch (err) {
+    console.error('Błąd podczas usuwania ogłoszenia:', err);
     next(err);
   }
 }, errorHandler);

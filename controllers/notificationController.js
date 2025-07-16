@@ -1,6 +1,58 @@
 import Notification from '../models/notification.js';
-import { NotificationType, notificationTemplates } from '../utils/notificationTypes.js';
+import { NotificationType, NotificationTypeNames, NotificationTypeDescriptions, createNotificationData } from '../utils/notificationTypes.js';
 import socketService from '../services/socketService.js';
+
+/**
+ * Szablony wiadomości dla różnych typów powiadomień
+ */
+const notificationTemplates = {
+  [NotificationType.LISTING_ADDED]: (adTitle) => 
+    `Twoje ogłoszenie "${adTitle}" zostało pomyślnie opublikowane!`,
+  
+  [NotificationType.LISTING_EXPIRING]: (adTitle, daysLeft) => 
+    `Twoje ogłoszenie "${adTitle}" wygaśnie za ${daysLeft} ${daysLeft === 1 ? 'dzień' : 'dni'}.`,
+  
+  [NotificationType.LISTING_EXPIRED]: (adTitle) => 
+    `Twoje ogłoszenie "${adTitle}" wygasło.`,
+  
+  [NotificationType.LISTING_STATUS_CHANGED]: (adTitle, status) => 
+    `Status Twojego ogłoszenia "${adTitle}" został zmieniony na "${status}".`,
+  
+  [NotificationType.LISTING_LIKED]: (adTitle) => 
+    `Ktoś dodał Twoje ogłoszenie "${adTitle}" do ulubionych!`,
+  
+  [NotificationType.LISTING_VIEWED]: (adTitle, viewCount) => 
+    viewCount ? `Twoje ogłoszenie "${adTitle}" zostało wyświetlone ${viewCount} razy.` : `Ktoś wyświetlił Twoje ogłoszenie "${adTitle}".`,
+  
+  [NotificationType.NEW_MESSAGE]: (senderName, adTitle) => 
+    adTitle ? `${senderName} wysłał Ci wiadomość dotyczącą ogłoszenia "${adTitle}".` : `${senderName} wysłał Ci wiadomość.`,
+  
+  [NotificationType.NEW_COMMENT]: (adTitle) => 
+    `Ktoś skomentował Twoje ogłoszenie "${adTitle}".`,
+  
+  [NotificationType.COMMENT_REPLY]: (adTitle) => 
+    `Ktoś odpowiedział na Twój komentarz w ogłoszeniu "${adTitle}".`,
+  
+  [NotificationType.PAYMENT_COMPLETED]: (adTitle) => 
+    adTitle ? `Płatność za ogłoszenie "${adTitle}" została zrealizowana.` : 'Płatność została zrealizowana.',
+  
+  [NotificationType.PAYMENT_FAILED]: (reason) => 
+    reason ? `Płatność nie powiodła się. Powód: ${reason}` : 'Płatność nie powiodła się.',
+  
+  [NotificationType.PAYMENT_REFUNDED]: (amount) => 
+    amount ? `Otrzymałeś zwrot płatności w wysokości ${amount}.` : 'Otrzymałeś zwrot płatności.',
+  
+  [NotificationType.ACCOUNT_ACTIVITY]: (activity) => 
+    `Wykryto aktywność na Twoim koncie: ${activity}`,
+  
+  [NotificationType.PROFILE_VIEWED]: (viewerName) => 
+    viewerName ? `${viewerName} wyświetlił Twój profil.` : 'Ktoś wyświetlił Twój profil.',
+  
+  [NotificationType.MAINTENANCE_NOTIFICATION]: (message, scheduledTime) => 
+    scheduledTime ? `${message} Planowany czas: ${scheduledTime}` : message,
+  
+  [NotificationType.SYSTEM_NOTIFICATION]: (message) => message
+};
 
 /**
  * Klasa NotificationService - odpowiada za zarządzanie powiadomieniami w systemie
@@ -10,13 +62,14 @@ class NotificationService {
   /**
    * Tworzy nowe powiadomienie dla użytkownika
    * @param {string} userId - ID użytkownika
+   * @param {string} title - Tytuł powiadomienia
    * @param {string} message - Treść powiadomienia
    * @param {string} type - Typ powiadomienia (z NotificationType)
-   * @param {Object} metadata - Dodatkowe dane związane z powiadomieniem (opcjonalne)
+   * @param {Object} options - Dodatkowe opcje (link, adId, metadata)
    * @returns {Promise<Object>} - Utworzone powiadomienie
    * @throws {Error} - Błąd podczas tworzenia powiadomienia
    */
-  async createNotification(userId, message, type = NotificationType.SYSTEM_NOTIFICATION, metadata = {}) {
+  async createNotification(userId, title, message, type = NotificationType.SYSTEM_NOTIFICATION, options = {}) {
     try {
       if (!userId) {
         console.warn('[NotificationService] Próba utworzenia powiadomienia bez ID użytkownika');
@@ -48,10 +101,14 @@ class NotificationService {
       console.log(`[NotificationService] Tworzenie powiadomienia dla użytkownika ${userId}, typ: ${type}`);
       
       const notification = new Notification({
-        user: userId,
-        message,
-        type,
-        metadata,
+        userId: userId,
+        user: userId, // Zachowujemy dla kompatybilności wstecznej
+        title: title,
+        message: message,
+        type: type,
+        link: options.link || null,
+        adId: options.adId || null,
+        metadata: options.metadata || {},
         isRead: false
       });
       
@@ -79,10 +136,15 @@ class NotificationService {
    * @returns {Promise<Object>} - Utworzone powiadomienie
    */
   async notifyAdCreated(userId, adTitle, adId = null) {
+    const title = "Ogłoszenie opublikowane!";
     const message = notificationTemplates[NotificationType.LISTING_ADDED](adTitle);
-    const metadata = adId ? { adId } : {};
+    const options = {
+      adId: adId,
+      link: adId ? `/ads/${adId}` : null,
+      metadata: { adId }
+    };
     
-    return this.createNotification(userId, message, NotificationType.LISTING_ADDED, metadata);
+    return this.createNotification(userId, title, message, NotificationType.LISTING_ADDED, options);
   }
 
   /**
@@ -186,10 +248,15 @@ class NotificationService {
       // Jeśli nie ma tytułu, użyj domyślnego
       const safeAdTitle = adTitle || 'Ogłoszenie';
       
+      const title = "Dodano do ulubionych";
       const message = notificationTemplates[NotificationType.LISTING_LIKED](safeAdTitle);
-      const metadata = adId ? { adId } : {};
+      const options = {
+        adId: adId,
+        link: adId ? `/ads/${adId}` : null,
+        metadata: { adId }
+      };
       
-      return this.createNotification(userId, message, NotificationType.LISTING_LIKED, metadata);
+      return this.createNotification(userId, title, message, NotificationType.LISTING_LIKED, options);
     } catch (error) {
       console.error(`[NotificationService] Błąd podczas tworzenia powiadomienia o dodaniu do ulubionych: ${error.message}`, error);
       return null;

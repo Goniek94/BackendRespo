@@ -23,6 +23,9 @@ router.get('/models', CarBrandsController.getModelsQuery);
 // GET /api/car-brands/:brand/models - Get models for specific brand
 router.get('/:brand/models', CarBrandsController.getModelsByBrand);
 
+// GET /api/car-brands/:brand/:model/generations - Get generations for specific brand and model
+router.get('/:brand/:model/generations', CarBrandsController.getGenerationsByModel);
+
 // GET /api/car-brands/:brand/search?q=query - Search models within a brand
 router.get('/:brand/search', CarBrandsController.searchModels);
 

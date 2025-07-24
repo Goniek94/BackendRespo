@@ -90,8 +90,8 @@ router.post('/add', auth, createAdLimiter, validate(adValidationSchema), async (
       brand, model, generation, version, year, price, mileage, fuelType, transmission, vin,
       registrationNumber, headline, description, purchaseOptions, listingType, condition,
       accidentStatus, damageStatus, tuning, imported, registeredInPL, firstOwner, disabledAdapted,
-      bodyType, color, lastOfficialMileage, power, engineSize, drive, doors, weight,
-      voivodeship, city, rentalPrice, status, sellerType, images, mainImage // Odbieramy tablicę URL-i i główne zdjęcie
+      bodyType, color, paintFinish, seats, lastOfficialMileage, power, engineSize, drive, doors, weight,
+      voivodeship, city, rentalPrice, status, sellerType, countryOfOrigin, negotiable, images, mainImage // Odbieramy tablicę URL-i i główne zdjęcie
     } = mappedData;
 
     console.log('Dane po mapowaniu:', {
@@ -167,12 +167,15 @@ router.post('/add', auth, createAdLimiter, validate(adValidationSchema), async (
       disabledAdapted,
       bodyType,
       color,
+      paintFinish,
+      seats,
       lastOfficialMileage: lastOfficialMileage ? parseInt(lastOfficialMileage) : undefined,
       power: power ? parseInt(power) : undefined,
       engineSize: engineSize ? parseInt(engineSize) : undefined,
       drive,
       doors: doors ? parseInt(doors) : undefined,
       weight: weight ? parseInt(weight) : undefined,
+      countryOfOrigin,
       
       // Lokalizacja
       voivodeship,
@@ -299,7 +302,7 @@ router.put('/:id', auth, async (req, res, next) => {
       // Dane techniczne
       'condition', 'accidentStatus', 'damageStatus', 'tuning', 
       'imported', 'registeredInPL', 'firstOwner', 'disabledAdapted',
-      'bodyType', 'lastOfficialMileage', 'power', 'engineSize', 
+      'bodyType', 'paintFinish', 'seats', 'lastOfficialMileage', 'power', 'engineSize', 
       'drive', 'doors', 'weight', 'rentalPrice', 'countryOfOrigin',
       
       // Identyfikatory (tylko dla adminów)

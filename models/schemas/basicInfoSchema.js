@@ -1,6 +1,29 @@
 import mongoose from 'mongoose';
 
 /**
+ * Helper function to capitalize boolean-like values
+ */
+const capitalizeBooleanValue = function(value) {
+  if (!value) return value;
+  const lowerValue = value.toLowerCase();
+  if (lowerValue === 'tak') return 'Tak';
+  if (lowerValue === 'nie') return 'Nie';
+  return value;
+};
+
+/**
+ * Helper function to capitalize purchase options
+ */
+const capitalizePurchaseOptions = function(value) {
+  if (!value) return value;
+  const lowerValue = value.toLowerCase();
+  if (lowerValue === 'sprzedaż' || lowerValue === 'sprzedaz') return 'Sprzedaż';
+  if (lowerValue === 'faktura vat') return 'Faktura VAT';
+  if (lowerValue === 'inne') return 'Inne';
+  return value;
+};
+
+/**
  * Schemat podstawowych informacji o pojeździe
  */
 const basicInfoSchema = new mongoose.Schema({
@@ -49,14 +72,15 @@ const basicInfoSchema = new mongoose.Schema({
     required: true,
     enum: ['benzyna', 'diesel', 'elektryczny', 'hybryda', 'hybrydowy', 'benzyna+LPG', 'inne',
            'Benzyna', 'Diesel', 'Elektryczny', 'Hybryda', 'Hybrydowy', 'Benzyna+LPG', 'Inne',
-           'Benzyna+CNG', 'Etanol'],
+           'Benzyna+CNG', 'Etanol', 'Hybryda plug-in', 'Wodór', 'Benzyna+Etanol'],
     default: 'benzyna'
   },
   transmission: {
     type: String,
     required: true,
     enum: ['manualna', 'automatyczna', 'półautomatyczna',
-           'Manualna', 'Automatyczna', 'Półautomatyczna', 'Bezstopniowa CVT'],
+           'Manualna', 'Automatyczna', 'Półautomatyczna', 'Bezstopniowa CVT',
+           'Automatyczna dwusprzęgłowa', 'Sekwencyjna', 'Inne'],
     default: 'manualna'
   },
   
@@ -109,13 +133,15 @@ const basicInfoSchema = new mongoose.Schema({
   purchaseOptions: {
     type: String,
     required: true,
-    enum: ['Sprzedaż', 'Faktura VAT', 'Inne'],
-    default: 'Sprzedaż'
+    enum: ['umowa kupna-sprzedaży', 'faktura VAT', 'inne', 'Sprzedaż', 'Faktura VAT', 'Inne'],
+    default: 'umowa kupna-sprzedaży',
+    set: capitalizePurchaseOptions
   },
   negotiable: {
     type: String,
     enum: ['Tak', 'Nie'],
-    default: 'Nie'
+    default: 'Nie',
+    set: capitalizeBooleanValue
   },
   listingType: {
     type: String,

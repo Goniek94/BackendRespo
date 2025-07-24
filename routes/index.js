@@ -1,6 +1,7 @@
 // Organized imports from new structure
 import userRoutes from './user/userRoutes.js';
 import adRoutes from './listings/adRoutes.js';
+import adCrudRoutes from './listings/adCrudRoutes.js';
 import notificationRoutes from './notifications/notificationRoutes.js';
 import transactionRoutes from './payments/transactionRoutes.js';
 import paymentRoutes from './payments/paymentRoutes.js';
@@ -77,6 +78,10 @@ export default (app) => {
     'ads': {
       router: adRoutes,
       description: 'Advertisement CRUD operations, search, filtering'
+    },
+    'ads-crud': {
+      router: adCrudRoutes,
+      description: 'Advertisement CRUD operations - create, read, update, delete'
     },
     'comments': {
       router: commentRoutes,

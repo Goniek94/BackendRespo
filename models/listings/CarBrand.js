@@ -12,9 +12,15 @@ const carBrandSchema = new mongoose.Schema({
     trim: true
   },
   models: [{
-    type: String,
-    required: true,
-    trim: true
+    name: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    generations: [{
+      type: String,
+      trim: true
+    }]
   }]
 }, {
   timestamps: true,
@@ -23,7 +29,7 @@ const carBrandSchema = new mongoose.Schema({
 
 // Indeksy dla wydajniejszego wyszukiwania
 carBrandSchema.index({ brand: 1 });
-carBrandSchema.index({ models: 1 });
+carBrandSchema.index({ 'models.name': 1 });
 
 // Metody statyczne
 carBrandSchema.statics.getAllBrands = function() {
@@ -32,6 +38,18 @@ carBrandSchema.statics.getAllBrands = function() {
 
 carBrandSchema.statics.getModelsByBrand = function(brandName) {
   return this.findOne({ brand: brandName }, 'models');
+};
+
+carBrandSchema.statics.getGenerationsByModel = function(brandName, modelName) {
+  return this.findOne(
+    { 
+      brand: brandName,
+      'models.name': modelName 
+    },
+    { 
+      'models.$': 1 
+    }
+  );
 };
 
 carBrandSchema.statics.searchBrands = function(query) {
@@ -43,7 +61,7 @@ carBrandSchema.statics.searchBrands = function(query) {
 carBrandSchema.statics.searchModels = function(brandName, query) {
   return this.findOne({
     brand: brandName,
-    models: { $regex: query, $options: 'i' }
+    'models.name': { $regex: query, $options: 'i' }
   }, 'models');
 };
 

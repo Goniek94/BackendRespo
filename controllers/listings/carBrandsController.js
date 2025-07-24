@@ -56,7 +56,19 @@ class CarBrandsController {
         });
       }
 
-      const models = brandData.models.sort();
+      // Obsługa nowej struktury z generacjami lub starej struktury
+      let models;
+      if (brandData.models && brandData.models.length > 0) {
+        if (typeof brandData.models[0] === 'string') {
+          // Stara struktura - modele jako stringi
+          models = brandData.models.sort();
+        } else {
+          // Nowa struktura - modele jako obiekty z name i generations
+          models = brandData.models.map(model => model.name).sort();
+        }
+      } else {
+        models = [];
+      }
       
       console.log(`Pobrano ${models.length} modeli dla marki "${brand}"`);
       
@@ -97,7 +109,19 @@ class CarBrandsController {
         });
       }
 
-      const models = brandData.models.sort();
+      // Obsługa nowej struktury z generacjami lub starej struktury
+      let models;
+      if (brandData.models && brandData.models.length > 0) {
+        if (typeof brandData.models[0] === 'string') {
+          // Stara struktura - modele jako stringi
+          models = brandData.models.sort();
+        } else {
+          // Nowa struktura - modele jako obiekty z name i generations
+          models = brandData.models.map(model => model.name).sort();
+        }
+      } else {
+        models = [];
+      }
       
       console.log(`Pobrano ${models.length} modeli dla marki "${brand}" (query)`);
       
@@ -105,6 +129,52 @@ class CarBrandsController {
 
     } catch (error) {
       console.error('Error in getModelsQuery:', error);
+      next(error);
+    }
+  }
+
+  /**
+   * Get generations for a specific brand and model
+   * GET /api/car-brands/:brand/:model/generations
+   */
+  static async getGenerationsByModel(req, res, next) {
+    try {
+      const { brand, model } = req.params;
+      
+      if (!brand || !model) {
+        return res.status(400).json({
+          success: false,
+          message: 'Parametry brand i model są wymagane'
+        });
+      }
+
+      const brandData = await CarBrand.getGenerationsByModel(brand, model);
+      
+      if (!brandData || !brandData.models || brandData.models.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: `Model "${model}" dla marki "${brand}" nie został znaleziony`
+        });
+      }
+
+      const modelData = brandData.models[0];
+      const generations = modelData.generations || [];
+      
+      // Dodaj opcję "Brak" jeśli nie ma generacji
+      const generationsWithDefault = generations.length > 0 ? generations : ['Brak'];
+      
+      console.log(`Pobrano ${generations.length} generacji dla modelu "${model}" marki "${brand}"`);
+      
+      res.status(200).json({
+        success: true,
+        data: generationsWithDefault,
+        brand: brand,
+        model: model,
+        count: generationsWithDefault.length
+      });
+
+    } catch (error) {
+      console.error('Error in getGenerationsByModel:', error);
       next(error);
     }
   }
@@ -119,7 +189,22 @@ class CarBrandsController {
       
       const carData = {};
       brandsData.forEach(brandDoc => {
-        carData[brandDoc.brand] = brandDoc.models.sort();
+        // Obsługa nowej struktury z generacjami lub starej struktury
+        let models;
+        if (brandDoc.models && brandDoc.models.length > 0) {
+          if (typeof brandDoc.models[0] === 'string') {
+            // Stara struktura - modele jako stringi
+            models = brandDoc.models.sort();
+          } else if (brandDoc.models[0] && brandDoc.models[0].name) {
+            // Nowa struktura - modele jako obiekty z name i generations
+            models = brandDoc.models.map(model => model.name).sort();
+          } else {
+            models = [];
+          }
+        } else {
+          models = [];
+        }
+        carData[brandDoc.brand] = models;
       });
       
       console.log(`Pobrano ${Object.keys(carData).length} marek z modelami z kolekcji CarBrands`);

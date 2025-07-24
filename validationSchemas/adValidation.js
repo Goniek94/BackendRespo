@@ -109,6 +109,8 @@ const adValidationSchema = Joi.object({
 
   bodyType: Joi.string().allow(''),
   color: Joi.string().allow(''),
+  paintFinish: Joi.string().allow(''),
+  seats: Joi.string().allow(''),
 
   lastOfficialMileage: Joi.any().allow(null),
   countryOfOrigin: Joi.string().allow(''),

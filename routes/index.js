@@ -11,6 +11,7 @@ import favoriteRoutes from './listings/favoriteRoutes.js';
 import adminRoutes from './admin/adminRoutes.js';
 import statsRoutes from './listings/statsRoutes.js';
 import imageRoutes from './media/imageRoutes.js';
+import carBrandsRoutes from './listings/carBrandsRoutes.js';
 
 // Import organized route modules
 import * as userRoutesModule from './user/index.js';
@@ -84,6 +85,10 @@ export default (app) => {
     'images': {
       router: imageRoutes,
       description: 'Image upload, processing, and management'
+    },
+    'car-brands': {
+      router: carBrandsRoutes,
+      description: 'Car brands and models data from CarBrands collection'
     },
     
     // Communication

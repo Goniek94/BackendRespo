@@ -34,3 +34,13 @@ export {
   checkPhoneExists,
   verifyEmailCode
 } from './validationController.js';
+
+// Favorites Controller
+export {
+  addToFavorites,
+  removeFromFavorites,
+  toggleFavorite,
+  getUserFavorites,
+  checkIsFavorite,
+  getFavoritesCount
+} from './favoritesController.js';

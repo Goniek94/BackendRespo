@@ -15,7 +15,13 @@ import {
   resetPassword,
   checkEmailExists,
   checkPhoneExists,
-  verifyEmailCode
+  verifyEmailCode,
+  addToFavorites,
+  removeFromFavorites,
+  toggleFavorite,
+  getUserFavorites,
+  checkIsFavorite,
+  getFavoritesCount
 } from '../../controllers/user/index.js';
 
 const router = express.Router();
@@ -204,5 +210,25 @@ router.put(
   ],
   changePassword
 );
+
+// ===== FAVORITES ROUTES =====
+
+// Get user's favorite ads
+router.get('/favorites', auth, getUserFavorites);
+
+// Get favorites count
+router.get('/favorites/count', auth, getFavoritesCount);
+
+// Check if ad is in favorites
+router.get('/favorites/:adId/check', auth, checkIsFavorite);
+
+// Add ad to favorites
+router.post('/favorites/:adId', auth, addToFavorites);
+
+// Toggle favorite status (add/remove)
+router.post('/favorites/:adId/toggle', auth, toggleFavorite);
+
+// Remove ad from favorites
+router.delete('/favorites/:adId', auth, removeFromFavorites);
 
 export default router;

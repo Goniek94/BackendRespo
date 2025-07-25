@@ -33,7 +33,7 @@ const adValidationSchema = Joi.object({
     .valid('benzyna', 'diesel', 'elektryczny', 'hybryda', 'hybrydowy', 'benzyna+LPG', 'inne',
            'Benzyna', 'Diesel', 'Elektryczny', 'Hybryda', 'Hybrydowy', 'Benzyna+LPG', 'Inne',
            'Benzyna+CNG', 'Etanol')
-    .default('benzyna')
+    .default('Benzyna')
     .messages({
       'any.only': 'Nieprawidłowy typ paliwa.'
     }),
@@ -42,7 +42,7 @@ const adValidationSchema = Joi.object({
   transmission: Joi.string()
     .valid('manualna', 'automatyczna', 'półautomatyczna',
            'Manualna', 'Automatyczna', 'Półautomatyczna', 'Bezstopniowa CVT')
-    .default('manualna')
+    .default('Manualna')
     .messages({
       'any.only': 'Nieprawidłowy typ skrzyni biegów.'
     }),
@@ -95,8 +95,8 @@ const adValidationSchema = Joi.object({
   headline: Joi.string().max(120).allow('').messages({
     'string.max': 'Tytuł ogłoszenia nie może przekraczać 120 znaków.'
   }),
-  sellerType: Joi.string().valid('prywatny', 'firma', 'Prywatny', 'Firma').default('prywatny').messages({
-    'any.only': 'Dopuszczalne typy sprzedawcy to: prywatny, firma.'
+  sellerType: Joi.string().valid('prywatny', 'firma', 'Prywatny', 'Firma').default('Prywatny').messages({
+    'any.only': 'Dopuszczalne typy sprzedawcy to: Prywatny, Firma.'
   }),
   condition: Joi.string().allow(''),
   accidentStatus: Joi.string().allow(''),

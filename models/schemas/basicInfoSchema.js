@@ -24,6 +24,42 @@ const capitalizePurchaseOptions = function(value) {
 };
 
 /**
+ * Helper function to capitalize fuel type values
+ */
+const capitalizeFuelType = function(value) {
+  if (!value) return value;
+  const lowerValue = value.toLowerCase();
+  if (lowerValue === 'benzyna') return 'Benzyna';
+  if (lowerValue === 'diesel') return 'Diesel';
+  if (lowerValue === 'elektryczny') return 'Elektryczny';
+  if (lowerValue === 'hybryda' || lowerValue === 'hybrydowy') return 'Hybryda';
+  if (lowerValue === 'benzyna+lpg') return 'Benzyna+LPG';
+  if (lowerValue === 'benzyna+cng') return 'Benzyna+CNG';
+  if (lowerValue === 'etanol') return 'Etanol';
+  if (lowerValue === 'hybryda plug-in') return 'Hybryda plug-in';
+  if (lowerValue === 'wodór') return 'Wodór';
+  if (lowerValue === 'benzyna+etanol') return 'Benzyna+Etanol';
+  if (lowerValue === 'inne') return 'Inne';
+  return value;
+};
+
+/**
+ * Helper function to capitalize transmission values
+ */
+const capitalizeTransmission = function(value) {
+  if (!value) return value;
+  const lowerValue = value.toLowerCase();
+  if (lowerValue === 'manualna') return 'Manualna';
+  if (lowerValue === 'automatyczna') return 'Automatyczna';
+  if (lowerValue === 'półautomatyczna') return 'Półautomatyczna';
+  if (lowerValue === 'bezstopniowa cvt') return 'Bezstopniowa CVT';
+  if (lowerValue === 'automatyczna dwusprzęgłowa') return 'Automatyczna dwusprzęgłowa';
+  if (lowerValue === 'sekwencyjna') return 'Sekwencyjna';
+  if (lowerValue === 'inne') return 'Inne';
+  return value;
+};
+
+/**
  * Schemat podstawowych informacji o pojeździe
  */
 const basicInfoSchema = new mongoose.Schema({
@@ -73,7 +109,8 @@ const basicInfoSchema = new mongoose.Schema({
     enum: ['benzyna', 'diesel', 'elektryczny', 'hybryda', 'hybrydowy', 'benzyna+LPG', 'inne',
            'Benzyna', 'Diesel', 'Elektryczny', 'Hybryda', 'Hybrydowy', 'Benzyna+LPG', 'Inne',
            'Benzyna+CNG', 'Etanol', 'Hybryda plug-in', 'Wodór', 'Benzyna+Etanol'],
-    default: 'benzyna'
+    default: 'Benzyna',
+    set: capitalizeFuelType
   },
   transmission: {
     type: String,
@@ -81,7 +118,8 @@ const basicInfoSchema = new mongoose.Schema({
     enum: ['manualna', 'automatyczna', 'półautomatyczna',
            'Manualna', 'Automatyczna', 'Półautomatyczna', 'Bezstopniowa CVT',
            'Automatyczna dwusprzęgłowa', 'Sekwencyjna', 'Inne'],
-    default: 'manualna'
+    default: 'Manualna',
+    set: capitalizeTransmission
   },
   
   // Identyfikatory pojazdu

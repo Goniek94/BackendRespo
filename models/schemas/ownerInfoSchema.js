@@ -1,6 +1,17 @@
 import mongoose from 'mongoose';
 
 /**
+ * Helper function to capitalize seller type values
+ */
+const capitalizeSellerType = function(value) {
+  if (!value) return value;
+  const lowerValue = value.toLowerCase();
+  if (lowerValue === 'prywatny') return 'Prywatny';
+  if (lowerValue === 'firma') return 'Firma';
+  return value;
+};
+
+/**
  * Schemat informacji o właścicielu ogłoszenia
  */
 const ownerInfoSchema = new mongoose.Schema({
@@ -25,8 +36,9 @@ const ownerInfoSchema = new mongoose.Schema({
   // Typ sprzedającego (osoba prywatna / firma)
   sellerType: {
     type: String,
-    enum: ['Prywatny', 'Firma'],
-    default: 'Prywatny'
+    enum: ['prywatny', 'firma', 'Prywatny', 'Firma'],
+    default: 'Prywatny',
+    set: capitalizeSellerType
   }
 });
 

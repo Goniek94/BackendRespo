@@ -9,6 +9,7 @@ export { default as commentRoutes } from './commentRoutes.js';
 export { default as favoriteRoutes } from './favoriteRoutes.js';
 export { default as statsRoutes } from './statsRoutes.js';
 export { default as carBrandsRoutes } from './carBrandsRoutes.js';
+export { default as searchStatsRoutes } from './searchStatsRoutes.js';
 
 // Re-export for backward compatibility
 export { default } from './adRoutes.js';

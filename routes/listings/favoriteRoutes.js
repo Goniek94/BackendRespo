@@ -34,13 +34,16 @@ router.post('/add/:id', auth, async (req, res) => {
     const adId = req.params.id;
     console.log('Dodawanie ogłoszenia do ulubionych:', adId, 'dla użytkownika:', req.user.userId);
     
-    // Sprawdź, czy ogłoszenie istnieje
+    // Sprawdź, czy ogłoszenie istnieje i ma odpowiedni status
     let ad;
     try {
-      ad = await Ad.findById(adId);
+      ad = await Ad.findOne({ 
+        _id: adId, 
+        status: { $in: ['active', 'opublikowane', 'pending'] }
+      });
       if (!ad) {
-        console.log('Ogłoszenie nie znalezione:', adId);
-        return res.status(404).json({ message: 'Ogłoszenie nie znalezione' });
+        console.log('Ogłoszenie nie znalezione lub nie jest aktywne:', adId);
+        return res.status(404).json({ message: 'Ogłoszenie nie znalezione lub nie jest opublikowane' });
       }
       console.log('Znaleziono ogłoszenie:', ad._id, 'właściciel:', ad.owner);
     } catch (adError) {

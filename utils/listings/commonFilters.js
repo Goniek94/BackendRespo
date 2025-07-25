@@ -4,38 +4,160 @@
  */
 
 // Centralna funkcja zwracająca filtr dla aktywnych ogłoszeń
-// Zwraca wszystkie ogłoszenia (active + pending) dla lepszej widoczności w wyszukiwarce
+// Zwraca wszystkie ogłoszenia (active + opublikowane + pending) dla lepszej widoczności w wyszukiwarce
 export const getActiveStatusFilter = () => {
-  return { $in: ['active', 'pending'] };
+  return { $in: ['active', 'opublikowane', 'pending'] };
 };
 
-// Funkcja pomocnicza do tworzenia filtru ogłoszeń - rozszerzona o wszystkie filtry
+// Funkcja pomocnicza do tworzenia filtru ogłoszeń - kompletna obsługa wszystkich filtrów
 export const createAdFilter = (query) => {
   const filter = {};
   
-  // Podstawowe filtry tekstowe
-  if (query.make) filter.brand = query.make; // make -> brand mapping
-  if (query.brand) filter.brand = query.brand;
-  
   // Debug: logowanie filtrów
   console.log('Tworzenie filtru z query:', query);
-  if (query.model) filter.model = query.model;
-  if (query.bodyType) filter.bodyType = query.bodyType;
-  if (query.fuelType) filter.fuelType = query.fuelType;
-  if (query.transmission) filter.transmission = query.transmission;
-  if (query.driveType) filter.driveType = query.driveType;
+  
+  // === PODSTAWOWE FILTRY TEKSTOWE ===
+  
+  // Marka (make -> brand mapping)
+  if (query.make) {
+    if (Array.isArray(query.make)) {
+      filter.brand = { $in: query.make };
+    } else {
+      filter.brand = query.make;
+    }
+  }
+  if (query.brand) {
+    if (Array.isArray(query.brand)) {
+      filter.brand = { $in: query.brand };
+    } else {
+      filter.brand = query.brand;
+    }
+  }
+  
+  // Model
+  if (query.model) {
+    if (Array.isArray(query.model)) {
+      filter.model = { $in: query.model };
+    } else {
+      filter.model = query.model;
+    }
+  }
+  
+  // Generacja
+  if (query.generation) {
+    if (Array.isArray(query.generation)) {
+      filter.generation = { $in: query.generation };
+    } else {
+      filter.generation = query.generation;
+    }
+  }
+  
+  // Typ nadwozia
+  if (query.bodyType) {
+    if (Array.isArray(query.bodyType)) {
+      filter.bodyType = { $in: query.bodyType };
+    } else {
+      filter.bodyType = query.bodyType;
+    }
+  }
+  
+  // Rodzaj paliwa
+  if (query.fuelType) {
+    if (Array.isArray(query.fuelType)) {
+      filter.fuelType = { $in: query.fuelType };
+    } else {
+      filter.fuelType = query.fuelType;
+    }
+  }
+  
+  // Skrzynia biegów
+  if (query.transmission) {
+    if (Array.isArray(query.transmission)) {
+      filter.transmission = { $in: query.transmission };
+    } else {
+      filter.transmission = query.transmission;
+    }
+  }
+  
+  // Napęd
+  if (query.driveType) {
+    if (Array.isArray(query.driveType)) {
+      filter.driveType = { $in: query.driveType };
+    } else {
+      filter.driveType = query.driveType;
+    }
+  }
+  
+  // === FILTRY ZAAWANSOWANE ===
+  
+  // Kolor
   if (query.color) filter.color = query.color;
-  if (query.doorCount) filter.doorCount = query.doorCount;
-  if (query.country) filter.country = query.country;
-  if (query.region) filter.region = query.region;
-  if (query.city) filter.city = query.city;
+  
+  // Wykończenie lakieru
+  if (query.finish) filter.paintFinish = query.finish;
+  
+  // Liczba drzwi
+  if (query.doorCount) filter.doors = query.doorCount;
+  
+  // Liczba miejsc
+  if (query.seats) filter.seats = query.seats;
+  
+  // Stan techniczny
+  if (query.condition) filter.condition = query.condition;
+  
+  // Wypadkowość
+  if (query.accidentStatus) filter.accidentStatus = query.accidentStatus;
+  
+  // Uszkodzenia
   if (query.damageStatus) filter.damageStatus = query.damageStatus;
-  if (query.vehicleCondition) filter.vehicleCondition = query.vehicleCondition;
-  if (query.sellingForm) filter.sellingForm = query.sellingForm;
-  if (query.sellerType) filter.sellerType = query.sellerType;
+  
+  // Tuning
   if (query.tuning) filter.tuning = query.tuning;
   
-  // Filtry boolean
+  // Kraj pochodzenia
+  if (query.countryOfOrigin) filter.countryOfOrigin = query.countryOfOrigin;
+  
+  // Typ sprzedawcy
+  if (query.sellerType) filter.sellerType = query.sellerType;
+  
+  // Importowany
+  if (query.imported) filter.imported = query.imported === 'tak' || query.imported === true;
+  
+  // Zarejestrowany w PL
+  if (query.registeredInPL) filter.registeredInPL = query.registeredInPL === 'tak' || query.registeredInPL === true;
+  
+  // Pierwszy właściciel
+  if (query.firstOwner) filter.firstOwner = query.firstOwner === 'tak' || query.firstOwner === true;
+  
+  // Przystosowany dla niepełnosprawnych
+  if (query.disabledAdapted) filter.disabledAdapted = query.disabledAdapted === 'tak' || query.disabledAdapted === true;
+  
+  // === LOKALIZACJA ===
+  
+  // Województwo
+  if (query.region) {
+    if (Array.isArray(query.region)) {
+      filter.voivodeship = { $in: query.region };
+    } else {
+      filter.voivodeship = query.region;
+    }
+  }
+  
+  // Miasto
+  if (query.city) {
+    if (Array.isArray(query.city)) {
+      filter.city = { $in: query.city };
+    } else {
+      filter.city = query.city;
+    }
+  }
+  
+  // === ZACHOWANE DLA KOMPATYBILNOŚCI ===
+  if (query.country) filter.country = query.country;
+  if (query.vehicleCondition) filter.vehicleCondition = query.vehicleCondition;
+  if (query.sellingForm) filter.sellingForm = query.sellingForm;
+  
+  // === FILTRY BOOLEAN ===
   if (query.vat !== undefined && query.vat !== '') {
     filter.vat = query.vat === 'true' || query.vat === true;
   }
@@ -43,7 +165,8 @@ export const createAdFilter = (query) => {
     filter.invoiceOptions = query.invoiceOptions === 'true' || query.invoiceOptions === true;
   }
   
-  // Filtry zakresowe
+  // === FILTRY ZAKRESOWE ===
+  
   // Cena
   if (query.minPrice || query.maxPrice || query.priceFrom || query.priceTo) {
     filter.price = {};
@@ -80,9 +203,16 @@ export const createAdFilter = (query) => {
   
   // Pojemność silnika
   if (query.engineCapacityFrom || query.engineCapacityTo) {
-    filter.engineCapacity = {};
-    if (query.engineCapacityFrom) filter.engineCapacity.$gte = parseFloat(query.engineCapacityFrom);
-    if (query.engineCapacityTo) filter.engineCapacity.$lte = parseFloat(query.engineCapacityTo);
+    filter.engineSize = {}; // Zmienione z engineCapacity na engineSize (zgodnie ze schematem)
+    if (query.engineCapacityFrom) filter.engineSize.$gte = parseFloat(query.engineCapacityFrom);
+    if (query.engineCapacityTo) filter.engineSize.$lte = parseFloat(query.engineCapacityTo);
+  }
+  
+  // Waga pojazdu
+  if (query.weightFrom || query.weightTo) {
+    filter.weight = {};
+    if (query.weightFrom) filter.weight.$gte = parseInt(query.weightFrom);
+    if (query.weightTo) filter.weight.$lte = parseInt(query.weightTo);
   }
   
   // Status ogłoszenia - domyślnie aktywne i opublikowane
@@ -97,10 +227,8 @@ export const createAdFilter = (query) => {
     filter.listingType = query.listingType;
   }
   
-  // Dodatkowe filtry (zachowane dla kompatybilności)
-  if (query.generation) filter.generation = query.generation;
-  if (query.condition) filter.condition = query.condition;
-  if (query.power) filter.power = parseInt(query.power);
+  // === DODATKOWE FILTRY (zachowane dla kompatybilności) ===
+  if (query.power && !filter.power) filter.power = parseInt(query.power);
   if (query.drive) filter.drive = query.drive;
   
   return filter;

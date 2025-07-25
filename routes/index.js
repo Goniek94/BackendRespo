@@ -13,6 +13,7 @@ import adminRoutes from './admin/adminRoutes.js';
 import statsRoutes from './listings/statsRoutes.js';
 import imageRoutes from './media/imageRoutes.js';
 import carBrandsRoutes from './listings/carBrandsRoutes.js';
+import searchStatsRoutes from './listings/searchStatsRoutes.js';
 
 // Import organized route modules
 import * as userRoutesModule from './user/index.js';
@@ -135,6 +136,21 @@ export default (app) => {
   };
   
   // ========================================
+  // 📈 SPECIAL ROUTES (MUST BE FIRST!)
+  // ========================================
+  
+  // IMPORTANT: These specific routes must be registered BEFORE the general routes
+  // to prevent the /:id route from intercepting them
+  
+  // Statistics endpoint (special case)
+  app.use('/api/v1/ads/stats', statsRoutes);
+  app.use('/api/ads/stats', statsRoutes);
+  
+  // Search statistics endpoint (special case)
+  app.use('/api/v1/ads/search-stats', searchStatsRoutes);
+  app.use('/api/ads/search-stats', searchStatsRoutes);
+  
+  // ========================================
   // 🔗 ROUTE REGISTRATION
   // ========================================
   
@@ -150,14 +166,6 @@ export default (app) => {
       app.use(`/${path}`, config.router);
     }
   });
-  
-  // ========================================
-  // 📈 SPECIAL ROUTES
-  // ========================================
-  
-  // Statistics endpoint (special case)
-  app.use('/api/v1/ads/stats', statsRoutes);
-  app.use('/api/ads/stats', statsRoutes);
   
   // Authentication aliases for frontend compatibility
   const authAliases = [

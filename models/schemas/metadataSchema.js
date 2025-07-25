@@ -72,11 +72,6 @@ const metadataSchema = new mongoose.Schema({
   },
   
   // Dodatkowe pola potrzebne dla frontendu
-  sellerType: {
-    type: String,
-    enum: ['prywatny', 'firma'],
-    default: 'prywatny'
-  },
   shortDescription: {
     type: String,
     maxlength: 120

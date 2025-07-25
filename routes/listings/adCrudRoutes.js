@@ -5,6 +5,9 @@
 
 import express from 'express';
 import { Router } from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import auth from '../../middleware/auth.js';
 import Ad from '../../models/ad.js';
 import User from '../../models/user.js';
@@ -15,6 +18,39 @@ import errorHandler from '../../middleware/errorHandler.js';
 import { notificationService } from '../../controllers/notifications/notificationController.js';
 
 const router = Router();
+
+// Konfiguracja multera do obsługi plików
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = 'uploads/ads';
+    // Sprawdź, czy katalog istnieje, jeśli nie - utwórz go
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    // Generuj unikalną nazwę pliku
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+    files: 10 // maksymalnie 10 plików
+  },
+  fileFilter: (req, file, cb) => {
+    // Sprawdź czy plik to obraz
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Tylko pliki obrazów są dozwolone!'), false);
+    }
+  }
+});
 
 // Limiter dla trasy dodawania ogłoszenia - 1 ogłoszenie na 5 minut per użytkownik
 const createAdLimiter = rateLimit({
@@ -280,7 +316,7 @@ router.get('/:id', async (req, res, next) => {
 }, errorHandler);
 
 // PUT /ads/:id - Aktualizacja ogłoszenia
-router.put('/:id', auth, async (req, res, next) => {
+router.put('/:id', auth, upload.array('images', 10), async (req, res, next) => {
   try {
     const ad = await Ad.findById(req.params.id);
 
@@ -337,6 +373,14 @@ router.put('/:id', auth, async (req, res, next) => {
       }
     }
 
+    // Jeśli dodano nowe zdjęcia, zaktualizuj tablicę images
+    if (req.files && req.files.length > 0) {
+      console.log(`Dodawanie ${req.files.length} nowych zdjęć`);
+      const newImageUrls = req.files.map(file => file.path || file.filename);
+      ad.images = [...ad.images, ...newImageUrls];
+      console.log('Zaktualizowana tablica zdjęć:', ad.images);
+    }
+
     // Automatyczne generowanie shortDescription z headline lub description
     if (req.body.description || req.body.headline) {
       const sourceText = req.body.headline || ad.headline || req.body.description || ad.description;
@@ -351,6 +395,164 @@ router.put('/:id', auth, async (req, res, next) => {
     res.status(200).json({ message: 'Ogłoszenie zaktualizowane', ad });
   } catch (err) {
     console.error('Błąd podczas aktualizacji ogłoszenia:', err);
+    next(err);
+  }
+}, errorHandler);
+
+// PUT /ads/:id/status - Zmiana statusu ogłoszenia
+router.put('/:id/status', auth, async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    
+    // Walidacja statusu
+    const allowedStatuses = ['active', 'archived', 'sold', 'pending'];
+    if (!status || !allowedStatuses.includes(status)) {
+      return res.status(400).json({ 
+        message: 'Nieprawidłowy status. Dozwolone wartości: active, archived, sold, pending' 
+      });
+    }
+
+    const ad = await Ad.findById(req.params.id);
+
+    if (!ad) {
+      return res.status(404).json({ message: 'Ogłoszenie nie znalezione' });
+    }
+
+    // Sprawdź czy użytkownik jest właścicielem lub adminem
+    if (ad.owner.toString() !== req.user.userId.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Brak uprawnień do zmiany statusu tego ogłoszenia' });
+    }
+
+    // Aktualizuj status
+    ad.status = status;
+    
+    // Jeśli status to 'archived', ustaw datę archiwizacji
+    if (status === 'archived') {
+      ad.archivedAt = new Date();
+    }
+    
+    await ad.save();
+
+    // Tworzenie powiadomienia o zmianie statusu
+    try {
+      const adTitle = ad.headline || `${ad.brand} ${ad.model}`;
+      const statusText = status === 'archived' ? 'zarchiwizowane' : 
+                        status === 'sold' ? 'sprzedane' : 
+                        status === 'active' ? 'aktywne' : status;
+      await notificationService.notifyAdStatusChange(ad.owner.toString(), adTitle, statusText);
+      console.log(`Utworzono powiadomienie o zmianie statusu ogłoszenia dla użytkownika ${ad.owner}`);
+    } catch (notificationError) {
+      console.error('Błąd podczas tworzenia powiadomienia:', notificationError);
+      // Nie przerywamy głównego procesu w przypadku błędu powiadomienia
+    }
+
+    res.status(200).json({ 
+      message: `Status ogłoszenia został zmieniony na ${status}`, 
+      ad 
+    });
+  } catch (err) {
+    console.error('Błąd podczas zmiany statusu ogłoszenia:', err);
+    next(err);
+  }
+}, errorHandler);
+
+// DELETE /ads/:id/images/:index - Usuwanie zdjęcia z ogłoszenia
+router.delete('/:id/images/:index', auth, async (req, res, next) => {
+  try {
+    const { id, index } = req.params;
+    const imageIndex = parseInt(index);
+
+    const ad = await Ad.findById(id);
+
+    if (!ad) {
+      return res.status(404).json({ message: 'Ogłoszenie nie znalezione' });
+    }
+
+    // Sprawdź czy użytkownik jest właścicielem lub adminem
+    if (ad.owner.toString() !== req.user.userId.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Brak uprawnień do edycji tego ogłoszenia' });
+    }
+
+    // Sprawdź czy indeks jest prawidłowy
+    if (imageIndex < 0 || imageIndex >= ad.images.length) {
+      return res.status(400).json({ message: 'Nieprawidłowy indeks zdjęcia' });
+    }
+
+    // Sprawdź czy to nie jest ostatnie zdjęcie
+    if (ad.images.length <= 1) {
+      return res.status(400).json({ message: 'Ogłoszenie musi zawierać co najmniej jedno zdjęcie' });
+    }
+
+    // Usuń zdjęcie z tablicy
+    const removedImage = ad.images[imageIndex];
+    ad.images.splice(imageIndex, 1);
+
+    // Jeśli usuwane zdjęcie było głównym, ustaw nowe główne zdjęcie
+    if (ad.mainImage === removedImage) {
+      ad.mainImage = ad.images[0]; // Ustaw pierwsze dostępne zdjęcie jako główne
+    }
+
+    // Zapisz zmiany
+    await ad.save();
+
+    console.log(`Usunięto zdjęcie o indeksie ${imageIndex} z ogłoszenia ${id}`);
+    res.status(200).json({ 
+      message: 'Zdjęcie zostało usunięte',
+      images: ad.images,
+      mainImage: ad.mainImage
+    });
+  } catch (err) {
+    console.error('Błąd podczas usuwania zdjęcia:', err);
+    next(err);
+  }
+}, errorHandler);
+
+// POST /ads/:id/extend - Przedłużenie ogłoszenia o 30 dni
+router.post('/:id/extend', auth, async (req, res, next) => {
+  try {
+    const ad = await Ad.findById(req.params.id);
+
+    if (!ad) {
+      return res.status(404).json({ message: 'Ogłoszenie nie znalezione' });
+    }
+
+    // Sprawdź czy użytkownik jest właścicielem lub adminem
+    if (ad.owner.toString() !== req.user.userId.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Brak uprawnień do przedłużenia tego ogłoszenia' });
+    }
+
+    // Sprawdź czy ogłoszenie można przedłużyć (tylko aktywne ogłoszenia)
+    if (ad.status !== 'active') {
+      return res.status(400).json({ message: 'Można przedłużyć tylko aktywne ogłoszenia' });
+    }
+
+    // Przedłuż ogłoszenie o 30 dni od dzisiaj
+    const newExpiryDate = new Date();
+    newExpiryDate.setDate(newExpiryDate.getDate() + 30);
+    
+    ad.expiresAt = newExpiryDate;
+    ad.createdAt = new Date(); // Resetuj datę utworzenia dla licznika dni
+    
+    await ad.save();
+
+    // Tworzenie powiadomienia o przedłużeniu
+    try {
+      const adTitle = ad.headline || `${ad.brand} ${ad.model}`;
+      await notificationService.notifyAdStatusChange(ad.owner.toString(), adTitle, 'przedłużone o 30 dni');
+      console.log(`Utworzono powiadomienie o przedłużeniu ogłoszenia dla użytkownika ${ad.owner}`);
+    } catch (notificationError) {
+      console.error('Błąd podczas tworzenia powiadomienia:', notificationError);
+      // Nie przerywamy głównego procesu w przypadku błędu powiadomienia
+    }
+
+    console.log(`Przedłużono ogłoszenie ${req.params.id} do ${newExpiryDate}`);
+    res.status(200).json({ 
+      message: 'Ogłoszenie zostało przedłużone o 30 dni',
+      expiresAt: newExpiryDate,
+      ad 
+    });
+  } catch (err) {
+    console.error('Błąd podczas przedłużania ogłoszenia:', err);
     next(err);
   }
 }, errorHandler);

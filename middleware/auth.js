@@ -31,7 +31,16 @@ import logger from '../utils/logger.js';
 
 // Extract security configuration
 const { security, logging } = config;
-const { jwt: jwtConfig, cookies: cookieConfig, session: sessionConfig } = security;
+const { jwt: jwtConfig, cookies: cookieConfig, session: sessionConfig = {} } = security;
+
+// Add fallback for session config
+const sessionDefaults = {
+  detectHijacking: false,
+  inactivityTimeout: 60 * 60 * 1000, // 1 hour
+  maxSessions: 10,
+  cleanupInterval: 15 * 60 * 1000
+};
+const finalSessionConfig = { ...sessionDefaults, ...sessionConfig };
 
 /**
  * Generate cryptographically secure access token
@@ -100,11 +109,22 @@ const generateFingerprint = (userAgent, ipAddress) => {
  * Validate security fingerprint to detect session hijacking
  */
 const validateFingerprint = (tokenFingerprint, userAgent, ipAddress) => {
-  if (!sessionConfig.detectHijacking) {
+  if (!finalSessionConfig.detectHijacking) {
     return true; // Skip validation if disabled
   }
   
   const currentFingerprint = generateFingerprint(userAgent, ipAddress);
+  
+  // DEBUG: Log fingerprint comparison
+  console.log('🔍 FINGERPRINT DEBUG:', {
+    tokenFP: tokenFingerprint,
+    currentFP: currentFingerprint,
+    ua: userAgent,
+    ip: ipAddress,
+    match: tokenFingerprint === currentFingerprint,
+    detectHijacking: finalSessionConfig.detectHijacking
+  });
+  
   return tokenFingerprint === currentFingerprint;
 };
 
@@ -257,6 +277,7 @@ const refreshUserSession = async (refreshToken, req, res) => {
  * Main authentication middleware
  */
 const authMiddleware = async (req, res, next) => {
+  console.log('🚀 AUTH MIDDLEWARE CALLED!', req.originalUrl);
   try {
     // Check database connection
     if (mongoose.connection.readyState !== 1) {
@@ -294,10 +315,21 @@ const authMiddleware = async (req, res, next) => {
       });
     }
     
-    // Check if access token is blacklisted
     try {
+      // DEBUG: Log JWT secret being used
+      console.log('🔍 JWT VERIFICATION DEBUG:');
+      console.log('Secret length:', jwtConfig.secret?.length);
+      console.log('Secret start:', jwtConfig.secret?.substring(0, 20));
+      console.log('Token start:', accessToken?.substring(0, 50));
+      console.log('IP:', req.ip);
+      
+      // Check if token is blacklisted first
+      console.log('🔍 Sprawdzanie blacklisty...');
       const isTokenBlacklisted = await isBlacklisted(accessToken);
+      console.log('🔍 Token blacklisted?', isTokenBlacklisted);
+      
       if (isTokenBlacklisted) {
+        console.log('❌ Token jest na blackliście!');
         logger.warn('Blacklisted token used', {
           ip: req.ip,
           endpoint: req.originalUrl
@@ -308,17 +340,11 @@ const authMiddleware = async (req, res, next) => {
           code: 'TOKEN_BLACKLISTED'
         });
       }
-    } catch (blacklistError) {
-      logger.error('Blacklist check failed', {
-        error: blacklistError.message,
-        ip: req.ip
-      });
-      // Continue without blacklist check to avoid blocking legitimate users
-    }
-    
-    try {
+      
       // Verify access token
+      console.log('🔍 Próba weryfikacji JWT...');
       const decoded = jwt.verify(accessToken, jwtConfig.secret);
+      console.log('✅ JWT zweryfikowany pomyślnie!', decoded);
       
       // Validate token type
       if (decoded.type !== 'access') {
@@ -358,7 +384,7 @@ const authMiddleware = async (req, res, next) => {
       const currentTime = Date.now();
       const lastActivity = decoded.lastActivity || 0;
       
-      if (currentTime - lastActivity > sessionConfig.inactivityTimeout) {
+      if (currentTime - lastActivity > finalSessionConfig.inactivityTimeout) {
         logger.info('Session expired due to inactivity', {
           userId: decoded.userId,
           inactiveTime: currentTime - lastActivity,
@@ -392,11 +418,11 @@ const authMiddleware = async (req, res, next) => {
         }
       }
       
-      // Preemptive token refresh (if token expires soon)
+      // Preemptive token refresh (if token expires soon) - WYŁĄCZONE NA DEV
       const tokenExp = decoded.exp * 1000;
-      const refreshThreshold = 10 * 60 * 1000; // 10 minutes
+      const refreshThreshold = 1 * 60 * 1000; // 1 minute (bardzo krótko, prawie wyłączone)
       
-      if (tokenExp - currentTime < refreshThreshold) {
+      if (false && tokenExp - currentTime < refreshThreshold) { // WYŁĄCZONE
         logger.debug('Preemptive token refresh', {
           userId: decoded.userId,
           timeToExpiry: tokenExp - currentTime
@@ -431,26 +457,8 @@ const authMiddleware = async (req, res, next) => {
           partitioned: cookieConfig.partitioned
         });
       } else {
-        // Update activity timestamp in token
-        const tokenPayload = {
-          userId: decoded.userId,
-          role: decoded.role || 'user',
-          userAgent: req.get('User-Agent'),
-          ipAddress: req.ip
-        };
-        
-        const updatedToken = generateAccessToken(tokenPayload);
-        
-        res.cookie('token', updatedToken, {
-          httpOnly: cookieConfig.httpOnly,
-          secure: cookieConfig.secure,
-          sameSite: cookieConfig.sameSite,
-          domain: cookieConfig.domain,
-          path: cookieConfig.path,
-          maxAge: cookieConfig.maxAge,
-          priority: cookieConfig.priority,
-          partitioned: cookieConfig.partitioned
-        });
+        // WYŁĄCZONE: Update activity timestamp in token (powoduje problemy na dev)
+        console.log('🔍 Pomijam odświeżanie tokenu - używam istniejącego');
       }
       
       // Set user data in request
@@ -486,6 +494,9 @@ const authMiddleware = async (req, res, next) => {
       next();
       
     } catch (jwtError) {
+      console.log('❌ JWT ERROR:', jwtError.name, jwtError.message);
+      console.log('❌ JWT ERROR DETAILS:', jwtError);
+      
       logger.warn('JWT verification failed', {
         error: jwtError.message,
         ip: req.ip,

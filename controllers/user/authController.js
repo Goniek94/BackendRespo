@@ -355,7 +355,7 @@ export const logoutUser = async (req, res) => {
     if (accessToken) {
       try {
         await addToBlacklist(accessToken, {
-          reason: 'USER_LOGOUT',
+          reason: 'LOGOUT',
           userId: userId,
           ip: req.ip
         });
@@ -376,7 +376,7 @@ export const logoutUser = async (req, res) => {
     if (refreshToken) {
       try {
         await addToBlacklist(refreshToken, {
-          reason: 'USER_LOGOUT',
+          reason: 'LOGOUT',
           userId: userId,
           ip: req.ip
         });

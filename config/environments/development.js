@@ -43,7 +43,7 @@ export default {
     cookies: {
       httpOnly: true,                   // Zawsze HttpOnly dla bezpieczeństwa
       secure: false,                    // HTTP OK na localhost
-      sameSite: 'lax',                  // Mniej restrykcyjne niż 'strict'
+      sameSite: 'lax',                  // LAX dla localhost (NONE wymaga secure: true)
       domain: undefined,                // Bez ograniczeń domeny
       path: '/',                        // Dostępne dla całej aplikacji
       maxAge: 24 * 60 * 60 * 1000      // 24 godziny
@@ -136,9 +136,10 @@ export default {
 
   // Konfiguracja sesji
   session: {
-    inactivityTimeout: 60 * 60 * 1000, // 1 godzina nieaktywności
+    inactivityTimeout: 24 * 60 * 60 * 1000, // 24 godziny nieaktywności (długo na dev)
     maxSessions: 10,                   // Maksymalnie 10 sesji na użytkownika
-    cleanupInterval: 15 * 60 * 1000    // Czyszczenie co 15 minut
+    cleanupInterval: 15 * 60 * 1000,   // Czyszczenie co 15 minut
+    detectHijacking: false             // Wyłączone wykrywanie przejęcia sesji na dev
   },
 
   // Konfiguracja uploadów

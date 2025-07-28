@@ -232,7 +232,8 @@ const addComputedProperties = (config) => {
       cookies: {
         ...config.security.cookies,
         domain: process.env.COOKIE_DOMAIN || config.security.cookies.domain,
-        secure: config.isProduction ? true : (process.env.FORCE_HTTPS === 'true' || config.security.cookies.secure)
+        // NAPRAWIONE: W development ZAWSZE secure: false (HTTP localhost)
+        secure: config.isProduction ? true : false
       },
       
       // CORS with environment overrides

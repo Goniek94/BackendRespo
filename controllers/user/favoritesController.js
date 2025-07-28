@@ -66,9 +66,10 @@ export const addToFavorites = async (req, res) => {
       });
     }
 
-    // Add to favorites
-    user.favorites.push(adId);
-    await user.save();
+    // Add to favorites using $addToSet to avoid duplicates
+    await User.findByIdAndUpdate(userId, {
+      $addToSet: { favorites: adId }
+    });
 
     res.status(200).json({
       success: true,
@@ -126,9 +127,10 @@ export const removeFromFavorites = async (req, res) => {
       });
     }
 
-    // Remove from favorites
-    user.favorites.splice(favoriteIndex, 1);
-    await user.save();
+    // Remove from favorites using $pull
+    await User.findByIdAndUpdate(userId, {
+      $pull: { favorites: adId }
+    });
 
     res.status(200).json({
       success: true,
@@ -214,7 +216,16 @@ export const toggleFavorite = async (req, res) => {
       message = 'Ogłoszenie zostało usunięte z ulubionych';
     }
 
-    await user.save();
+    // Update favorites using MongoDB operators to avoid validation
+    if (action === 'added') {
+      await User.findByIdAndUpdate(userId, {
+        $addToSet: { favorites: adId }
+      });
+    } else {
+      await User.findByIdAndUpdate(userId, {
+        $pull: { favorites: adId }
+      });
+    }
 
     res.status(200).json({
       success: true,

@@ -1,39 +1,34 @@
 import mongoose from 'mongoose';
-import dotenv from 'dotenv';
 import Ad from './models/ad.js';
 
-dotenv.config();
+mongoose.connect('mongodb://localhost:27017/marketplace', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+});
 
-async function checkAds() {
+mongoose.connection.once('open', async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URI);
-    console.log('✅ Połączono z MongoDB');
+    const count = await Ad.countDocuments();
+    console.log('Całkowita liczba ogłoszeń w bazie:', count);
     
-    const adsCount = await Ad.countDocuments();
-    console.log('📊 Liczba ogłoszeń w bazie:', adsCount);
+    const activeCount = await Ad.countDocuments({
+      status: { $in: ['active', 'opublikowane', 'pending'] }
+    });
+    console.log('Liczba aktywnych ogłoszeń:', activeCount);
     
-    if (adsCount > 0) {
-      const sampleAds = await Ad.find().limit(3).select('title brand model price status createdAt');
-      console.log('📋 Przykładowe ogłoszenia:');
-      sampleAds.forEach((ad, index) => {
-        console.log(`${index + 1}. ${ad.title || 'Brak tytułu'} - ${ad.brand} ${ad.model} - ${ad.price}zł - Status: ${ad.status}`);
-      });
+    const statusCounts = await Ad.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } }
+    ]);
+    console.log('Rozkład statusów:', statusCounts);
+    
+    if (count > 0) {
+      const sample = await Ad.findOne().select('brand model status headline price');
+      console.log('Przykładowe ogłoszenie:', sample);
     }
     
-    // Sprawdź kolekcje w bazie
-    const collections = await mongoose.connection.db.listCollections().toArray();
-    console.log('📁 Dostępne kolekcje:', collections.map(c => c.name));
-    
-    // Sprawdź indeksy kolekcji ads
-    const indexes = await Ad.collection.getIndexes();
-    console.log('🔍 Indeksy kolekcji ads:', Object.keys(indexes));
-    
-    await mongoose.disconnect();
-    console.log('✅ Rozłączono z MongoDB');
-  } catch (error) {
-    console.error('❌ Błąd:', error.message);
-    console.error('Stack:', error.stack);
+    process.exit(0);
+  } catch (err) {
+    console.error('Błąd:', err);
+    process.exit(1);
   }
-}
-
-checkAds();
+});

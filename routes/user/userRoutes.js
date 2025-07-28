@@ -1,6 +1,11 @@
 import express from 'express';
 import { body } from 'express-validator';
 import auth from '../../middleware/auth.js';
+import { 
+  authLimiter, 
+  passwordResetLimiter, 
+  registrationLimiter 
+} from '../../middleware/rateLimiting.js';
 import {
   registerUser,
   loginUser,
@@ -77,6 +82,7 @@ router.post('/check-phone', checkPhoneExists);
 // Rejestracja użytkownika
 router.post(
   '/register',
+  registrationLimiter, // Dodajemy rate limiting
   [
     body('name')
       .trim()
@@ -145,6 +151,7 @@ router.post(
 // Logowanie użytkownika
 router.post(
   '/login',
+  authLimiter, // Dodajemy rate limiting
   [
     body('email')
       .isEmail()
@@ -174,6 +181,7 @@ router.post('/verify-email', verifyEmailCode);
 // Żądanie resetu hasła
 router.post(
   '/request-reset-password',
+  passwordResetLimiter, // Dodajemy rate limiting
   [
     body('email').isEmail().withMessage('Proszę podać prawidłowy adres email.')
   ],
@@ -183,6 +191,7 @@ router.post(
 // Resetowanie hasła
 router.post(
   '/reset-password',
+  authLimiter, // Dodajemy rate limiting
   [
     body('password')
       .isLength({ min: 8 })

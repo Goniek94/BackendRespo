@@ -1,91 +1,113 @@
-/**
- * Profile Controller
- * Handles user profile operations: get profile, update profile
- */
-
+import { validationResult } from 'express-validator';
 import User from '../../models/user.js';
 
 /**
  * Get user profile
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 export const getUserProfile = async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const user = await User.findById(userId);
-    
+    const user = req.user;
+
     if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
+      return res.status(401).json({
+        success: false,
+        message: 'Nie jesteś zalogowany'
+      });
     }
-    
-    // Return only safe data
-    return res.status(200).json({
+
+    // Return user profile data
+    const profileData = {
       id: user._id,
       name: user.name,
       lastName: user.lastName,
       email: user.email,
       phoneNumber: user.phoneNumber,
-      dob: user.dob ? user.dob.toISOString().split('T')[0] : null,
       role: user.role,
-      createdAt: user.createdAt
+      isVerified: user.isVerified,
+      createdAt: user.createdAt,
+      lastLogin: user.lastLogin,
+      dob: user.dob
+    };
+
+    res.status(200).json({
+      success: true,
+      message: 'Profil użytkownika pobrany pomyślnie',
+      user: profileData
     });
+
   } catch (error) {
-    console.error('Error fetching user profile:', error);
-    return res.status(500).json({ message: 'Server error while fetching user data.' });
+    console.error('❌ Get profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Błąd serwera podczas pobierania profilu'
+    });
   }
 };
 
 /**
  * Update user profile
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 export const updateUserProfile = async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const { name, lastName } = req.body;
-    
-    // Validate fields
-    if (name && name.length < 2) {
-      return res.status(400).json({ 
-        message: 'Name must contain at least 2 characters.',
-        field: 'name'
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Błędy walidacji',
+        errors: errors.array()
       });
     }
-    
-    if (lastName && lastName.length < 2) {
-      return res.status(400).json({ 
-        message: 'Last name must contain at least 2 characters.',
-        field: 'lastName'
+
+    const userId = req.user._id;
+    const { name, lastName, phoneNumber, dob } = req.body;
+
+    // Update user profile
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        name: name?.trim(),
+        lastName: lastName?.trim(),
+        phoneNumber,
+        dob: dob ? new Date(dob) : undefined,
+        updatedAt: new Date()
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'Użytkownik nie został znaleziony'
       });
     }
-    
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
-    }
-    
-    // Update only allowed fields
-    if (name) user.name = name;
-    if (lastName) user.lastName = lastName;
-    
-    await user.save();
-    
-    return res.status(200).json({
-      message: 'Profile updated successfully.',
-      user: {
-        id: user._id,
-        name: user.name,
-        lastName: user.lastName,
-        email: user.email,
-        phoneNumber: user.phoneNumber,
-        dob: user.dob ? user.dob.toISOString().split('T')[0] : null,
-        role: user.role
-      }
+
+    // Return updated profile data
+    const profileData = {
+      id: updatedUser._id,
+      name: updatedUser.name,
+      lastName: updatedUser.lastName,
+      email: updatedUser.email,
+      phoneNumber: updatedUser.phoneNumber,
+      role: updatedUser.role,
+      isVerified: updatedUser.isVerified,
+      createdAt: updatedUser.createdAt,
+      lastLogin: updatedUser.lastLogin,
+      dob: updatedUser.dob
+    };
+
+    console.log(`✅ Profile updated successfully for user: ${updatedUser.email}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Profil zaktualizowany pomyślnie',
+      user: profileData
     });
+
   } catch (error) {
-    console.error('Error updating user profile:', error);
-    return res.status(500).json({ message: 'Server error while updating user data.' });
+    console.error('❌ Update profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Błąd serwera podczas aktualizacji profilu'
+    });
   }
 };

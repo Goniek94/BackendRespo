@@ -75,6 +75,8 @@ router.get('/count', async (req, res, next) => {
  */
 router.get('/', async (req, res, next) => {
   try {
+    console.log('🔍 GET /api/api/ads - Otrzymano zapytanie:', req.query);
+    
     const { 
       page = 1, 
       limit = 30, 
@@ -95,7 +97,8 @@ router.get('/', async (req, res, next) => {
     // Ensure we only show active ads
     filter.status = getActiveStatusFilter();
     
-    console.log('Filter for ad list:', filter);
+    console.log('📋 Filter for ad list:', filter);
+    console.log('🔍 Active status filter:', getActiveStatusFilter());
     
     const skip = (parseInt(page) - 1) * parseInt(limit);
     

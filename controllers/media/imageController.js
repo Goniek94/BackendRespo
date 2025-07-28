@@ -2,10 +2,24 @@ import { createClient } from '@supabase/supabase-js';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
 
-// Inicjalizacja Supabase
+// Inicjalizacja Supabase - tylko jeśli skonfigurowane
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+
+let supabase = null;
+let isSupabaseConfigured = false;
+
+if (supabaseUrl && supabaseKey) {
+  try {
+    supabase = createClient(supabaseUrl, supabaseKey);
+    isSupabaseConfigured = true;
+    console.log('✅ Supabase storage configured');
+  } catch (error) {
+    console.warn('⚠️ Supabase configuration failed:', error.message);
+  }
+} else {
+  console.warn('⚠️ Supabase not configured - image upload will be disabled');
+}
 
 // Model dla car_images (symulacja - w rzeczywistości używamy Supabase)
 class CarImageModel {
@@ -90,6 +104,13 @@ class CarImageModel {
  */
 const uploadImages = async (req, res) => {
   try {
+    if (!isSupabaseConfigured) {
+      return res.status(503).json({
+        success: false,
+        message: 'Upload zdjęć niedostępny - brak konfiguracji Supabase'
+      });
+    }
+
     const { carId, mainImageIndex = 0 } = req.body;
     const files = req.files;
 

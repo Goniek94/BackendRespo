@@ -1,444 +1,606 @@
+/**
+ * SECURE AUTHENTICATION MIDDLEWARE
+ * 
+ * Bezpieczny middleware uwierzytelniania z następującymi funkcjami:
+ * - TYLKO HttpOnly cookies (bez localStorage/sessionStorage)
+ * - Automatyczna rotacja tokenów
+ * - Blacklista tokenów
+ * - Wykrywanie przejęcia sesji
+ * - Rate limiting dla prób uwierzytelniania
+ * - Szczegółowe logowanie bezpieczeństwa
+ * 
+ * SECURITY FEATURES:
+ * - HttpOnly cookies only (no localStorage access)
+ * - Automatic token rotation
+ * - Token blacklisting
+ * - Session hijacking detection
+ * - Rate limiting for auth attempts
+ * - Detailed security logging
+ */
+
 import jwt from 'jsonwebtoken';
-import dotenv from 'dotenv';
 import crypto from 'crypto';
+import mongoose from 'mongoose';
+
+// Import configuration and models
+import config from '../config/index.js';
 import adminConfig from '../config/adminConfig.js';
 import { addToBlacklist, isBlacklisted } from '../models/TokenBlacklist.js';
 import User from '../models/user.js';
-import mongoose from 'mongoose';
+import logger from '../utils/logger.js';
 
-dotenv.config();
-
-// Pobierz sekret JWT z zmiennych środowiskowych lub użyj domyślnego (tylko dla dev)
-const JWT_SECRET = process.env.JWT_SECRET || 'tajnyKluczJWT123';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'refreshSecretKey456';
-
-// Czas życia tokenów
-const ACCESS_TOKEN_EXPIRY = '1h'; // 1 godzina
-const REFRESH_TOKEN_EXPIRY = '7d'; // 7 dni
-const INACTIVITY_LIMIT = 15 * 60 * 1000; // 15 minut w milisekundach
+// Extract security configuration
+const { security, logging } = config;
+const { jwt: jwtConfig, cookies: cookieConfig, session: sessionConfig } = security;
 
 /**
- * Generuje nowy token dostępu
- * @param {Object} payload - Dane do zapisania w tokenie
- * @returns {string} - Wygenerowany token JWT
+ * Generate cryptographically secure access token
  */
 const generateAccessToken = (payload) => {
+  const tokenId = crypto.randomBytes(16).toString('hex');
+  const currentTime = Math.floor(Date.now() / 1000);
+  
   return jwt.sign(
     { 
       ...payload,
       type: 'access',
-      iat: Math.floor(Date.now() / 1000),
-      lastActivity: Date.now()
+      iat: currentTime,
+      jti: tokenId,
+      lastActivity: Date.now(),
+      // Security fingerprint
+      fingerprint: generateFingerprint(payload.userAgent, payload.ipAddress)
     }, 
-    JWT_SECRET, 
+    jwtConfig.secret, 
     { 
-      expiresIn: ACCESS_TOKEN_EXPIRY,
-      // Dodajemy standardowe pola JWT dla bezpieczeństwa
-      audience: 'marketplace-users',
-      issuer: 'marketplace-api',
+      expiresIn: jwtConfig.accessTokenExpiry,
+      algorithm: jwtConfig.algorithm,
+      audience: jwtConfig.audience,
+      issuer: jwtConfig.issuer,
       subject: payload.userId.toString()
     }
   );
 };
 
 /**
- * Generuje nowy token odświeżający
- * @param {Object} payload - Dane do zapisania w tokenie
- * @returns {string} - Wygenerowany token JWT
+ * Generate cryptographically secure refresh token
  */
 const generateRefreshToken = (payload) => {
-  // Generujemy unikalny identyfikator tokenu
-  const tokenId = crypto.randomBytes(16).toString('hex');
+  const tokenId = crypto.randomBytes(32).toString('hex'); // Longer ID for refresh tokens
+  const currentTime = Math.floor(Date.now() / 1000);
   
   return jwt.sign(
     { 
       ...payload,
       type: 'refresh',
-      iat: Math.floor(Date.now() / 1000),
-      jti: tokenId // Unikalny identyfikator tokenu w payloadzie
+      iat: currentTime,
+      jti: tokenId,
+      // Security fingerprint
+      fingerprint: generateFingerprint(payload.userAgent, payload.ipAddress)
     }, 
-    JWT_REFRESH_SECRET, 
+    jwtConfig.refreshSecret, 
     { 
-      expiresIn: REFRESH_TOKEN_EXPIRY,
-      // Dodajemy standardowe pola JWT dla bezpieczeństwa
-      audience: 'marketplace-users',
-      issuer: 'marketplace-api',
+      expiresIn: jwtConfig.refreshTokenExpiry,
+      algorithm: jwtConfig.algorithm,
+      audience: jwtConfig.audience,
+      issuer: jwtConfig.issuer,
       subject: payload.userId.toString()
     }
   );
 };
 
 /**
- * Middleware do uwierzytelniania użytkowników
- * Sprawdza token JWT w ciasteczku lub nagłówku Authorization
- * Weryfikuje token i sprawdza czas ostatniej aktywności
- * Obsługuje refresh tokeny i automatyczne odświeżanie
- * 
- * Authentication middleware
- * Checks JWT token in cookie or Authorization header
- * Verifies token and checks last activity time
- * Handles refresh tokens and automatic token refresh
+ * Generate security fingerprint for session validation
+ */
+const generateFingerprint = (userAgent, ipAddress) => {
+  const data = `${userAgent || 'unknown'}:${ipAddress || 'unknown'}`;
+  return crypto.createHash('sha256').update(data).digest('hex').substring(0, 16);
+};
+
+/**
+ * Validate security fingerprint to detect session hijacking
+ */
+const validateFingerprint = (tokenFingerprint, userAgent, ipAddress) => {
+  if (!sessionConfig.detectHijacking) {
+    return true; // Skip validation if disabled
+  }
+  
+  const currentFingerprint = generateFingerprint(userAgent, ipAddress);
+  return tokenFingerprint === currentFingerprint;
+};
+
+/**
+ * Set secure authentication cookies
+ */
+const setAuthCookies = (res, accessToken, refreshToken) => {
+  // Access token cookie
+  res.cookie('token', accessToken, {
+    httpOnly: cookieConfig.httpOnly,
+    secure: cookieConfig.secure,
+    sameSite: cookieConfig.sameSite,
+    domain: cookieConfig.domain,
+    path: cookieConfig.path,
+    maxAge: cookieConfig.maxAge,
+    priority: cookieConfig.priority,
+    partitioned: cookieConfig.partitioned
+  });
+  
+  // Refresh token cookie (longer expiry)
+  res.cookie('refreshToken', refreshToken, {
+    httpOnly: cookieConfig.httpOnly,
+    secure: cookieConfig.secure,
+    sameSite: cookieConfig.sameSite,
+    domain: cookieConfig.domain,
+    path: cookieConfig.path,
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    priority: cookieConfig.priority,
+    partitioned: cookieConfig.partitioned
+  });
+};
+
+/**
+ * Clear authentication cookies
+ */
+const clearAuthCookies = (res) => {
+  const clearOptions = {
+    httpOnly: cookieConfig.httpOnly,
+    secure: cookieConfig.secure,
+    sameSite: cookieConfig.sameSite,
+    domain: cookieConfig.domain,
+    path: cookieConfig.path
+  };
+  
+  res.clearCookie('token', clearOptions);
+  res.clearCookie('refreshToken', clearOptions);
+};
+
+/**
+ * Refresh user session with new tokens
+ */
+const refreshUserSession = async (refreshToken, req, res) => {
+  try {
+    // Verify refresh token
+    const refreshDecoded = jwt.verify(refreshToken, jwtConfig.refreshSecret);
+    
+    // Validate token type
+    if (refreshDecoded.type !== 'refresh') {
+      throw new Error('Invalid refresh token type');
+    }
+    
+    // Check if refresh token is blacklisted
+    const isRefreshBlacklisted = await isBlacklisted(refreshToken);
+    if (isRefreshBlacklisted) {
+      logger.warn('Attempted use of blacklisted refresh token', {
+        userId: refreshDecoded.userId,
+        ip: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+      throw new Error('Refresh token blacklisted');
+    }
+    
+    // Validate security fingerprint
+    if (!validateFingerprint(refreshDecoded.fingerprint, req.get('User-Agent'), req.ip)) {
+      logger.warn('Session hijacking attempt detected', {
+        userId: refreshDecoded.userId,
+        ip: req.ip,
+        userAgent: req.get('User-Agent'),
+        tokenFingerprint: refreshDecoded.fingerprint
+      });
+      throw new Error('Session hijacking detected');
+    }
+    
+    // Verify user still exists and is active
+    const user = await User.findById(refreshDecoded.userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    if (user.status === 'suspended' || user.status === 'banned') {
+      logger.warn('Suspended/banned user attempted token refresh', {
+        userId: user._id,
+        status: user.status,
+        ip: req.ip
+      });
+      throw new Error('User account suspended');
+    }
+    
+    // Generate new token pair
+    const tokenPayload = {
+      userId: user._id,
+      role: user.role || 'user',
+      userAgent: req.get('User-Agent'),
+      ipAddress: req.ip
+    };
+    
+    const newAccessToken = generateAccessToken(tokenPayload);
+    const newRefreshToken = generateRefreshToken(tokenPayload);
+    
+    // Blacklist old refresh token (token rotation)
+    await addToBlacklist(refreshToken, {
+      reason: 'ROTATION',
+      userId: user._id,
+      ip: req.ip
+    });
+    
+    // Set new cookies
+    setAuthCookies(res, newAccessToken, newRefreshToken);
+    
+    // Update user's last activity
+    await User.findByIdAndUpdate(user._id, {
+      lastActivity: new Date(),
+      lastIP: req.ip
+    });
+    
+    // Return user data
+    return {
+      userId: user._id,
+      role: user.role || 'user',
+      isAdmin: user.role === 'admin',
+      isModerator: user.role === 'moderator' || user.role === 'admin',
+      permissions: user.role === 'admin' 
+        ? adminConfig.adminPermissions 
+        : user.role === 'moderator' 
+          ? adminConfig.moderatorPermissions 
+          : {}
+    };
+    
+  } catch (error) {
+    logger.error('Session refresh failed', {
+      error: error.message,
+      ip: req.ip,
+      userAgent: req.get('User-Agent')
+    });
+    throw error;
+  }
+};
+
+/**
+ * Main authentication middleware
  */
 const authMiddleware = async (req, res, next) => {
   try {
-    // Sprawdź połączenie z bazą danych
-    const isDBConnected = mongoose.connection.readyState === 1;
-    if (!isDBConnected) {
-      console.warn('Uwaga: Baza danych nie jest podłączona. Autentykacja może działać w trybie awaryjnym.');
+    // Check database connection
+    if (mongoose.connection.readyState !== 1) {
+      logger.warn('Database not connected during authentication', {
+        readyState: mongoose.connection.readyState,
+        ip: req.ip
+      });
+      return res.status(503).json({ 
+        message: 'Service temporarily unavailable',
+        code: 'DATABASE_UNAVAILABLE'
+      });
     }
     
-    console.log('Auth middleware - sprawdzam endpoint:', req.originalUrl);
-
-    // 1. Sprawdź token w ciasteczku
-    const cookieToken = req.cookies?.token;
-    if (cookieToken) {
-      console.log('Znaleziono token w ciasteczkach');
-    } else {
-      console.log('Brak tokenu w ciasteczkach');
+    // Log authentication attempt
+    if (logging.level === 'debug') {
+      logger.debug('Authentication attempt', {
+        endpoint: req.originalUrl,
+        method: req.method,
+        ip: req.ip,
+        userAgent: req.get('User-Agent')
+      });
     }
-
-    // 2. Jako fallback sprawdź nagłówek Authorization
-    let headerToken = null;
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      headerToken = authHeader.split(' ')[1];
-      console.log('Znaleziono token w nagłówku Authorization');
-    } else if (authHeader) {
-      console.log('Nagłówek Authorization ma nieprawidłowy format:', authHeader);
-    } else {
-      console.log('Brak nagłówka Authorization');
+    
+    // Extract token from HttpOnly cookie ONLY
+    const accessToken = req.cookies?.token;
+    
+    if (!accessToken) {
+      logger.info('Authentication failed - no token', {
+        ip: req.ip,
+        endpoint: req.originalUrl
+      });
+      return res.status(401).json({ 
+        message: 'Authentication required',
+        code: 'NO_TOKEN'
+      });
     }
-
-    // Użyj tokenu z ciasteczka lub nagłówka
-    const token = cookieToken || headerToken;
-
-    if (!token) {
-      console.log('Brak tokenu w ciasteczkach i nagłówku');
-      console.log(`[SECURITY] 401 Unauthorized (no token) IP: ${req.ip}`);
-      return res.status(401).json({ message: 'Brak autoryzacji. Wymagane zalogowanie.' });
-    }
-
-    // Token blacklist check - teraz asynchronicznie
+    
+    // Check if access token is blacklisted
     try {
-      const isTokenBlacklisted = await isBlacklisted(token);
+      const isTokenBlacklisted = await isBlacklisted(accessToken);
       if (isTokenBlacklisted) {
-        console.log(`[SECURITY] 401 Unauthorized (blacklisted token) IP: ${req.ip}`);
-        return res.status(401).json({ message: 'Token unieważniony. Zaloguj się ponownie.', code: 'TOKEN_BLACKLISTED' });
+        logger.warn('Blacklisted token used', {
+          ip: req.ip,
+          endpoint: req.originalUrl
+        });
+        clearAuthCookies(res);
+        return res.status(401).json({ 
+          message: 'Token invalidated. Please login again.',
+          code: 'TOKEN_BLACKLISTED'
+        });
       }
     } catch (blacklistError) {
-      console.error('Błąd podczas sprawdzania blacklisty:', blacklistError);
-      // Kontynuujemy mimo błędu blacklisty, żeby nie blokować uwierzytelniania
+      logger.error('Blacklist check failed', {
+        error: blacklistError.message,
+        ip: req.ip
+      });
+      // Continue without blacklist check to avoid blocking legitimate users
     }
-
-    console.log('Weryfikuję token JWT');
+    
     try {
-      const decoded = jwt.verify(token, JWT_SECRET);
+      // Verify access token
+      const decoded = jwt.verify(accessToken, jwtConfig.secret);
       
-      // Sprawdzamy czy to token dostępu
+      // Validate token type
       if (decoded.type !== 'access') {
-        console.log('Nieprawidłowy typ tokenu');
+        logger.warn('Invalid token type used', {
+          type: decoded.type,
+          ip: req.ip
+        });
         return res.status(401).json({ 
-          message: 'Nieprawidłowy typ tokenu.',
+          message: 'Invalid token type',
           code: 'INVALID_TOKEN_TYPE'
         });
       }
       
-      // Sprawdź czas ostatniej aktywności
+      // Validate security fingerprint
+      if (!validateFingerprint(decoded.fingerprint, req.get('User-Agent'), req.ip)) {
+        logger.warn('Session hijacking detected', {
+          userId: decoded.userId,
+          ip: req.ip,
+          userAgent: req.get('User-Agent')
+        });
+        
+        // Blacklist the token and clear cookies
+        await addToBlacklist(accessToken, {
+          reason: 'HIJACKING_DETECTED',
+          userId: decoded.userId,
+          ip: req.ip
+        });
+        
+        clearAuthCookies(res);
+        return res.status(401).json({ 
+          message: 'Session security violation detected',
+          code: 'SESSION_HIJACKING'
+        });
+      }
+      
+      // Check session inactivity
       const currentTime = Date.now();
       const lastActivity = decoded.lastActivity || 0;
-
-      // Jeśli minęło więcej niż 15 minut od ostatniej aktywności
-      if (currentTime - lastActivity > INACTIVITY_LIMIT) {
-        console.log('Sesja wygasła z powodu braku aktywności');
-        console.log(`[SECURITY] 401 SESSION_INACTIVE userId: ${decoded.userId} IP: ${req.ip}`);
+      
+      if (currentTime - lastActivity > sessionConfig.inactivityTimeout) {
+        logger.info('Session expired due to inactivity', {
+          userId: decoded.userId,
+          inactiveTime: currentTime - lastActivity,
+          ip: req.ip
+        });
         
-        // Sprawdź czy mamy refresh token
+        // Try to refresh using refresh token
         const refreshToken = req.cookies?.refreshToken;
         if (!refreshToken) {
+          clearAuthCookies(res);
           return res.status(401).json({ 
-            message: 'Sesja wygasła z powodu braku aktywności. Zaloguj się ponownie.',
+            message: 'Session expired due to inactivity',
             code: 'SESSION_INACTIVE'
           });
         }
         
-        // Próba odświeżenia sesji za pomocą refresh tokenu
         try {
-          const refreshDecoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
-          
-          // Sprawdź czy refresh token nie jest na blackliście
-          const isRefreshBlacklisted = await isBlacklisted(refreshToken);
-          if (isRefreshBlacklisted) {
-            return res.status(401).json({ 
-              message: 'Token odświeżający unieważniony. Zaloguj się ponownie.',
-              code: 'REFRESH_TOKEN_BLACKLISTED'
-            });
-          }
-          
-          // Sprawdź czy użytkownik istnieje
-          const user = await User.findById(refreshDecoded.userId);
-          if (!user) {
-            return res.status(401).json({ 
-              message: 'Użytkownik nie istnieje.',
-              code: 'USER_NOT_FOUND'
-            });
-          }
-          
-          // Generuj nowy token dostępu
-          const newAccessToken = generateAccessToken({
-            userId: user._id,
-            role: user.role || 'user'
+          const userData = await refreshUserSession(refreshToken, req, res);
+          req.user = userData;
+          logger.info('Session refreshed after inactivity', {
+            userId: userData.userId,
+            ip: req.ip
           });
-          
-          // Generuj nowy refresh token
-          const newRefreshToken = generateRefreshToken({
-            userId: user._id,
-            role: user.role || 'user'
-          });
-          
-          // Dodaj stary refresh token do blacklisty
-          try {
-            await addToBlacklist(refreshToken, {
-              reason: 'ROTATION',
-              userId: user._id
-            });
-          } catch (blacklistError) {
-            console.error('Błąd podczas dodawania tokenu do blacklisty:', blacklistError);
-            // Kontynuujemy mimo błędu blacklisty
-          }
-          
-          // Ustaw nowe tokeny w ciasteczkach
-          res.cookie('token', newAccessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
-            path: '/',
-            maxAge: 3600000 // 1 godzina
-          });
-          
-          res.cookie('refreshToken', newRefreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
-            path: '/',
-            maxAge: 7 * 24 * 3600000 // 7 dni
-          });
-          
-          // Zapisujemy dane użytkownika w req.user
-          req.user = {
-            userId: user._id,
-            role: user.role || 'user',
-            isAdmin: user.role === 'admin',
-            isModerator: user.role === 'moderator' || user.role === 'admin',
-            permissions: user.role === 'admin' 
-              ? adminConfig.adminPermissions 
-              : user.role === 'moderator' 
-                ? adminConfig.moderatorPermissions 
-                : {}
-          };
-          
-          console.log('Sesja odświeżona za pomocą refresh tokenu');
-          next();
+          return next();
         } catch (refreshError) {
-          console.error('Błąd odświeżania sesji:', refreshError);
+          clearAuthCookies(res);
           return res.status(401).json({ 
-            message: 'Sesja wygasła. Zaloguj się ponownie.',
+            message: 'Session expired. Please login again.',
             code: 'SESSION_EXPIRED'
           });
         }
-        return;
       }
-
-      // Preemptive refresh: jeśli do końca ważności tokena zostało <10 min, odśwież token
-      const refreshThreshold = 10 * 60 * 1000; // 10 minut
-      const tokenExp = decoded.exp * 1000; // exp jest w sekundach, konwertujemy na ms
+      
+      // Preemptive token refresh (if token expires soon)
+      const tokenExp = decoded.exp * 1000;
+      const refreshThreshold = 10 * 60 * 1000; // 10 minutes
       
       if (tokenExp - currentTime < refreshThreshold) {
-        console.log('Preemptive refresh - token wygasa za mniej niż 10 minut');
-        
-        // Generuj nowy token dostępu
-        const newAccessToken = generateAccessToken({
+        logger.debug('Preemptive token refresh', {
           userId: decoded.userId,
-          role: decoded.role || 'user'
+          timeToExpiry: tokenExp - currentTime
         });
         
-        // Dodaj stary token do blacklisty (rotacja)
-        try {
-          await addToBlacklist(token, {
-            reason: 'ROTATION',
-            userId: decoded.userId
-          });
-        } catch (blacklistError) {
-          console.error('Błąd podczas dodawania tokenu do blacklisty:', blacklistError);
-          // Kontynuujemy mimo błędu blacklisty
-        }
+        // Generate new access token
+        const tokenPayload = {
+          userId: decoded.userId,
+          role: decoded.role || 'user',
+          userAgent: req.get('User-Agent'),
+          ipAddress: req.ip
+        };
         
-        // Ustaw nowy token w ciasteczku
+        const newAccessToken = generateAccessToken(tokenPayload);
+        
+        // Blacklist old token
+        await addToBlacklist(accessToken, {
+          reason: 'PREEMPTIVE_ROTATION',
+          userId: decoded.userId,
+          ip: req.ip
+        });
+        
+        // Set new access token cookie
         res.cookie('token', newAccessToken, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'strict',
-          path: '/',
-          maxAge: 3600000 // 1 godzina
+          httpOnly: cookieConfig.httpOnly,
+          secure: cookieConfig.secure,
+          sameSite: cookieConfig.sameSite,
+          domain: cookieConfig.domain,
+          path: cookieConfig.path,
+          maxAge: cookieConfig.maxAge,
+          priority: cookieConfig.priority,
+          partitioned: cookieConfig.partitioned
         });
       } else {
-        // Standardowe odświeżenie lastActivity (nie rotujemy tokena jeśli nie trzeba)
-        const updatedToken = generateAccessToken({
+        // Update activity timestamp in token
+        const tokenPayload = {
           userId: decoded.userId,
-          role: decoded.role || 'user'
-        });
+          role: decoded.role || 'user',
+          userAgent: req.get('User-Agent'),
+          ipAddress: req.ip
+        };
+        
+        const updatedToken = generateAccessToken(tokenPayload);
         
         res.cookie('token', updatedToken, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'strict',
-          path: '/',
-          maxAge: 3600000 // 1 godzina
+          httpOnly: cookieConfig.httpOnly,
+          secure: cookieConfig.secure,
+          sameSite: cookieConfig.sameSite,
+          domain: cookieConfig.domain,
+          path: cookieConfig.path,
+          maxAge: cookieConfig.maxAge,
+          priority: cookieConfig.priority,
+          partitioned: cookieConfig.partitioned
         });
       }
       
-      // Zapisujemy dane użytkownika w req.user
+      // Set user data in request
       req.user = {
         userId: decoded.userId,
         role: decoded.role || 'user',
-        // Dodajemy flagi uprawnień na podstawie roli
         isAdmin: decoded.role === 'admin',
         isModerator: decoded.role === 'moderator' || decoded.role === 'admin',
-        // Dodajemy uprawnienia na podstawie roli
         permissions: decoded.role === 'admin' 
           ? adminConfig.adminPermissions 
           : decoded.role === 'moderator' 
             ? adminConfig.moderatorPermissions 
             : {}
       };
-
-      console.log('Token poprawny dane:', { 
-        userId: req.user.userId, 
-        role: req.user.role,
-        isAdmin: req.user.isAdmin,
-        isModerator: req.user.isModerator
+      
+      // Update user's last activity in database (async, don't wait)
+      User.findByIdAndUpdate(decoded.userId, {
+        lastActivity: new Date(),
+        lastIP: req.ip
+      }).catch(error => {
+        logger.error('Failed to update user activity', {
+          userId: decoded.userId,
+          error: error.message
+        });
       });
-
+      
+      logger.debug('Authentication successful', {
+        userId: req.user.userId,
+        role: req.user.role,
+        ip: req.ip
+      });
+      
       next();
+      
     } catch (jwtError) {
-      console.error('Błąd weryfikacji tokenu JWT:', jwtError.message);
-
-      // Logowanie każdego 401 z IP i userId jeśli jest
-      let userId = null;
-      try {
-        const decoded = jwt.decode(token);
-        userId = decoded?.userId;
-      } catch {}
-      console.log(`[SECURITY] 401 JWT error: ${jwtError.message} userId: ${userId} IP: ${req.ip}`);
-
-      // Jeśli token wygasł, spróbuj użyć refresh tokenu
+      logger.warn('JWT verification failed', {
+        error: jwtError.message,
+        ip: req.ip,
+        endpoint: req.originalUrl
+      });
+      
+      // Handle expired access token
       if (jwtError.name === 'TokenExpiredError') {
         const refreshToken = req.cookies?.refreshToken;
         
         if (!refreshToken) {
+          clearAuthCookies(res);
           return res.status(401).json({ 
-            message: 'Token wygasł. Zaloguj się ponownie.',
+            message: 'Token expired. Please login again.',
             code: 'TOKEN_EXPIRED'
           });
         }
         
-        // Próba odświeżenia sesji za pomocą refresh tokenu
         try {
-          const refreshDecoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
-          
-          // Sprawdź czy refresh token nie jest na blackliście
-          const isRefreshBlacklisted = await isBlacklisted(refreshToken);
-          if (isRefreshBlacklisted) {
-            return res.status(401).json({ 
-              message: 'Token odświeżający unieważniony. Zaloguj się ponownie.',
-              code: 'REFRESH_TOKEN_BLACKLISTED'
-            });
-          }
-          
-          // Sprawdź czy użytkownik istnieje
-          const user = await User.findById(refreshDecoded.userId);
-          if (!user) {
-            return res.status(401).json({ 
-              message: 'Użytkownik nie istnieje.',
-              code: 'USER_NOT_FOUND'
-            });
-          }
-          
-          // Generuj nowy token dostępu
-          const newAccessToken = generateAccessToken({
-            userId: user._id,
-            role: user.role || 'user'
+          const userData = await refreshUserSession(refreshToken, req, res);
+          req.user = userData;
+          logger.info('Session refreshed after token expiry', {
+            userId: userData.userId,
+            ip: req.ip
           });
-          
-          // Generuj nowy refresh token
-          const newRefreshToken = generateRefreshToken({
-            userId: user._id,
-            role: user.role || 'user'
-          });
-          
-          // Dodaj stary refresh token do blacklisty
-          try {
-            await addToBlacklist(refreshToken, {
-              reason: 'ROTATION',
-              userId: user._id
-            });
-          } catch (blacklistError) {
-            console.error('Błąd podczas dodawania tokenu do blacklisty:', blacklistError);
-            // Kontynuujemy mimo błędu blacklisty
-          }
-          
-          // Ustaw nowe tokeny w ciasteczkach
-          res.cookie('token', newAccessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
-            path: '/',
-            maxAge: 3600000 // 1 godzina
-          });
-          
-          res.cookie('refreshToken', newRefreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
-            path: '/',
-            maxAge: 7 * 24 * 3600000 // 7 dni
-          });
-          
-          // Zapisujemy dane użytkownika w req.user
-          req.user = {
-            userId: user._id,
-            role: user.role || 'user',
-            isAdmin: user.role === 'admin',
-            isModerator: user.role === 'moderator' || user.role === 'admin',
-            permissions: user.role === 'admin' 
-              ? adminConfig.adminPermissions 
-              : user.role === 'moderator' 
-                ? adminConfig.moderatorPermissions 
-                : {}
-          };
-          
-          console.log('Sesja odświeżona za pomocą refresh tokenu po wygaśnięciu tokenu dostępu');
-          next();
+          return next();
         } catch (refreshError) {
-          console.error('Błąd odświeżania sesji:', refreshError);
+          clearAuthCookies(res);
           return res.status(401).json({ 
-            message: 'Sesja wygasła. Zaloguj się ponownie.',
+            message: 'Session expired. Please login again.',
             code: 'SESSION_EXPIRED'
           });
         }
-        return;
       }
-
+      
+      // Handle other JWT errors
+      clearAuthCookies(res);
       return res.status(401).json({ 
-        message: 'Nieprawidłowy token.',
+        message: 'Invalid token',
         code: 'INVALID_TOKEN'
       });
     }
+    
   } catch (error) {
-    console.error('Błąd w authMiddleware:', error);
-    return res.status(500).json({ message: 'Błąd serwera podczas autoryzacji.' });
+    logger.error('Authentication middleware error', {
+      error: error.message,
+      stack: error.stack,
+      ip: req.ip,
+      endpoint: req.originalUrl
+    });
+    
+    return res.status(500).json({ 
+      message: 'Internal server error during authentication',
+      code: 'AUTH_ERROR'
+    });
   }
 };
 
-// Eksportujemy middleware i funkcje pomocnicze
-export { generateAccessToken, generateRefreshToken };
+/**
+ * Optional middleware - allows requests without authentication
+ * but sets req.user if valid token is present
+ */
+const optionalAuthMiddleware = async (req, res, next) => {
+  try {
+    const accessToken = req.cookies?.token;
+    
+    if (!accessToken) {
+      return next(); // Continue without authentication
+    }
+    
+    // Try to authenticate, but don't fail if it doesn't work
+    try {
+      const decoded = jwt.verify(accessToken, jwtConfig.secret);
+      
+      if (decoded.type === 'access' && 
+          validateFingerprint(decoded.fingerprint, req.get('User-Agent'), req.ip)) {
+        
+        req.user = {
+          userId: decoded.userId,
+          role: decoded.role || 'user',
+          isAdmin: decoded.role === 'admin',
+          isModerator: decoded.role === 'moderator' || decoded.role === 'admin',
+          permissions: decoded.role === 'admin' 
+            ? adminConfig.adminPermissions 
+            : decoded.role === 'moderator' 
+              ? adminConfig.moderatorPermissions 
+              : {}
+        };
+      }
+    } catch (error) {
+      // Ignore authentication errors in optional middleware
+      logger.debug('Optional authentication failed', {
+        error: error.message,
+        ip: req.ip
+      });
+    }
+    
+    next();
+  } catch (error) {
+    logger.error('Optional auth middleware error', {
+      error: error.message,
+      ip: req.ip
+    });
+    next(); // Continue even if there's an error
+  }
+};
+
+// Export middleware and utility functions
+export { 
+  generateAccessToken, 
+  generateRefreshToken, 
+  setAuthCookies, 
+  clearAuthCookies,
+  refreshUserSession,
+  optionalAuthMiddleware
+};
+
 export default authMiddleware;

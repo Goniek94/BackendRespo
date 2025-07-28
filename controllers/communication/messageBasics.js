@@ -188,7 +188,7 @@ export const sendMessage = async (req, res) => {
       return res.status(404).json({ message: 'Nie znaleziono nadawcy' });
     }
 
-    // Tworzenie powiadomienia o nowej wiadomości
+    // Tworzenie powiadomienia o nowej wiadomości z inteligentną logiką
     try {
       let adTitle = null;
       
@@ -201,23 +201,34 @@ export const sendMessage = async (req, res) => {
       }
       
       const senderName = sender.name || sender.email;
+      const recipientId = recipientUser._id.toString();
+      const senderIdStr = senderObjectId.toString();
       
-      // Powiadomienie w aplikacji
-      await notificationService.notifyNewMessage(recipientUser._id.toString(), senderName, adTitle);
+      // Sprawdź, czy należy wysłać powiadomienie (inteligentna logika)
+      const shouldNotify = socketService.shouldSendMessageNotification(recipientId, senderIdStr);
       
-      // Powiadomienie e-mail
-      if (recipientUser.email) {
-        // Przygotuj podgląd treści wiadomości (maksymalnie 150 znaków)
-        const messagePreview = content.length > 150 ? content.substring(0, 147) + '...' : content;
+      if (shouldNotify) {
+        console.log(`Wysyłam powiadomienie o nowej wiadomości od ${senderName} do ${recipientId}`);
         
-        // Wyślij e-mail
-        await sendNewMessageEmail(
-          recipientUser.email,
-          senderName,
-          subject,
-          messagePreview,
-          adTitle
-        );
+        // Powiadomienie w aplikacji
+        await notificationService.notifyNewMessage(recipientId, senderName, adTitle);
+        
+        // Powiadomienie e-mail
+        if (recipientUser.email) {
+          // Przygotuj podgląd treści wiadomości (maksymalnie 150 znaków)
+          const messagePreview = content.length > 150 ? content.substring(0, 147) + '...' : content;
+          
+          // Wyślij e-mail
+          await sendNewMessageEmail(
+            recipientUser.email,
+            senderName,
+            subject,
+            messagePreview,
+            adTitle
+          );
+        }
+      } else {
+        console.log(`Pomijam powiadomienie o wiadomości od ${senderName} do ${recipientId} - użytkownik jest aktywny w konwersacji lub otrzymał już powiadomienie`);
       }
     } catch (notificationError) {
       console.error('Błąd podczas tworzenia powiadomienia:', notificationError);

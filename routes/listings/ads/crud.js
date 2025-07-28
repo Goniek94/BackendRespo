@@ -13,6 +13,7 @@ import rateLimit from 'express-rate-limit';
 import errorHandler from '../../../middleware/errorHandler.js';
 import { notificationService } from '../../../controllers/notifications/notificationController.js';
 import { mapFormDataToBackend } from './helpers.js';
+import AdController from '../../../controllers/listings/adController.js';
 
 const router = Router();
 
@@ -529,6 +530,11 @@ router.post('/:id/images', auth, async (req, res, next) => {
     next(err);
   }
 }, errorHandler);
+
+/**
+ * GET /:id/similar - Get similar ads
+ */
+router.get('/:id/similar', AdController.getSimilarAds, errorHandler);
 
 /**
  * DELETE /:id - Delete ad

@@ -298,13 +298,54 @@ router.get('/unread', auth, async (req, res) => {
 
 /**
  * @route GET /api/notifications/unread/count
- * @desc Zliczanie nieprzeczytanych powiadomień
+ * @desc Zliczanie nieprzeczytanych powiadomień z podziałem na typy
  * @access Private
  */
 router.get('/unread/count', auth, async (req, res) => {
   try {
-    const unreadCount = await Notification.getUnreadCount(req.user.userId);
-    res.status(200).json({ unreadCount });
+    const userId = req.user.userId;
+    
+    // Pobierz wszystkie nieprzeczytane powiadomienia
+    const unreadNotifications = await Notification.find({ 
+      user: userId, 
+      isRead: false 
+    }).select('type');
+    
+    // Podziel na kategorie
+    let messageCount = 0;
+    let notificationCount = 0;
+    
+    unreadNotifications.forEach(notification => {
+      if (notification.type === 'new_message') {
+        messageCount++;
+      } else {
+        notificationCount++;
+      }
+    });
+    
+    // Dodatkowo pobierz nieprzeczytane wiadomości z modelu Message
+    const Message = (await import('../../models/message.js')).default;
+    const unreadMessages = await Message.countDocuments({
+      recipient: userId,
+      read: false,
+      deletedBy: { $ne: userId }
+    });
+    
+    // Użyj większej wartości (powiadomienia vs rzeczywiste wiadomości)
+    const finalMessageCount = Math.max(messageCount, unreadMessages);
+    
+    const totalUnread = finalMessageCount + notificationCount;
+    
+    res.status(200).json({ 
+      unreadCount: totalUnread,
+      messages: finalMessageCount,
+      notifications: notificationCount,
+      breakdown: {
+        messageNotifications: messageCount,
+        actualMessages: unreadMessages,
+        otherNotifications: notificationCount
+      }
+    });
   } catch (err) {
     console.error('Błąd podczas zliczania nieprzeczytanych powiadomień:', err);
     res.status(500).json({ message: 'Błąd serwera', error: err.message });

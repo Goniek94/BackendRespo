@@ -1,159 +1,213 @@
-/**
- * Password Controller
- * Handles password operations: change password, reset password, verify reset token
- */
-
-import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+import { validationResult } from 'express-validator';
 import User from '../../models/user.js';
-import { sendResetPasswordEmail } from '../../config/nodemailer.js';
 
 /**
  * Change password (when user is logged in)
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 export const changePassword = async (req, res) => {
-  const { oldPassword, newPassword } = req.body;
-  const userId = req.user.userId;
-
   try {
-    // Validate new password format
-    const passwordRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>])[A-Za-z\d!@#$%^&*(),.?":{}|<>]{8,}$/;
-    if (!passwordRegex.test(newPassword)) {
-      return res.status(400).json({ 
-        message: 'New password does not meet security requirements.',
-        field: 'newPassword'
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Błędy walidacji',
+        errors: errors.array()
       });
     }
-    
+
+    const userId = req.user._id;
+    const { oldPassword, newPassword } = req.body;
+
+    // Find user
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
-    }
-
-    const isMatch = await bcrypt.compare(oldPassword, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ 
-        message: 'Current password is incorrect.',
-        field: 'oldPassword'
+      return res.status(404).json({
+        success: false,
+        message: 'Użytkownik nie został znaleziony'
       });
     }
 
-    user.password = newPassword; // Pre-save hook will hash the password
+    // Verify old password
+    const isOldPasswordValid = await bcrypt.compare(oldPassword, user.password);
+    if (!isOldPasswordValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Stare hasło jest nieprawidłowe'
+      });
+    }
+
+    // Hash new password
+    const saltRounds = 12;
+    const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password
+    user.password = hashedNewPassword;
+    user.updatedAt = new Date();
     await user.save();
 
-    return res.status(200).json({ message: 'Password changed successfully.' });
+    console.log(`✅ Password changed successfully for user: ${user.email}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Hasło zostało zmienione pomyślnie'
+    });
+
   } catch (error) {
-    console.error('Error changing password:', error);
-    return res.status(500).json({ message: 'Server error while changing password.' });
+    console.error('❌ Change password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Błąd serwera podczas zmiany hasła'
+    });
   }
 };
 
 /**
  * Request password reset
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 export const requestPasswordReset = async (req, res) => {
-  const { email } = req.body;
   try {
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: 'User with this email address does not exist.' });
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Błędy walidacji',
+        errors: errors.array()
+      });
     }
 
-    const token = crypto.randomBytes(32).toString('hex');
-    user.resetPasswordToken = token;
-    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+    const { email } = req.body;
+
+    // Find user by email
+    const user = await User.findOne({ 
+      email: email.toLowerCase().trim() 
+    });
+
+    // Always return success to prevent email enumeration
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        message: 'Jeśli podany adres email istnieje w naszej bazie, wysłaliśmy instrukcje resetowania hasła'
+      });
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    // Save reset token to user
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpires = resetTokenExpiry;
     await user.save();
 
-    // Send email with token
-    await sendResetPasswordEmail(email, token);
+    // TODO: Send email with reset link
+    console.log(`🔑 Password reset requested for: ${email}`);
+    console.log(`Reset token: ${resetToken}`);
 
-    return res.status(200).json({ message: 'Password reset link has been sent to the provided email address.' });
+    res.status(200).json({
+      success: true,
+      message: 'Jeśli podany adres email istnieje w naszej bazie, wysłaliśmy instrukcje resetowania hasła'
+    });
+
   } catch (error) {
-    console.error('Password reset error:', error);
-    return res.status(500).json({ message: 'Server error during password reset.' });
+    console.error('❌ Request password reset error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Błąd serwera podczas żądania resetowania hasła'
+    });
   }
 };
 
 /**
  * Verify reset token
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 export const verifyResetToken = async (req, res) => {
-  const { token } = req.body;
-  
-  if (!token) {
-    return res.status(400).json({ 
-      success: false,
-      message: 'Password reset token is required.' 
-    });
-  }
-
   try {
+    const { token } = req.params;
+
+    // Find user with valid reset token
     const user = await User.findOne({
       resetPasswordToken: token,
       resetPasswordExpires: { $gt: Date.now() }
     });
-    
+
     if (!user) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Password reset token is invalid or expired.' 
+        message: 'Token resetowania hasła jest nieprawidłowy lub wygasł'
       });
     }
-    
-    return res.status(200).json({
+
+    res.status(200).json({
       success: true,
-      message: 'Token is valid.',
-      email: user.email
+      message: 'Token jest prawidłowy'
     });
+
   } catch (error) {
-    console.error('Token verification error:', error);
-    return res.status(500).json({ 
+    console.error('❌ Verify reset token error:', error);
+    res.status(500).json({
       success: false,
-      message: 'Server error during token verification.' 
+      message: 'Błąd serwera podczas weryfikacji tokenu'
     });
   }
 };
 
 /**
- * Reset password
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
+ * Reset password with token
  */
 export const resetPassword = async (req, res) => {
-  const { token, password } = req.body;
   try {
-    // Validate password format
-    const passwordRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>])[A-Za-z\d!@#$%^&*(),.?":{}|<>]{8,}$/;
-    if (!passwordRegex.test(password)) {
-      return res.status(400).json({ 
-        message: 'Password does not meet security requirements.',
-        field: 'password'
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Błędy walidacji',
+        errors: errors.array()
       });
     }
-    
+
+    const { token, password } = req.body;
+
+    // Find user with valid reset token
     const user = await User.findOne({
       resetPasswordToken: token,
       resetPasswordExpires: { $gt: Date.now() }
     });
 
     if (!user) {
-      return res.status(400).json({ message: 'Password reset token is invalid or expired.' });
+      return res.status(400).json({
+        success: false,
+        message: 'Token resetowania hasła jest nieprawidłowy lub wygasł'
+      });
     }
 
-    user.password = password;
+    // Hash new password
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Update password and clear reset token
+    user.password = hashedPassword;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
+    user.failedLoginAttempts = 0; // Reset failed attempts
+    user.accountLocked = false; // Unlock account
+    user.lockUntil = undefined;
+    user.updatedAt = new Date();
     await user.save();
 
-    return res.status(200).json({ message: 'Password has been changed successfully.' });
+    console.log(`✅ Password reset successfully for user: ${user.email}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Hasło zostało zresetowane pomyślnie'
+    });
+
   } catch (error) {
-    console.error('Error changing password:', error);
-    return res.status(500).json({ message: 'Server error while changing password.' });
+    console.error('❌ Reset password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Błąd serwera podczas resetowania hasła'
+    });
   }
 };

@@ -7,7 +7,7 @@ dotenv.config();
 
 async function checkAdminUsers() {
   try {
-    await mongoose.connect(process.env.MONGO_URI);
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://mateusz:Neluchu321@mateusz.hkdgv.mongodb.net/MarketplaceDB?retryWrites=true&w=majority&appName=Mateusz');
     console.log('✅ Połączono z MongoDB');
     
     // Sprawdź wszystkich użytkowników

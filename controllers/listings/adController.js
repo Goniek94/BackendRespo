@@ -202,6 +202,92 @@ class AdController {
       next(error);
     }
   }
+
+  /**
+   * Get similar ads based on brand, model, and body type
+   * GET /api/ads/:id/similar
+   */
+  static async getSimilarAds(req, res, next) {
+    try {
+      const { id } = req.params;
+      const limit = parseInt(req.query.limit) || 6;
+
+      // Get the current ad
+      const currentAd = await Ad.findById(id);
+      if (!currentAd) {
+        return res.status(404).json({
+          success: false,
+          message: 'Ogłoszenie nie zostało znalezione'
+        });
+      }
+
+      // Build filter for similar ads
+      const activeFilter = { 
+        status: getActiveStatusFilter(),
+        _id: { $ne: id } // Exclude current ad
+      };
+
+      // Priority search criteria
+      const searchCriteria = [
+        // 1. Same brand + model + body type
+        {
+          ...activeFilter,
+          brand: currentAd.brand,
+          model: currentAd.model,
+          bodyType: currentAd.bodyType
+        },
+        // 2. Same brand + model (if not enough results)
+        {
+          ...activeFilter,
+          brand: currentAd.brand,
+          model: currentAd.model
+        },
+        // 3. Same brand + body type (if still not enough)
+        {
+          ...activeFilter,
+          brand: currentAd.brand,
+          bodyType: currentAd.bodyType
+        },
+        // 4. Same brand only (fallback)
+        {
+          ...activeFilter,
+          brand: currentAd.brand
+        }
+      ];
+
+      let similarAds = [];
+      
+      // Try each search criteria until we have enough ads
+      for (const criteria of searchCriteria) {
+        if (similarAds.length >= limit) break;
+        
+        const remainingLimit = limit - similarAds.length;
+        const foundAds = await Ad.find(criteria)
+          .limit(remainingLimit)
+          .sort({ createdAt: -1 })
+          .select('_id headline brand model year price mileage fuelType mainImage images listingType createdAt bodyType');
+        
+        // Add ads that aren't already in the results
+        const existingIds = new Set(similarAds.map(ad => ad._id.toString()));
+        const newAds = foundAds.filter(ad => !existingIds.has(ad._id.toString()));
+        
+        similarAds.push(...newAds);
+      }
+
+      // Limit final results
+      similarAds = similarAds.slice(0, limit);
+
+      res.status(200).json({
+        success: true,
+        data: similarAds,
+        count: similarAds.length
+      });
+
+    } catch (error) {
+      console.error('Error in getSimilarAds:', error);
+      next(error);
+    }
+  }
 }
 
 /**

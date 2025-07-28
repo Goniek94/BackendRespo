@@ -10,6 +10,8 @@ class SocketService {
     this.io = null;
     this.userSockets = new Map(); // Mapa przechowująca połączenia użytkowników: userId -> Set of socket.id
     this.socketUsers = new Map(); // Mapa przechowująca użytkowników dla socketów: socket.id -> userId
+    this.activeConversations = new Map(); // Mapa aktywnych konwersacji: userId -> Set of conversationId/participantId
+    this.conversationNotificationState = new Map(); // Mapa stanu powiadomień dla konwersacji: "userId:participantId" -> lastNotificationTime
   }
 
   /**
@@ -136,6 +138,32 @@ class SocketService {
         console.error('Błąd podczas oznaczania powiadomienia jako przeczytane:', error);
       }
     });
+
+    // Obsługa wejścia do konwersacji
+    socket.on('enter_conversation', (data) => {
+      try {
+        const { participantId, conversationId } = data;
+        if (!participantId) return;
+
+        console.log(`Użytkownik ${userId} wszedł do konwersacji z ${participantId}`);
+        this.setUserInActiveConversation(userId, participantId, conversationId);
+      } catch (error) {
+        console.error('Błąd podczas obsługi wejścia do konwersacji:', error);
+      }
+    });
+
+    // Obsługa wyjścia z konwersacji
+    socket.on('leave_conversation', (data) => {
+      try {
+        const { participantId, conversationId } = data;
+        if (!participantId) return;
+
+        console.log(`Użytkownik ${userId} wyszedł z konwersacji z ${participantId}`);
+        this.removeUserFromActiveConversation(userId, participantId, conversationId);
+      } catch (error) {
+        console.error('Błąd podczas obsługi wyjścia z konwersacji:', error);
+      }
+    });
   }
 
   /**
@@ -218,6 +246,100 @@ class SocketService {
    */
   getTotalConnectionCount() {
     return this.socketUsers.size;
+  }
+
+  /**
+   * Ustawia użytkownika jako aktywnego w konwersacji
+   * @param {string} userId - ID użytkownika
+   * @param {string} participantId - ID uczestnika konwersacji
+   * @param {string} conversationId - ID konwersacji (opcjonalne)
+   */
+  setUserInActiveConversation(userId, participantId, conversationId = null) {
+    if (!this.activeConversations.has(userId)) {
+      this.activeConversations.set(userId, new Set());
+    }
+    
+    // Dodaj identyfikator konwersacji (używamy participantId jako główny identyfikator)
+    this.activeConversations.get(userId).add(participantId);
+    
+    console.log(`Użytkownik ${userId} jest teraz aktywny w konwersacji z ${participantId}`);
+  }
+
+  /**
+   * Usuwa użytkownika z aktywnej konwersacji
+   * @param {string} userId - ID użytkownika
+   * @param {string} participantId - ID uczestnika konwersacji
+   * @param {string} conversationId - ID konwersacji (opcjonalne)
+   */
+  removeUserFromActiveConversation(userId, participantId, conversationId = null) {
+    if (this.activeConversations.has(userId)) {
+      this.activeConversations.get(userId).delete(participantId);
+      
+      // Jeśli użytkownik nie ma już aktywnych konwersacji, usuń go z mapy
+      if (this.activeConversations.get(userId).size === 0) {
+        this.activeConversations.delete(userId);
+      }
+    }
+    
+    console.log(`Użytkownik ${userId} wyszedł z konwersacji z ${participantId}`);
+  }
+
+  /**
+   * Sprawdza, czy użytkownik jest aktywny w konwersacji z danym uczestnikiem
+   * @param {string} userId - ID użytkownika
+   * @param {string} participantId - ID uczestnika konwersacji
+   * @returns {boolean} - Czy użytkownik jest aktywny w konwersacji
+   */
+  isUserInActiveConversation(userId, participantId) {
+    if (!this.activeConversations.has(userId)) {
+      return false;
+    }
+    
+    return this.activeConversations.get(userId).has(participantId);
+  }
+
+  /**
+   * Sprawdza, czy należy wysłać powiadomienie o nowej wiadomości
+   * Implementuje logikę "tylko pierwsze powiadomienie w konwersacji"
+   * @param {string} userId - ID odbiorcy
+   * @param {string} senderId - ID nadawcy
+   * @returns {boolean} - Czy wysłać powiadomienie
+   */
+  shouldSendMessageNotification(userId, senderId) {
+    // Jeśli użytkownik jest aktywny w konwersacji z nadawcą, nie wysyłaj powiadomienia
+    if (this.isUserInActiveConversation(userId, senderId)) {
+      console.log(`Użytkownik ${userId} jest aktywny w konwersacji z ${senderId} - pomijam powiadomienie`);
+      return false;
+    }
+
+    // Sprawdź, czy to pierwsze powiadomienie w tej konwersacji
+    const conversationKey = `${userId}:${senderId}`;
+    const now = Date.now();
+    const lastNotificationTime = this.conversationNotificationState.get(conversationKey);
+    
+    // Jeśli nie było wcześniejszego powiadomienia lub minęło więcej niż 5 minut, wyślij powiadomienie
+    const shouldSend = !lastNotificationTime || (now - lastNotificationTime) > 5 * 60 * 1000; // 5 minut
+    
+    if (shouldSend) {
+      // Zapisz czas wysłania powiadomienia
+      this.conversationNotificationState.set(conversationKey, now);
+      console.log(`Wysyłam pierwsze powiadomienie w konwersacji ${conversationKey}`);
+    } else {
+      console.log(`Pomijam kolejne powiadomienie w konwersacji ${conversationKey} - ostatnie było ${Math.round((now - lastNotificationTime) / 1000)}s temu`);
+    }
+    
+    return shouldSend;
+  }
+
+  /**
+   * Resetuje stan powiadomień dla konwersacji (np. gdy użytkownik przeczyta wiadomości)
+   * @param {string} userId - ID użytkownika
+   * @param {string} participantId - ID uczestnika konwersacji
+   */
+  resetConversationNotificationState(userId, participantId) {
+    const conversationKey = `${userId}:${participantId}`;
+    this.conversationNotificationState.delete(conversationKey);
+    console.log(`Zresetowano stan powiadomień dla konwersacji ${conversationKey}`);
   }
 }
 

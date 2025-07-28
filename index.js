@@ -1,32 +1,38 @@
+// Załadowanie zmiennych środowiskowych - MUSI BYĆ NA SAMEJ GÓRZE
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import mongoose from 'mongoose';
 import path from 'path';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import cors from 'cors';
+import { apiLimiter } from './middleware/rateLimiting.js';
 import AdminJS from 'adminjs';
 import AdminJSExpress from '@adminjs/express';
 import * as AdminJSMongoose from '@adminjs/mongoose';
 import bcrypt from 'bcryptjs';
-import dotenv from 'dotenv';
 import fs from 'fs';
 import cookieParser from 'cookie-parser';
 import http from 'http';
 import socketService from './services/socketService.js';
 import imageProcessor from './middleware/imageProcessor.js';
 
-// Załadowanie zmiennych środowiskowych
-dotenv.config();
+// ✅ NOWA KONFIGURACJA - Import centralnej konfiguracji
+import config from './config/index.js';
+import logger from './utils/logger.js';
+import healthRoutes from './routes/health.js';
 
 // Import setupRoutes - centralna konfiguracja tras
 import setupRoutes from './routes/index.js';
 import User from './models/user.js';
 import { initScheduledTasks } from './utils/scheduledTasks.js';
 
-// Konfiguracja środowiska
+// ✅ NOWA KONFIGURACJA - Użycie centralnej konfiguracji z fallbackami
+const { server, security, logging } = config;
 const isDev = process.env.NODE_ENV === 'development';
-const PORT = process.env.PORT || 5000;
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+const PORT = server.port;
+const FRONTEND_URL = server.frontendUrl;
 
 /**
  * Konfiguracja aplikacji Express
@@ -45,26 +51,8 @@ const configureApp = () => {
   app.use(express.urlencoded({ limit: '15mb', extended: true }));
   app.use(cookieParser());
   
-  // Konfiguracja zabezpieczeń z Helmet - bardziej permisywna dla rozwoju
-  app.use(helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        styleSrc: ["'self'", 'https:', "'unsafe-inline'"],
-        scriptSrc: ["'self'", 'https:', "'unsafe-inline'"],
-        imgSrc: ["'self'", 'data:', 'http://localhost:*', 'https://*', 'blob:'],
-        connectSrc: ["'self'", 'http://localhost:*', 'https://*'],
-        fontSrc: ["'self'", 'https:', 'data:'],
-        objectSrc: ["'none'"],
-        upgradeInsecureRequests: [],
-      },
-    },
-    referrerPolicy: { policy: 'no-referrer' },
-    xssFilter: true,
-    hidePoweredBy: true,
-    frameGuard: { action: 'deny' },
-    crossOriginResourcePolicy: { policy: 'cross-origin' }
-  }));
+  // ✅ NOWA KONFIGURACJA - Użycie security headers z konfiguracji
+  app.use(helmet(security.headers));
   
   // Logger dla zapytań HTTP (tylko w trybie deweloperskim)
   if (isDev) {
@@ -74,13 +62,8 @@ const configureApp = () => {
     });
   }
   
-  // Konfiguracja CORS
-  app.use(cors({
-    origin: [FRONTEND_URL, 'http://localhost:3000'],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Cache-Control']
-  }));
+  // ✅ NOWA KONFIGURACJA - Użycie CORS z konfiguracji
+  app.use(cors(security.cors));
   
   // Konfiguracja limitów zapytań
   configureRateLimits(app);
@@ -89,35 +72,16 @@ const configureApp = () => {
 };
 
 /**
- * Konfiguracja limitów zapytań
+ * ✅ NOWA KONFIGURACJA - Konfiguracja limitów zapytań z nowego middleware
  */
 const configureRateLimits = (app) => {
-  // Globalny limit zapytań
-  const globalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minut
-    max: 5000,                // limit na IP
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-      status: 429,
-      message: 'Przekroczono limit zapytań, spróbuj ponownie później.'
-    }
-  });
-  
-  // Specjalny limit dla tras uwierzytelniania
-  const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minut
-    max: 500,                 // limit na IP
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-      status: 429,
-      message: 'Przekroczono limit zapytań dla autoryzacji, spróbuj ponownie za 15 minut.'
-    }
-  });
-  
-  // app.use(globalLimiter); // WYŁĄCZONY na czas debugowania
-  app.use('/api/users', authLimiter);
+  // Zastosowanie globalnego API limitera
+  if (!isDev) {
+    app.use('/api', apiLimiter); // Tylko w produkcji
+    console.log('✅ Rate limiting włączony dla API');
+  } else {
+    console.log('⚠️ Rate limiting wyłączony w trybie development');
+  }
 };
 
 /**
@@ -254,14 +218,15 @@ const configureErrorHandling = (app) => {
  */
 const connectToDatabase = async () => {
   try {
-    // Usunięto przestarzałe opcje, które powodują ostrzeżenia
-    await mongoose.connect(process.env.MONGO_URI, {
+    // Próba połączenia z MongoDB Atlas
+    console.log('🔄 Próba połączenia z MongoDB Atlas...');
+    await mongoose.connect(config.database.uri, {
       serverSelectionTimeoutMS: 5000, // 5 sekund timeout
       connectTimeoutMS: 10000,        // 10 sekund timeout połączenia
       socketTimeoutMS: 45000,         // 45 sekund timeout socketów
     });
     
-    console.log('✅ Połączono z bazą danych MongoDB');
+    console.log('✅ Połączono z bazą danych MongoDB Atlas');
     
     // Operacje na indeksach zostały przeniesione do osobnego skryptu utils/db-maintenance.js
     // Nie wykonujemy ich przy każdym starcie serwera, co przyspiesza uruchomienie
@@ -269,7 +234,30 @@ const connectToDatabase = async () => {
     
     return true;
   } catch (err) {
-    console.error('❌ Błąd połączenia z MongoDB:', err);
+    console.error('❌ Błąd połączenia z MongoDB Atlas:', err.message);
+    
+    // Fallback do lokalnej bazy MongoDB w trybie development
+    if (isDev) {
+      console.log('🔄 Próba połączenia z lokalną bazą MongoDB...');
+      try {
+        await mongoose.connect('mongodb://localhost:27017/marketplace-dev', {
+          serverSelectionTimeoutMS: 3000,
+          connectTimeoutMS: 5000,
+          socketTimeoutMS: 30000,
+        });
+        
+        console.log('✅ Połączono z lokalną bazą danych MongoDB');
+        console.log('⚠️  UWAGA: Używasz lokalnej bazy danych - dane mogą się różnić od produkcji');
+        return true;
+      } catch (localErr) {
+        console.error('❌ Błąd połączenia z lokalną MongoDB:', localErr.message);
+        console.log('💡 Aby uruchomić lokalną MongoDB:');
+        console.log('   1. Zainstaluj MongoDB Community Server');
+        console.log('   2. Uruchom: mongod --dbpath ./data');
+        console.log('   3. Lub użyj Docker: docker run -d -p 27017:27017 mongo');
+      }
+    }
+    
     return false;
   }
 };
@@ -328,6 +316,9 @@ const startServer = async () => {
   
   // Konfiguracja tras API
   setupRoutes(app);
+  
+  // ✅ NOWA KONFIGURACJA - Dodanie health check endpoint
+  app.use('/health', healthRoutes);
   
   // Podstawowa trasa - status serwera
   app.get('/', (req, res) => {

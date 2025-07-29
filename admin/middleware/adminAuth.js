@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import User from '../../models/user.js';
 import AdminActivity from '../models/AdminActivity.js';
+import { isBlacklisted } from '../../models/TokenBlacklist.js';
 
 /**
  * Professional Admin Authentication Middleware
@@ -66,19 +67,23 @@ export const adminApiLimiter = rateLimit({
  */
 const validateJwtToken = (token) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_ADMIN_SECRET);
+    // Używamy tego samego JWT_SECRET co zwykłe logowanie
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Validate token structure
-    if (!decoded.id || !decoded.role || !decoded.sessionId) {
-      throw new Error('Invalid token structure');
+    // Validate basic token structure (userId może być jako userId lub id)
+    const userId = decoded.userId || decoded.id;
+    if (!userId) {
+      throw new Error('Invalid token structure - missing user ID');
     }
     
-    // Check if token is for admin/moderator
-    if (!['admin', 'moderator'].includes(decoded.role)) {
-      throw new Error('Insufficient privileges');
-    }
+    // Nie sprawdzamy roli w tokenie - sprawdzimy w bazie danych
+    // Token może nie mieć roli lub może być nieaktualna
     
-    return decoded;
+    return {
+      ...decoded,
+      userId: userId, // Normalizujemy do userId
+      id: userId // Zachowujemy też id dla kompatybilności
+    };
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
       throw new Error('Token has expired');
@@ -151,9 +156,15 @@ export const requireAdminAuth = async (req, res, next) => {
   const startTime = Date.now();
   
   try {
-    // Extract token from cookie (secure) or Authorization header (fallback)
-    let token = req.cookies?.admin_token;
+    // DEBUG: Log wszystkie cookies i headers
+    console.log('🔍 Admin Auth Debug:');
+    console.log('Cookies:', req.cookies);
+    console.log('Authorization header:', req.get('Authorization'));
     
+    // Używamy tego samego tokenu co zwykłe logowanie (token, nie admin_token)
+    let token = req.cookies?.token;
+    
+    // Fallback do Authorization header (dla kompatybilności wstecznej)
     if (!token) {
       const authHeader = req.get('Authorization');
       if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -161,49 +172,108 @@ export const requireAdminAuth = async (req, res, next) => {
       }
     }
     
+    console.log('🎫 Token found:', !!token);
+    if (token) {
+      console.log('Token prefix:', token.substring(0, 50) + '...');
+    }
+    
     if (!token) {
       await logSecurityEvent(req, 'auth_missing_token');
       return res.status(401).json({
         success: false,
-        error: 'Authentication required',
+        error: 'Brak tokenu uwierzytelniania',
         code: 'MISSING_TOKEN'
+      });
+    }
+    
+    // Check if token is blacklisted
+    const isTokenBlacklisted = await isBlacklisted(token);
+    if (isTokenBlacklisted) {
+      await logSecurityEvent(req, 'auth_blacklisted_token', { 
+        tokenPrefix: token.substring(0, 20) 
+      });
+      
+      // Clear the cookie if it's blacklisted
+      res.clearCookie('token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+        path: '/'
+      });
+      
+      return res.status(401).json({
+        success: false,
+        error: 'Token został unieważniony. Zaloguj się ponownie.',
+        code: 'TOKEN_BLACKLISTED'
       });
     }
     
     // Validate JWT token
     const decoded = validateJwtToken(token);
     
-    // Validate session
-    const isSessionValid = await validateAdminSession(decoded.sessionId, decoded.id);
+    // Validate session - używamy jti jako sessionId jeśli sessionId nie istnieje
+    const sessionId = decoded.sessionId || decoded.jti;
+    const userId = decoded.userId || decoded.id;
+    const isSessionValid = await validateAdminSession(sessionId, userId);
     if (!isSessionValid) {
-      await logSecurityEvent(req, 'auth_invalid_session', { userId: decoded.id });
+      await logSecurityEvent(req, 'auth_invalid_session', { userId: userId });
       return res.status(401).json({
         success: false,
-        error: 'Session expired or invalid',
+        error: 'Sesja wygasła lub jest nieprawidłowa',
         code: 'INVALID_SESSION'
       });
     }
     
     // Fetch current user data
-    const user = await User.findById(decoded.id).select('-password');
+    const user = await User.findById(userId).select('-password');
     if (!user) {
-      await logSecurityEvent(req, 'auth_user_not_found', { userId: decoded.id });
+      await logSecurityEvent(req, 'auth_user_not_found', { userId: userId });
       return res.status(401).json({
         success: false,
-        error: 'User not found',
+        error: 'Użytkownik nie został znaleziony',
         code: 'USER_NOT_FOUND'
+      });
+    }
+
+    // Sprawdź czy użytkownik ma uprawnienia administratora
+    if (!['admin', 'moderator'].includes(user.role)) {
+      await logSecurityEvent(req, 'auth_insufficient_privileges', { 
+        userId: user._id,
+        userRole: user.role,
+        endpoint: req.originalUrl
+      });
+      
+      return res.status(403).json({
+        success: false,
+        error: 'Brak uprawnień administratora',
+        code: 'INSUFFICIENT_PRIVILEGES'
+      });
+    }
+
+    // Sprawdź czy konto nie jest zablokowane
+    if (user.status === 'suspended' || user.status === 'banned' || user.accountLocked) {
+      await logSecurityEvent(req, 'auth_account_blocked', {
+        userId: user._id,
+        status: user.status,
+        accountLocked: user.accountLocked
+      });
+      
+      return res.status(403).json({
+        success: false,
+        error: 'Konto zostało zablokowane lub zawieszone',
+        code: 'ACCOUNT_BLOCKED'
       });
     }
     
     // Set user context for subsequent middleware/controllers
     req.user = user;
-    req.sessionId = decoded.sessionId;
+    req.sessionId = sessionId; // Używamy sessionId z wcześniejszej walidacji
     req.authStartTime = startTime;
     
     // Log successful authentication for audit trail
     await AdminActivity.create({
       adminId: user._id,
-      actionType: 'auth_success',
+      actionType: 'login_attempt',
       targetResource: {
         resourceType: 'system',
         resourceIdentifier: 'admin_panel'
@@ -217,7 +287,7 @@ export const requireAdminAuth = async (req, res, next) => {
       requestContext: {
         ipAddress: req.ip,
         userAgent: req.get('User-Agent'),
-        sessionId: decoded.sessionId,
+        sessionId: sessionId, // Używamy sessionId z wcześniejszej walidacji
         requestId: req.id || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       },
       result: {
@@ -235,7 +305,7 @@ export const requireAdminAuth = async (req, res, next) => {
     
     return res.status(401).json({
       success: false,
-      error: 'Authentication failed',
+      error: 'Uwierzytelnianie nie powiodło się',
       code: 'AUTH_FAILED',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });

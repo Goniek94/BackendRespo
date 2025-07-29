@@ -39,9 +39,7 @@ import {
 
 const router = express.Router();
 
-// Apply authentication and rate limiting to all routes
-router.use(requireAdminAuth);
-router.use(adminApiLimiter);
+// Authentication and rate limiting are applied in parent router (admin/routes/index.js)
 
 /**
  * GET /admin/users

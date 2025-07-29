@@ -12,6 +12,7 @@ import AdminJS from 'adminjs';
 import AdminJSExpress from '@adminjs/express';
 import * as AdminJSMongoose from '@adminjs/mongoose';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import fs from 'fs';
 import cookieParser from 'cookie-parser';
 import http from 'http';
@@ -26,6 +27,7 @@ import healthRoutes from './routes/health.js';
 // Import setupRoutes - centralna konfiguracja tras
 import setupRoutes from './routes/index.js';
 import User from './models/user.js';
+import Ad from './models/ad.js';
 import { initScheduledTasks } from './utils/scheduledTasks.js';
 
 // ✅ NOWA KONFIGURACJA - Użycie centralnej konfiguracji z fallbackami
@@ -139,41 +141,34 @@ const configureUploads = (app) => {
 };
 
 /**
- * Konfiguracja panelu administracyjnego
+ * Konfiguracja panelu administracyjnego - zintegrowany z custom auth
+ * Używa dedykowanego pliku konfiguracyjnego
  */
-const configureAdminPanel = (app) => {
-  AdminJS.registerAdapter(AdminJSMongoose);
-  
-  const adminJs = new AdminJS({
-    databases: [mongoose],
-    rootPath: '/admin',
-    branding: {
-      companyName: 'Marketplace Admin',
-      logo: false,
-      softwareBrothers: false
-    },
-    dashboard: {
-      component: './admin/dashboard'
-    }
-  });
-  
-  // Uwierzytelnianie dla panelu administracyjnego
-  const adminRouter = AdminJSExpress.buildAuthenticatedRouter(adminJs, {
-    authenticate: async (email, password) => {
-      const user = await User.findOne({ email });
-      if (user && (user.role === 'admin' || user.role === 'moderator')) {
-        const validPassword = await bcrypt.compare(password, user.password);
-        if (validPassword) {
-          return user;
-        }
-      }
-      return null;
-    },
-    cookiePassword: process.env.ADMIN_COOKIE_SECRET || 'complex-secure-password-for-cookie-encryption',
-  });
-  
-  // Dodanie panelu AdminJS do aplikacji
-  app.use(adminJs.options.rootPath, adminRouter);
+const configureAdminPanel = async (app) => {
+  try {
+    // Import konfiguracji AdminJS
+    const { adminJsConfig, authConfig } = await import('./config/adminjs.config.js');
+    
+    // Dodanie bazy danych do konfiguracji
+    adminJsConfig.databases = [mongoose];
+    
+    // Utworzenie instancji AdminJS
+    const adminJs = new AdminJS(adminJsConfig);
+    
+    // Utworzenie routera z autoryzacją
+    const adminRouter = AdminJSExpress.buildAuthenticatedRouter(adminJs, authConfig);
+    
+    // Dodanie panelu AdminJS do aplikacji
+    app.use(adminJs.options.rootPath, adminRouter);
+    
+    console.log('✅ AdminJS skonfigurowany z rozszerzoną integracją na /admin');
+    console.log('📊 Dostępne zasoby: Users, Ads, Messages, Notifications, Comments, AdminActivity');
+    
+    return adminJs;
+  } catch (error) {
+    console.error('❌ Błąd konfiguracji AdminJS:', error);
+    throw error;
+  }
 };
 
 /**
@@ -330,11 +325,16 @@ const startServer = async () => {
   });
   
   // Leniwe ładowanie panelu administracyjnego - tylko gdy ktoś wejdzie na ścieżkę /admin
-  app.use('/admin*', (req, res, next) => {
+  app.use('/admin*', async (req, res, next) => {
     if (!app.adminJsConfigured) {
-      configureAdminPanel(app);
-      app.adminJsConfigured = true;
-      console.log('✅ Panel administracyjny załadowany na żądanie');
+      try {
+        await configureAdminPanel(app);
+        app.adminJsConfigured = true;
+        console.log('✅ Panel administracyjny załadowany na żądanie');
+      } catch (error) {
+        console.error('❌ Błąd ładowania panelu administracyjnego:', error);
+        return res.status(500).json({ error: 'Błąd ładowania panelu administracyjnego' });
+      }
     }
     next();
   });

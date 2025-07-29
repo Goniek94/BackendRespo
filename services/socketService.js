@@ -46,30 +46,61 @@ class SocketService {
 
   /**
    * Middleware do uwierzytelniania połączeń Socket.IO
+   * Obsługuje cookies zamiast localStorage - bezpieczniejsze rozwiązanie
    * @param {Object} socket - Socket klienta
    * @param {Function} next - Funkcja next
    */
   authMiddleware(socket, next) {
     try {
-      const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.split(' ')[1];
+      let token = null;
+
+      // Priorytet 1: Token z cookie (bezpieczne, HttpOnly)
+      const cookies = socket.handshake.headers.cookie;
+      if (cookies) {
+        const cookieArray = cookies.split(';');
+        for (let cookie of cookieArray) {
+          const [name, value] = cookie.trim().split('=');
+          if (name === 'token') {
+            token = value;
+            break;
+          }
+        }
+      }
+
+      // Priorytet 2: Token z auth object (dla kompatybilności wstecznej)
+      if (!token) {
+        token = socket.handshake.auth.token;
+      }
+
+      // Priorytet 3: Token z Authorization header (fallback)
+      if (!token) {
+        const authHeader = socket.handshake.headers.authorization;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+          token = authHeader.split(' ')[1];
+        }
+      }
 
       if (!token) {
+        console.log('Socket.IO: Brak tokenu uwierzytelniającego');
         return next(new Error('Brak tokenu uwierzytelniającego'));
       }
 
       // Weryfikacja tokenu JWT
       jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
         if (err) {
+          console.log('Socket.IO: Nieprawidłowy token:', err.message);
           return next(new Error('Nieprawidłowy token'));
         }
 
         // Zapisanie danych użytkownika w obiekcie socket
+        // Obsługa różnych formatów payload (userId vs id)
         socket.user = {
-          userId: decoded.userId,
+          userId: decoded.userId || decoded.id,
           email: decoded.email,
           role: decoded.role
         };
 
+        console.log(`Socket.IO: Uwierzytelniono użytkownika ${socket.user.userId} (${socket.user.email})`);
         next();
       });
     } catch (error) {

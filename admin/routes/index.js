@@ -1,6 +1,8 @@
 import express from 'express';
 import userRoutes from './userRoutes.js';
 import dashboardRoutes from './dashboardRoutes.js';
+import authRoutes from './authRoutes.js';
+import { requireAdminAuth, adminApiLimiter } from '../middleware/adminAuth.js';
 
 /**
  * Main Admin Routes Index
@@ -12,6 +14,9 @@ import dashboardRoutes from './dashboardRoutes.js';
  */
 
 const router = express.Router();
+
+// Apply rate limiting to all admin API routes
+router.use(adminApiLimiter);
 
 /**
  * API versioning and health check
@@ -28,16 +33,22 @@ router.get('/health', (req, res) => {
 });
 
 /**
- * Dashboard routes
- * Dashboard statistics and data
+ * Authentication routes
+ * Admin login, logout, and auth check
  */
-router.use('/dashboard', dashboardRoutes);
+router.use('/auth', authRoutes);
 
 /**
- * User management routes
+ * Dashboard routes (protected)
+ * Dashboard statistics and data
+ */
+router.use('/dashboard', requireAdminAuth, dashboardRoutes);
+
+/**
+ * User management routes (protected)
  * All user-related admin operations
  */
-router.use('/users', userRoutes);
+router.use('/users', requireAdminAuth, userRoutes);
 
 /**
  * Future route modules will be added here:
@@ -61,15 +72,17 @@ router.use('*', (req, res) => {
     path: req.originalUrl,
     method: req.method,
     availableEndpoints: [
-      'GET /admin/health',
-      'GET /admin/users',
-      'GET /admin/users/analytics',
-      'GET /admin/users/export',
-      'POST /admin/users/bulk-update',
-      'GET /admin/users/:id',
-      'PUT /admin/users/:id',
-      'POST /admin/users/:id/block',
-      'DELETE /admin/users/:id'
+      'GET /admin-panel/health',
+      'GET /admin-panel/dashboard',
+      'GET /admin-panel/dashboard/stats',
+      'GET /admin-panel/users',
+      'GET /admin-panel/users/analytics',
+      'GET /admin-panel/users/export',
+      'POST /admin-panel/users/bulk-update',
+      'GET /admin-panel/users/:id',
+      'PUT /admin-panel/users/:id',
+      'POST /admin-panel/users/:id/block',
+      'DELETE /admin-panel/users/:id'
     ]
   });
 });

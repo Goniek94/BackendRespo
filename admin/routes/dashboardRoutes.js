@@ -8,7 +8,10 @@ const router = express.Router();
  * Endpoints for admin dashboard data
  */
 
-// GET /admin/dashboard/stats - Get dashboard statistics
+// GET /admin/dashboard - Get dashboard statistics (main endpoint)
+router.get('/', getDashboardStats);
+
+// GET /admin/dashboard/stats - Get dashboard statistics (alias)
 router.get('/stats', getDashboardStats);
 
 export default router;

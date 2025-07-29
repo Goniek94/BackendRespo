@@ -14,8 +14,9 @@ const apiClient = axios.create({
 // Interceptor do dodawania tokenu autoryzacji
 apiClient.interceptors.request.use(
   (config) => {
-    // Pobierz token z localStorage
-    const token = localStorage.getItem('token');
+  // Token jest automatycznie dołączany przez przeglądarkę z HttpOnly cookie
+  // Nie ma potrzeby ręcznego pobierania tokenu z localStorage
+  const token = null; // Token jest w HttpOnly cookie
     
     // Jeśli token istnieje, dodaj go do nagłówka Authorization
     if (token) {
@@ -46,7 +47,8 @@ apiClient.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       console.log('Błąd autoryzacji - wylogowywanie...');
       // Tutaj możesz dodać kod do wylogowania użytkownika
-      // np. localStorage.removeItem('token');
+      // Wylogowanie odbywa się przez wywołanie API /auth/logout
+      // które wyczyści HttpOnly cookies
       // window.location.href = '/login';
     }
     

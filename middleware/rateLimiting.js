@@ -1,6 +1,6 @@
 import rateLimit from 'express-rate-limit';
 import logger from '../utils/logger.js';
-import User from '../models/user.js';
+import User from '../models/user/user.js';
 
 // Rate limiter for authentication endpoints
 const authLimiter = rateLimit({
@@ -28,6 +28,10 @@ const authLimiter = rateLimit({
     });
   },
   skip: (req) => {
+    // Skip rate limiting in test environment
+    if (process.env.NODE_ENV === 'test') {
+      return true;
+    }
     // Skip rate limiting for localhost in development
     if (process.env.NODE_ENV === 'development' && req.ip === '127.0.0.1') {
       return true;
@@ -107,6 +111,17 @@ const registrationLimiter = rateLimit({
       code: 'REGISTRATION_LIMIT_EXCEEDED',
       retryAfter: 60 * 60
     });
+  },
+  skip: (req) => {
+    // Skip rate limiting in test environment
+    if (process.env.NODE_ENV === 'test') {
+      return true;
+    }
+    // Skip rate limiting for localhost in development
+    if (process.env.NODE_ENV === 'development' && req.ip === '127.0.0.1') {
+      return true;
+    }
+    return false;
   }
 });
 

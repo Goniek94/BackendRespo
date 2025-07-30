@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit';
 import User from '../../models/user.js';
 import AdminActivity from '../models/AdminActivity.js';
 import { isBlacklisted } from '../../models/TokenBlacklist.js';
+import logger from '../../utils/logger.js';
 
 /**
  * Professional Admin Authentication Middleware
@@ -138,13 +139,16 @@ const logSecurityEvent = async (req, eventType, details = {}) => {
       }
     };
     
-    // In production, send to security monitoring service
-    console.log('SECURITY EVENT:', JSON.stringify(securityLog, null, 2));
+    // Use secure logger instead of console.log
+    logger.security('Admin security event', securityLog);
     
     // Could also store in database for compliance
     // await SecurityLog.create(securityLog);
   } catch (error) {
-    console.error('Failed to log security event:', error);
+    logger.error('Failed to log security event', {
+      error: error.message,
+      stack: error.stack
+    });
   }
 };
 
@@ -156,11 +160,6 @@ export const requireAdminAuth = async (req, res, next) => {
   const startTime = Date.now();
   
   try {
-    // DEBUG: Log wszystkie cookies i headers
-    console.log('🔍 Admin Auth Debug:');
-    console.log('Cookies:', req.cookies);
-    console.log('Authorization header:', req.get('Authorization'));
-    
     // Używamy tego samego tokenu co zwykłe logowanie (token, nie admin_token)
     let token = req.cookies?.token;
     
@@ -170,11 +169,6 @@ export const requireAdminAuth = async (req, res, next) => {
       if (authHeader && authHeader.startsWith('Bearer ')) {
         token = authHeader.substring(7);
       }
-    }
-    
-    console.log('🎫 Token found:', !!token);
-    if (token) {
-      console.log('Token prefix:', token.substring(0, 50) + '...');
     }
     
     if (!token) {
@@ -270,31 +264,39 @@ export const requireAdminAuth = async (req, res, next) => {
     req.sessionId = sessionId; // Używamy sessionId z wcześniejszej walidacji
     req.authStartTime = startTime;
     
-    // Log successful authentication for audit trail
-    await AdminActivity.create({
-      adminId: user._id,
-      actionType: 'login_attempt',
-      targetResource: {
-        resourceType: 'system',
-        resourceIdentifier: 'admin_panel'
-      },
-      actionDetails: {
-        metadata: {
-          endpoint: req.originalUrl,
-          method: req.method
+    // Log successful authentication for audit trail (non-blocking)
+    try {
+      await AdminActivity.create({
+        adminId: user._id,
+        actionType: 'login_attempt',
+        targetResource: {
+          resourceType: 'system',
+          resourceIdentifier: 'admin_panel'
+        },
+        actionDetails: {
+          metadata: {
+            endpoint: req.originalUrl,
+            method: req.method
+          }
+        },
+        requestContext: {
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent'),
+          sessionId: sessionId, // Używamy sessionId z wcześniejszej walidacji
+          requestId: req.id || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        },
+        result: {
+          status: 'success',
+          executionTime: Date.now() - startTime
         }
-      },
-      requestContext: {
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent'),
-        sessionId: sessionId, // Używamy sessionId z wcześniejszej walidacji
-        requestId: req.id || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      },
-      result: {
-        status: 'success',
-        executionTime: Date.now() - startTime
-      }
-    });
+      });
+    } catch (activityLogError) {
+      // Don't block authentication if activity logging fails
+      logger.warn('Failed to log admin activity', {
+        error: activityLogError.message,
+        userId: user._id
+      });
+    }
     
     next();
   } catch (error) {
@@ -345,7 +347,11 @@ export const requireAdminRole = (requiredRoles = ['admin']) => {
       
       next();
     } catch (error) {
-      console.error('Role check error:', error);
+      logger.error('Role check error', {
+        error: error.message,
+        stack: error.stack,
+        userId: req.user?._id
+      });
       return res.status(500).json({
         success: false,
         error: 'Permission check failed',
@@ -404,7 +410,12 @@ export const logAdminActivity = (actionType) => {
             }
           });
         } catch (error) {
-          console.error('Failed to log admin activity:', error);
+          logger.error('Failed to log admin activity', {
+            error: error.message,
+            stack: error.stack,
+            adminId: req.user?._id,
+            actionType
+          });
         }
       });
       

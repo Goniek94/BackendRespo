@@ -12,73 +12,45 @@ import {
 } from '../controllers/listings/adController.js';
 import { requireAdminAuth } from '../middleware/adminAuth.js';
 
-/**
- * Admin Listing Routes
- * Routes for managing ads in admin panel
- * 
- * @author Senior Developer
- * @version 1.0.0
- */
-
 const router = express.Router();
 
 /**
- * Apply admin authentication middleware to all routes
+ * Listing Management Routes
+ * Endpoints for admin listing management
+ * All routes protected by adminAuth middleware
  */
+
+// Apply admin authentication to all routes
 router.use(requireAdminAuth);
 
-/**
- * GET /api/admin-panel/listings
- * Get all ads with filtering and pagination
- */
+// GET /admin/listings - Get all listings with filtering
 router.get('/', getAds);
 
-/**
- * GET /api/admin-panel/listings/pending
- * Get pending ads for moderation
- */
+// GET /admin/listings/stats - Get listings statistics
+router.get('/stats', getAds); // Using same controller for now, can be specialized later
+
+// GET /admin/listings/pending - Get pending listings for moderation
 router.get('/pending', getPendingAds);
 
-/**
- * GET /api/admin-panel/listings/:adId
- * Get specific ad details
- */
+// GET /admin/listings/:adId - Get single listing details
 router.get('/:adId', getAdDetails);
 
-/**
- * PUT /api/admin-panel/listings/:adId
- * Update ad details
- */
+// PUT /admin/listings/:adId - Update listing
 router.put('/:adId', updateAd);
 
-/**
- * DELETE /api/admin-panel/listings/:adId
- * Delete an ad
- */
+// DELETE /admin/listings/:adId - Delete listing
 router.delete('/:adId', deleteAd);
 
-/**
- * POST /api/admin-panel/listings/bulk-discount
- * Set discount for multiple ads
- */
-router.post('/bulk-discount', setBulkDiscount);
-
-/**
- * POST /api/admin-panel/listings/:adId/approve
- * Approve a pending ad
- */
+// POST /admin/listings/:adId/approve - Approve listing
 router.post('/:adId/approve', approveAd);
 
-/**
- * POST /api/admin-panel/listings/:adId/reject
- * Reject a pending ad
- */
+// POST /admin/listings/:adId/reject - Reject listing
 router.post('/:adId/reject', rejectAd);
 
-/**
- * POST /api/admin-panel/listings/:adId/moderate
- * Moderate an ad (approve/reject/request changes)
- */
+// POST /admin/listings/:adId/moderate - Moderate listing (general)
 router.post('/:adId/moderate', moderateAd);
+
+// POST /admin/listings/bulk-discount - Set bulk discount
+router.post('/bulk-discount', setBulkDiscount);
 
 export default router;

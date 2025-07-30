@@ -60,6 +60,12 @@ export default (app) => {
    */
   app.use('/api/admin-panel', enterpriseAdminRoutes);
   
+  /**
+   * Admin Panel Alias for Frontend Compatibility
+   * Frontend expects /api/admin but backend uses /api/admin-panel
+   */
+  app.use('/api/admin', enterpriseAdminRoutes);
+  
   // ========================================
   // 📊 MAIN API ROUTES (v1)
   // ========================================
@@ -127,12 +133,8 @@ export default (app) => {
       description: 'Vehicle verification through CEPIK database'
     },
     
-    // Legacy Admin (will be deprecated)
-    'admin': {
-      router: adminRoutes,
-      description: 'Legacy admin panel (use /api/admin-panel instead)',
-      deprecated: true
-    }
+    // Legacy Admin routes removed due to security conflict
+    // All admin functionality moved to /api/admin-panel
   };
   
   // ========================================

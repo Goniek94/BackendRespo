@@ -3,3 +3,23 @@ node_modules/
 
 # Ignorowanie pliku .env
 .env
+
+# BEZPIECZEŃSTWO: Ignorowanie plików testowych z wrażliwymi danymi
+test-*.js
+test-*.cjs
+test-*.mjs
+test-*.json
+
+# Ignorowanie folderów testowych
+dev-tests/
+debug/
+temp/
+
+# Ignorowanie logów
+logs/
+*.log
+
+# Ignorowanie plików tymczasowych
+.tmp/
+temp/
+cache/

@@ -82,13 +82,13 @@ export default {
     // CORS - RESTRYKCYJNY dla produkcji
     cors: {
       origin: process.env.ALLOWED_ORIGINS ? 
-        process.env.ALLOWED_ORIGINS.split(',') : 
-        ['https://yourdomain.com'],     // TYLKO określone domeny
+        process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim()) : 
+        ['https://marketplace-frontend.vercel.app', 'https://your-production-domain.com'],
       credentials: true,                // Pozwól na cookies
-      methods: ['GET', 'POST', 'PUT', 'DELETE'], // Bez OPTIONS i PATCH
-      allowedHeaders: ['Content-Type', 'Authorization'], // Minimalne nagłówki
-      exposedHeaders: [],               // Nie eksponuj żadnych nagłówków
-      maxAge: 3600,                     // Cache preflight na 1h (krótko)
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Dodano OPTIONS
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'], // Rozszerzone nagłówki
+      exposedHeaders: ['X-Total-Count'], // Podstawowe nagłówki
+      maxAge: 3600,                     // Cache preflight na 1h
       optionsSuccessStatus: 204,        // Status dla starszych przeglądarek
       preflightContinue: false          // Nie kontynuuj po preflight
     },

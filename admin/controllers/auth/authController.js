@@ -4,6 +4,8 @@ import User from '../../../models/user.js';
 import AdminActivity from '../../models/AdminActivity.js';
 import { addToBlacklist } from '../../../models/TokenBlacklist.js';
 import { v4 as uuidv4 } from 'uuid';
+import logger from '../../../utils/logger.js';
+import { setAdminCookie, clearAdminCookie, getSecureCookieConfig } from '../../../config/cookieConfig.js';
 
 /**
  * Admin Authentication Controller
@@ -15,15 +17,10 @@ import { v4 as uuidv4 } from 'uuid';
  */
 
 /**
- * Cookie configuration for admin tokens
+ * Cookie configuration for admin tokens - ZASTĄPIONE BEZPIECZNĄ KONFIGURACJĄ
+ * Używa centralnej konfiguracji z cookieConfig.js dla autosell.pl
  */
-const getCookieConfig = () => ({
-  httpOnly: true, // Prevents XSS attacks
-  secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-  sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-  maxAge: 24 * 60 * 60 * 1000, // 24 hours
-  path: '/' // Available for entire domain
-});
+const getCookieConfig = () => getSecureCookieConfig('admin');
 
 /**
  * Generate admin JWT token with session ID
@@ -168,8 +165,8 @@ export const loginAdmin = async (req, res) => {
     // Generate admin token with session
     const { token, sessionId } = generateAdminToken(user);
 
-    // Set secure HttpOnly cookie
-    res.cookie('admin_token', token, getCookieConfig());
+    // Set secure HttpOnly cookie - UŻYWA BEZPIECZNEJ KONFIGURACJI
+    setAdminCookie(res, token);
 
     // Log successful admin login
     await AdminActivity.create({
@@ -215,11 +212,8 @@ export const loginAdmin = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Admin login error:', error);
-    
     await logSecurityEvent(req, 'admin_login_error', {
-      error: error.message,
-      stack: error.stack
+      error: error.message
     });
 
     res.status(500).json({
@@ -247,20 +241,13 @@ export const logoutAdmin = async (req, res) => {
           ip: req.ip,
           userAgent: req.get('User-Agent')
         });
-        console.log('Admin token added to blacklist on logout');
       } catch (blacklistError) {
-        console.error('Failed to blacklist admin token:', blacklistError);
         // Continue with logout even if blacklisting fails
       }
     }
 
-    // Clear admin cookie
-    res.clearCookie('admin_token', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-      path: '/'
-    });
+    // Clear admin cookie - UŻYWA BEZPIECZNEJ KONFIGURACJI
+    clearAdminCookie(res);
 
     // Log admin logout
     if (userId) {
@@ -290,8 +277,6 @@ export const logoutAdmin = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Admin logout error:', error);
-    
     res.status(500).json({
       success: false,
       error: 'Błąd serwera podczas wylogowania',
@@ -328,8 +313,8 @@ export const checkAdminAuth = async (req, res) => {
 
     // Check if still has admin privileges
     if (!['admin', 'moderator'].includes(dbUser.role)) {
-      // Clear cookie if no longer admin
-      res.clearCookie('admin_token', getCookieConfig());
+      // Clear cookie if no longer admin - UŻYWA BEZPIECZNEJ KONFIGURACJI
+      clearAdminCookie(res);
       
       return res.status(403).json({
         success: false,
@@ -340,8 +325,8 @@ export const checkAdminAuth = async (req, res) => {
 
     // Check if account is still active
     if (dbUser.status === 'suspended' || dbUser.status === 'banned') {
-      // Clear cookie if account suspended
-      res.clearCookie('admin_token', getCookieConfig());
+      // Clear cookie if account suspended - UŻYWA BEZPIECZNEJ KONFIGURACJI
+      clearAdminCookie(res);
       
       return res.status(403).json({
         success: false,
@@ -368,8 +353,6 @@ export const checkAdminAuth = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Check admin auth error:', error);
-    
     res.status(500).json({
       success: false,
       error: 'Błąd serwera podczas sprawdzania autoryzacji',
@@ -398,11 +381,15 @@ const logSecurityEvent = async (req, eventType, details = {}) => {
       }
     };
     
-    console.log('ADMIN SECURITY EVENT:', JSON.stringify(securityLog, null, 2));
-    
     // In production, send to security monitoring service
     // await SecurityLog.create(securityLog);
+    
+    // Use secure logger instead of console.log
+    logger.security('Admin security event', securityLog);
   } catch (error) {
-    console.error('Failed to log admin security event:', error);
+    logger.error('Failed to log admin security event', {
+      error: error.message,
+      stack: error.stack
+    });
   }
 };

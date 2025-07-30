@@ -175,8 +175,138 @@ router.post('/send-2fa', send2FACode);
 // Weryfikacja kodu 2FA
 router.post('/verify-2fa', verify2FACode);
 
-// Weryfikacja kodu email
+// Weryfikacja kodu email (legacy)
 router.post('/verify-email', verifyEmailCode);
+
+// Advanced verification endpoints for registration process
+router.post('/verify-email-advanced', async (req, res) => {
+  const { verifyEmailCodeAdvanced } = await import('../../controllers/user/verificationController.js');
+  return verifyEmailCodeAdvanced(req, res);
+});
+
+router.post('/verify-sms-advanced', async (req, res) => {
+  const { verifySMSCodeAdvanced } = await import('../../controllers/user/verificationController.js');
+  return verifySMSCodeAdvanced(req, res);
+});
+
+// Resend verification codes
+router.post('/resend-email-code', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email jest wymagany'
+      });
+    }
+
+    // Find user
+    const User = (await import('../../models/user.js')).default;
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Użytkownik nie został znaleziony'
+      });
+    }
+
+    if (user.isEmailVerified) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email jest już zweryfikowany'
+      });
+    }
+
+    // Generate new code
+    const emailVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    user.emailVerificationCode = emailVerificationCode;
+    user.emailVerificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    
+    await user.save();
+
+    // Send email
+    try {
+      const { sendVerificationEmail } = await import('../../config/nodemailer.js');
+      await sendVerificationEmail(user.email, emailVerificationCode, user.name);
+    } catch (emailError) {
+      console.error('Failed to resend email verification code:', emailError);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Nowy kod weryfikacyjny został wysłany na email',
+      devCode: process.env.NODE_ENV !== 'production' ? emailVerificationCode : undefined
+    });
+
+  } catch (error) {
+    console.error('Resend email code error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Błąd serwera podczas wysyłania kodu'
+    });
+  }
+});
+
+router.post('/resend-sms-code', async (req, res) => {
+  try {
+    const { phone } = req.body;
+    
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: 'Numer telefonu jest wymagany'
+      });
+    }
+
+    // Find user
+    const User = (await import('../../models/user.js')).default;
+    const user = await User.findOne({ phoneNumber: phone });
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Użytkownik nie został znaleziony'
+      });
+    }
+
+    if (user.isPhoneVerified) {
+      return res.status(400).json({
+        success: false,
+        message: 'Numer telefonu jest już zweryfikowany'
+      });
+    }
+
+    // Generate new code
+    const smsVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    user.smsVerificationCode = smsVerificationCode;
+    user.smsVerificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    
+    await user.save();
+
+    // Send SMS
+    try {
+      const { sendVerificationCode: sendSMSCode } = await import('../../config/twilio.js');
+      await sendSMSCode(user.phoneNumber, smsVerificationCode);
+    } catch (smsError) {
+      console.error('Failed to resend SMS verification code:', smsError);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Nowy kod weryfikacyjny został wysłany SMS',
+      devCode: process.env.NODE_ENV !== 'production' ? smsVerificationCode : undefined
+    });
+
+  } catch (error) {
+    console.error('Resend SMS code error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Błąd serwera podczas wysyłania kodu'
+    });
+  }
+});
 
 // Żądanie resetu hasła
 router.post(

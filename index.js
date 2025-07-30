@@ -8,9 +8,6 @@ import path from 'path';
 import helmet from 'helmet';
 import cors from 'cors';
 import { apiLimiter } from './middleware/rateLimiting.js';
-import AdminJS from 'adminjs';
-import AdminJSExpress from '@adminjs/express';
-import * as AdminJSMongoose from '@adminjs/mongoose';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import fs from 'fs';
@@ -48,10 +45,17 @@ const configureApp = () => {
     next();
   });
 
-  // Podstawowa konfiguracja middleware z limitami dla zdjęć
+  // Podstawowa konfiguracja middleware z limitami dla zdjęć i nagłówków
   app.use(express.json({ limit: '15mb' }));
   app.use(express.urlencoded({ limit: '15mb', extended: true }));
   app.use(cookieParser());
+  
+  // Zwiększenie limitów nagłówków HTTP dla dużych ciasteczek/tokenów
+  app.use((req, res, next) => {
+    // Zwiększenie limitu nagłówków do 16KB (domyślnie 8KB)
+    req.connection.server.maxHeadersCount = 0; // Bez limitu liczby nagłówków
+    next();
+  });
   
   // ✅ NOWA KONFIGURACJA - Użycie security headers z konfiguracji
   app.use(helmet(security.headers));
@@ -140,36 +144,6 @@ const configureUploads = (app) => {
   }
 };
 
-/**
- * Konfiguracja panelu administracyjnego - zintegrowany z custom auth
- * Używa dedykowanego pliku konfiguracyjnego
- */
-const configureAdminPanel = async (app) => {
-  try {
-    // Import konfiguracji AdminJS
-    const { adminJsConfig, authConfig } = await import('./config/adminjs.config.js');
-    
-    // Dodanie bazy danych do konfiguracji
-    adminJsConfig.databases = [mongoose];
-    
-    // Utworzenie instancji AdminJS
-    const adminJs = new AdminJS(adminJsConfig);
-    
-    // Utworzenie routera z autoryzacją
-    const adminRouter = AdminJSExpress.buildAuthenticatedRouter(adminJs, authConfig);
-    
-    // Dodanie panelu AdminJS do aplikacji
-    app.use(adminJs.options.rootPath, adminRouter);
-    
-    console.log('✅ AdminJS skonfigurowany z rozszerzoną integracją na /admin');
-    console.log('📊 Dostępne zasoby: Users, Ads, Messages, Notifications, Comments, AdminActivity');
-    
-    return adminJs;
-  } catch (error) {
-    console.error('❌ Błąd konfiguracji AdminJS:', error);
-    throw error;
-  }
-};
 
 /**
  * Konfiguracja obsługi błędów
@@ -261,6 +235,9 @@ const connectToDatabase = async () => {
  * Główna funkcja inicjalizująca aplikację
  */
 const startServer = async () => {
+  // Zwiększenie limitów Node.js dla nagłówków HTTP
+  process.env.NODE_OPTIONS = '--max-http-header-size=32768'; // 32KB zamiast domyślnych 8KB
+  
   // Funkcja do znajdowania wolnego portu
   const findFreePort = (startPort) => {
     return new Promise((resolve, reject) => {
@@ -300,8 +277,16 @@ const startServer = async () => {
   // Konfiguracja aplikacji
   const app = configureApp();
   
-  // Utworzenie serwera HTTP
-  const server = http.createServer(app);
+  // Utworzenie serwera HTTP z zwiększonymi limitami
+  const server = http.createServer({
+    // Zwiększenie limitu nagłówków HTTP
+    maxHeaderSize: 32768, // 32KB
+    headersTimeout: 60000, // 60 sekund
+    requestTimeout: 300000, // 5 minut
+  }, app);
+  
+  // Dodatkowa konfiguracja serwera
+  server.maxHeadersCount = 0; // Bez limitu liczby nagłówków
   
   // Inicjalizacja Socket.IO
   socketService.initialize(server);
@@ -324,20 +309,6 @@ const startServer = async () => {
     });
   });
   
-  // Leniwe ładowanie panelu administracyjnego - tylko gdy ktoś wejdzie na ścieżkę /admin
-  app.use('/admin*', async (req, res, next) => {
-    if (!app.adminJsConfigured) {
-      try {
-        await configureAdminPanel(app);
-        app.adminJsConfigured = true;
-        console.log('✅ Panel administracyjny załadowany na żądanie');
-      } catch (error) {
-        console.error('❌ Błąd ładowania panelu administracyjnego:', error);
-        return res.status(500).json({ error: 'Błąd ładowania panelu administracyjnego' });
-      }
-    }
-    next();
-  });
   
   // Konfiguracja obsługi błędów
   configureErrorHandling(app);
@@ -346,14 +317,13 @@ const startServer = async () => {
   server.listen(finalPort, () => {
     console.log(`
 🚀 Serwer uruchomiony na porcie ${finalPort}
-📝 Panel administratora: http://localhost:${finalPort}/admin
 🔧 Środowisko: ${process.env.NODE_ENV || 'development'}
 🔌 Socket.IO: Aktywny
     `);
     
     // Opóźnione uruchomienie zadań cyklicznych
     setTimeout(() => {
-      console.log("🕒 Uruchamianie zadań cyklicznych...");
+      console.log("� Uruchamianie zadań cyklicznych...");
       initScheduledTasks();
     }, 5000); // Opóźnienie 5 sekund
   });

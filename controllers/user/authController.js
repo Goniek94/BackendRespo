@@ -21,7 +21,14 @@ import logger from '../../utils/logger.js';
  */
 
 /**
- * Register new user
+ * Register new user with advanced verification
+ * Features:
+ * - Multi-step registration process
+ * - Real-time email/phone validation
+ * - SMS and Email verification codes
+ * - Age validation (minimum 16 years)
+ * - Phone number formatting (+48 prefix)
+ * - Terms acceptance tracking
  */
 export const registerUser = async (req, res) => {
   try {
@@ -41,17 +48,64 @@ export const registerUser = async (req, res) => {
       });
     }
 
-    const { name, lastName, email, password, phone, dob } = req.body;
+    const { 
+      name, 
+      lastName, 
+      email, 
+      password, 
+      phone, 
+      dob, 
+      termsAccepted 
+    } = req.body;
+
+    // Validate terms acceptance
+    if (!termsAccepted) {
+      return res.status(400).json({
+        success: false,
+        message: 'Musisz zaakceptować regulamin, aby się zarejestrować'
+      });
+    }
+
+    // Format phone number to ensure +48 prefix for Polish numbers
+    let formattedPhone = phone;
+    if (phone.startsWith('48') && !phone.startsWith('+48')) {
+      formattedPhone = '+' + phone;
+    } else if (phone.match(/^[0-9]{9}$/)) {
+      // If it's 9 digits, assume it's Polish number without prefix
+      formattedPhone = '+48' + phone;
+    } else if (!phone.startsWith('+')) {
+      formattedPhone = '+48' + phone.replace(/^0+/, ''); // Remove leading zeros
+    }
+
+    // Validate age (minimum 16 years)
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    
+    if (age < 16) {
+      return res.status(400).json({
+        success: false,
+        message: 'Musisz mieć co najmniej 16 lat, aby się zarejestrować'
+      });
+    }
 
     // Check if user already exists
     const existingUser = await User.findOne({
-      $or: [{ email: email.toLowerCase().trim() }, { phoneNumber: phone }]
+      $or: [
+        { email: email.toLowerCase().trim() }, 
+        { phoneNumber: formattedPhone }
+      ]
     });
 
     if (existingUser) {
       logger.warn('Registration attempt with existing credentials', {
         email: email.toLowerCase().trim(),
-        phone,
+        phone: formattedPhone,
         existingField: existingUser.email === email.toLowerCase().trim() ? 'email' : 'phone',
         ip: req.ip,
         userAgent: req.get('User-Agent')
@@ -69,40 +123,75 @@ export const registerUser = async (req, res) => {
     const saltRounds = 12;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Create new user with security fields
+    // Generate verification codes
+    const emailVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const smsVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Create new user with advanced verification fields
     const newUser = new User({
       name: name.trim(),
       lastName: lastName?.trim(),
       email: email.toLowerCase().trim(),
       password: hashedPassword,
-      phoneNumber: phone,
+      phoneNumber: formattedPhone,
       dob: new Date(dob),
-      role: 'user',
+      termsAccepted: true,
+      termsAcceptedAt: new Date(),
+      registrationStep: 'email_verification',
+      
+      // Verification codes
+      emailVerificationCode,
+      emailVerificationCodeExpires: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+      smsVerificationCode,
+      smsVerificationCodeExpires: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+      
+      // Initial verification status
+      isEmailVerified: false,
+      isPhoneVerified: false,
       isVerified: false,
+      
+      role: 'user',
+      status: 'active',
       createdAt: new Date(),
-      lastLogin: null,
       lastActivity: new Date(),
       lastIP: req.ip,
       failedLoginAttempts: 0,
-      accountLocked: false,
-      status: 'active'
+      accountLocked: false
     });
 
     await newUser.save();
 
-    // Generate enterprise-level tokens with security features
-    const tokenPayload = {
-      userId: newUser._id,
-      role: newUser.role,
-      userAgent: req.get('User-Agent'),
-      ipAddress: req.ip
-    };
+    // Send email verification code
+    try {
+      const { sendVerificationEmail } = await import('../../config/nodemailer.js');
+      await sendVerificationEmail(newUser.email, emailVerificationCode, newUser.name);
+      logger.info('Email verification code sent', {
+        userId: newUser._id,
+        email: newUser.email
+      });
+    } catch (emailError) {
+      logger.error('Failed to send email verification code', {
+        userId: newUser._id,
+        email: newUser.email,
+        error: emailError.message
+      });
+    }
 
-    const accessToken = generateAccessToken(tokenPayload);
-    const refreshToken = generateRefreshToken(tokenPayload);
-
-    // Set secure HttpOnly cookies
-    setAuthCookies(res, accessToken, refreshToken);
+    // Send SMS verification code
+    try {
+      const { sendVerificationCode: sendSMSCode } = await import('../../config/twilio.js');
+      await sendSMSCode(newUser.phoneNumber, smsVerificationCode);
+      logger.info('SMS verification code sent', {
+        userId: newUser._id,
+        phone: newUser.phoneNumber
+      });
+    } catch (smsError) {
+      logger.error('Failed to send SMS verification code', {
+        userId: newUser._id,
+        phone: newUser.phoneNumber,
+        error: smsError.message
+      });
+    }
 
     // Return user data (without sensitive information)
     const userData = {
@@ -111,22 +200,32 @@ export const registerUser = async (req, res) => {
       lastName: newUser.lastName,
       email: newUser.email,
       phoneNumber: newUser.phoneNumber,
-      role: newUser.role,
+      registrationStep: newUser.registrationStep,
+      isEmailVerified: newUser.isEmailVerified,
+      isPhoneVerified: newUser.isPhoneVerified,
       isVerified: newUser.isVerified,
+      role: newUser.role,
       createdAt: newUser.createdAt
     };
 
-    logger.info('User registered successfully', {
+    logger.info('Advanced user registration initiated', {
       userId: newUser._id,
       email: newUser.email,
+      phone: newUser.phoneNumber,
       ip: req.ip,
       userAgent: req.get('User-Agent')
     });
 
     res.status(201).json({
       success: true,
-      message: 'Rejestracja przebiegła pomyślnie',
-      user: userData
+      message: 'Rejestracja rozpoczęta. Sprawdź email i SMS, aby otrzymać kody weryfikacyjne.',
+      user: userData,
+      nextStep: 'email_verification',
+      // In development mode, return codes for testing
+      devCodes: process.env.NODE_ENV !== 'production' ? {
+        emailCode: emailVerificationCode,
+        smsCode: smsVerificationCode
+      } : undefined
     });
 
   } catch (error) {
@@ -287,11 +386,12 @@ export const loginUser = async (req, res) => {
     await user.save();
 
     // Generate enterprise-level tokens with security features
+    // OPTIMIZED: Minimal payload for security and performance
     const tokenPayload = {
       userId: user._id,
-      role: user.role,
-      userAgent: req.get('User-Agent'),
-      ipAddress: req.ip
+      role: user.role
+      // REMOVED: email, userAgent, ipAddress for security optimization
+      // These are now handled in middleware/database for better security
     };
 
     const accessToken = generateAccessToken(tokenPayload);

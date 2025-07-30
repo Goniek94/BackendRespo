@@ -1,5 +1,6 @@
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
+import logger from '../utils/logger.js';
 
 /**
  * Klasa SocketService - zarządza połączeniami WebSocket i powiadomieniami w czasie rzeczywistym
@@ -21,7 +22,7 @@ class SocketService {
    */
   initialize(server) {
     if (this.io) {
-      console.log('Socket.IO już zainicjalizowany');
+      logger.info('Socket.IO już zainicjalizowany');
       return this.io;
     }
 
@@ -40,7 +41,7 @@ class SocketService {
     // Obsługa połączeń
     this.io.on('connection', this.handleConnection.bind(this));
 
-    console.log('✅ Socket.IO zainicjalizowany');
+    logger.info('Socket.IO initialized successfully');
     return this.io;
   }
 
@@ -81,14 +82,21 @@ class SocketService {
       }
 
       if (!token) {
-        console.log('Socket.IO: Brak tokenu uwierzytelniającego');
+        logger.warn('Socket.IO authentication failed - missing token', {
+          ip: socket.handshake.address,
+          userAgent: socket.handshake.headers['user-agent']
+        });
         return next(new Error('Brak tokenu uwierzytelniającego'));
       }
 
       // Weryfikacja tokenu JWT
       jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
         if (err) {
-          console.log('Socket.IO: Nieprawidłowy token:', err.message);
+          logger.warn('Socket.IO authentication failed - invalid token', {
+            error: err.message,
+            ip: socket.handshake.address,
+            userAgent: socket.handshake.headers['user-agent']
+          });
           return next(new Error('Nieprawidłowy token'));
         }
 
@@ -100,11 +108,19 @@ class SocketService {
           role: decoded.role
         };
 
-        console.log(`Socket.IO: Uwierzytelniono użytkownika ${socket.user.userId} (${socket.user.email})`);
+        logger.info('Socket.IO user authenticated', {
+          userId: socket.user.userId,
+          email: socket.user.email,
+          ip: socket.handshake.address
+        });
         next();
       });
     } catch (error) {
-      console.error('Błąd uwierzytelniania Socket.IO:', error);
+      logger.error('Socket.IO authentication error', {
+        error: error.message,
+        stack: error.stack,
+        ip: socket.handshake.address
+      });
       next(new Error('Błąd uwierzytelniania'));
     }
   }
@@ -117,12 +133,19 @@ class SocketService {
     const userId = socket.user?.userId;
 
     if (!userId) {
-      console.warn('Połączenie bez ID użytkownika');
+      logger.warn('Socket connection without user ID', {
+        socketId: socket.id,
+        ip: socket.handshake.address
+      });
       socket.disconnect();
       return;
     }
 
-    console.log(`Nowe połączenie Socket.IO: ${socket.id} dla użytkownika ${userId}`);
+    logger.info('New Socket.IO connection', {
+      socketId: socket.id,
+      userId: userId,
+      ip: socket.handshake.address
+    });
 
     // Zapisanie połączenia w mapach
     if (!this.userSockets.has(userId)) {
@@ -142,7 +165,11 @@ class SocketService {
 
     // Obsługa rozłączenia
     socket.on('disconnect', () => {
-      console.log(`Rozłączenie Socket.IO: ${socket.id} dla użytkownika ${userId}`);
+      logger.info('Socket.IO disconnection', {
+        socketId: socket.id,
+        userId: userId,
+        ip: socket.handshake.address
+      });
       
       // Usunięcie połączenia z map
       if (this.userSockets.has(userId)) {
@@ -166,7 +193,12 @@ class SocketService {
         // Emitowanie potwierdzenia
         socket.emit('notification_marked_read', { notificationId });
       } catch (error) {
-        console.error('Błąd podczas oznaczania powiadomienia jako przeczytane:', error);
+        logger.error('Error marking notification as read', {
+          error: error.message,
+          stack: error.stack,
+          userId: userId,
+          socketId: socket.id
+        });
       }
     });
 
@@ -176,10 +208,19 @@ class SocketService {
         const { participantId, conversationId } = data;
         if (!participantId) return;
 
-        console.log(`Użytkownik ${userId} wszedł do konwersacji z ${participantId}`);
+        logger.debug('User entered conversation', {
+          userId: userId,
+          participantId: participantId,
+          conversationId: conversationId
+        });
         this.setUserInActiveConversation(userId, participantId, conversationId);
       } catch (error) {
-        console.error('Błąd podczas obsługi wejścia do konwersacji:', error);
+        logger.error('Error handling conversation entry', {
+          error: error.message,
+          stack: error.stack,
+          userId: userId,
+          socketId: socket.id
+        });
       }
     });
 
@@ -189,10 +230,19 @@ class SocketService {
         const { participantId, conversationId } = data;
         if (!participantId) return;
 
-        console.log(`Użytkownik ${userId} wyszedł z konwersacji z ${participantId}`);
+        logger.debug('User left conversation', {
+          userId: userId,
+          participantId: participantId,
+          conversationId: conversationId
+        });
         this.removeUserFromActiveConversation(userId, participantId, conversationId);
       } catch (error) {
-        console.error('Błąd podczas obsługi wyjścia z konwersacji:', error);
+        logger.error('Error handling conversation exit', {
+          error: error.message,
+          stack: error.stack,
+          userId: userId,
+          socketId: socket.id
+        });
       }
     });
   }
@@ -204,16 +254,23 @@ class SocketService {
    */
   sendNotification(userId, notification) {
     if (!this.io) {
-      console.warn('Socket.IO nie zainicjalizowany');
+      logger.warn('Socket.IO not initialized');
       return;
     }
 
     try {
       // Wysłanie powiadomienia do wszystkich połączeń użytkownika
       this.io.to(`user:${userId}`).emit('new_notification', notification);
-      console.log(`Wysłano powiadomienie do użytkownika ${userId}`);
+      logger.info('Notification sent to user', {
+        userId: userId,
+        notificationType: notification.type
+      });
     } catch (error) {
-      console.error(`Błąd podczas wysyłania powiadomienia do użytkownika ${userId}:`, error);
+      logger.error('Error sending notification to user', {
+        error: error.message,
+        stack: error.stack,
+        userId: userId
+      });
     }
   }
 
@@ -238,15 +295,20 @@ class SocketService {
    */
   sendNotificationToAll(notification) {
     if (!this.io) {
-      console.warn('Socket.IO nie zainicjalizowany');
+      logger.warn('Socket.IO not initialized');
       return;
     }
 
     try {
       this.io.emit('new_notification', notification);
-      console.log('Wysłano powiadomienie do wszystkich użytkowników');
+      logger.info('Notification sent to all users', {
+        notificationType: notification.type
+      });
     } catch (error) {
-      console.error('Błąd podczas wysyłania powiadomienia do wszystkich użytkowników:', error);
+      logger.error('Error sending notification to all users', {
+        error: error.message,
+        stack: error.stack
+      });
     }
   }
 
@@ -293,7 +355,11 @@ class SocketService {
     // Dodaj identyfikator konwersacji (używamy participantId jako główny identyfikator)
     this.activeConversations.get(userId).add(participantId);
     
-    console.log(`Użytkownik ${userId} jest teraz aktywny w konwersacji z ${participantId}`);
+    logger.debug('User set as active in conversation', {
+      userId: userId,
+      participantId: participantId,
+      conversationId: conversationId
+    });
   }
 
   /**
@@ -312,7 +378,11 @@ class SocketService {
       }
     }
     
-    console.log(`Użytkownik ${userId} wyszedł z konwersacji z ${participantId}`);
+    logger.debug('User removed from active conversation', {
+      userId: userId,
+      participantId: participantId,
+      conversationId: conversationId
+    });
   }
 
   /**
@@ -339,7 +409,10 @@ class SocketService {
   shouldSendMessageNotification(userId, senderId) {
     // Jeśli użytkownik jest aktywny w konwersacji z nadawcą, nie wysyłaj powiadomienia
     if (this.isUserInActiveConversation(userId, senderId)) {
-      console.log(`Użytkownik ${userId} jest aktywny w konwersacji z ${senderId} - pomijam powiadomienie`);
+      logger.debug('User is active in conversation - skipping notification', {
+        userId: userId,
+        senderId: senderId
+      });
       return false;
     }
 
@@ -354,9 +427,14 @@ class SocketService {
     if (shouldSend) {
       // Zapisz czas wysłania powiadomienia
       this.conversationNotificationState.set(conversationKey, now);
-      console.log(`Wysyłam pierwsze powiadomienie w konwersacji ${conversationKey}`);
+      logger.debug('Sending first notification in conversation', {
+        conversationKey: conversationKey
+      });
     } else {
-      console.log(`Pomijam kolejne powiadomienie w konwersacji ${conversationKey} - ostatnie było ${Math.round((now - lastNotificationTime) / 1000)}s temu`);
+      logger.debug('Skipping duplicate notification in conversation', {
+        conversationKey: conversationKey,
+        timeSinceLastNotification: Math.round((now - lastNotificationTime) / 1000)
+      });
     }
     
     return shouldSend;
@@ -370,7 +448,9 @@ class SocketService {
   resetConversationNotificationState(userId, participantId) {
     const conversationKey = `${userId}:${participantId}`;
     this.conversationNotificationState.delete(conversationKey);
-    console.log(`Zresetowano stan powiadomień dla konwersacji ${conversationKey}`);
+    logger.debug('Conversation notification state reset', {
+      conversationKey: conversationKey
+    });
   }
 }
 

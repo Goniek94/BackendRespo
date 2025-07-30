@@ -1,5 +1,6 @@
 // config/nodemailer.js
 import nodemailer from 'nodemailer';
+import logger from '../utils/logger.js';
 
 // Konfiguracja transportera nodemailer
 const createTransporter = () => {
@@ -17,8 +18,8 @@ const createTransporter = () => {
   } 
   // W środowisku deweloperskim używamy ethereal.email do testowania
   else {
-    console.log('Używanie testowego konta email (ethereal.email)');
-    return nodemailer.createTransport({
+    logger.info('Using test email account (ethereal.email)');
+    return nodemailer.createTransporter({
       host: 'smtp.ethereal.email',
       port: 587,
       secure: false,
@@ -40,7 +41,10 @@ export const sendResetPasswordEmail = async (email, token) => {
   try {
     // W trybie deweloperskim tylko logujemy
     if (process.env.NODE_ENV !== 'production') {
-      console.log(`MOCK: Wysyłanie emaila resetowania hasła do ${email} z tokenem ${token}`);
+      logger.info('Password reset email sent (development mode)', { 
+        email: email,
+        tokenLength: token.length 
+      });
       return true;
     }
 
@@ -61,9 +65,75 @@ export const sendResetPasswordEmail = async (email, token) => {
     };
 
     await transporter.sendMail(mailOptions);
+    logger.info('Password reset email sent successfully', { email: email });
     return true;
   } catch (error) {
-    console.error('Błąd podczas wysyłania emaila resetowania hasła:', error);
+    logger.error('Error sending password reset email', {
+      error: error.message,
+      stack: error.stack,
+      email: email
+    });
+    return false;
+  }
+};
+
+/**
+ * Wysyła email z kodem weryfikacyjnym
+ * @param {string} email - Adres email odbiorcy
+ * @param {string} code - 6-cyfrowy kod weryfikacyjny
+ * @param {string} name - Imię użytkownika (opcjonalnie)
+ * @returns {Promise<boolean>} - Czy email został wysłany
+ */
+export const sendVerificationEmail = async (email, code, name = null) => {
+  try {
+    // W trybie deweloperskim tylko logujemy
+    if (process.env.NODE_ENV !== 'production') {
+      logger.info('Verification email sent (development mode)', {
+        email: email,
+        codeLength: code.length,
+        userName: name || 'anonymous'
+      });
+      return true;
+    }
+
+    const transporter = createTransporter();
+    
+    const greeting = name ? `Cześć ${name}!` : 'Cześć!';
+    
+    const mailOptions = {
+      from: process.env.EMAIL_FROM || 'noreply@marketplace.com',
+      to: email,
+      subject: 'Kod weryfikacyjny - Marketplace',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h1 style="color: #333; text-align: center;">Weryfikacja adresu email</h1>
+          <p>${greeting}</p>
+          <p>Aby dokończyć rejestrację w naszym serwisie, wprowadź poniższy kod weryfikacyjny:</p>
+          
+          <div style="background-color: #f8f9fa; border: 2px solid #007bff; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
+            <h2 style="color: #007bff; font-size: 32px; letter-spacing: 5px; margin: 0;">${code}</h2>
+          </div>
+          
+          <p><strong>Kod jest ważny przez 10 minut.</strong></p>
+          <p>Jeśli to nie Ty próbujesz się zarejestrować, zignoruj tę wiadomość.</p>
+          
+          <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+          <p style="color: #666; font-size: 12px; text-align: center;">
+            Ta wiadomość została wysłana automatycznie. Proszę nie odpowiadać na ten email.
+          </p>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    logger.info('Verification email sent successfully', { email: email });
+    return true;
+  } catch (error) {
+    logger.error('Error sending verification email', {
+      error: error.message,
+      stack: error.stack,
+      email: email
+    });
     return false;
   }
 };
@@ -81,10 +151,13 @@ export const sendNewMessageEmail = async (email, senderName, messageSubject, mes
   try {
     // W trybie deweloperskim tylko logujemy
     if (process.env.NODE_ENV !== 'production') {
-      console.log(`MOCK: Wysyłanie emaila o nowej wiadomości do ${email} od ${senderName}`);
-      console.log(`Temat: ${messageSubject}`);
-      console.log(`Podgląd: ${messagePreview}`);
-      if (adTitle) console.log(`Dotyczy ogłoszenia: ${adTitle}`);
+      logger.info('New message email sent (development mode)', {
+        email: email,
+        senderName: senderName,
+        messageSubject: messageSubject,
+        messagePreviewLength: messagePreview.length,
+        adTitle: adTitle || 'none'
+      });
       return true;
     }
 
@@ -116,9 +189,14 @@ export const sendNewMessageEmail = async (email, senderName, messageSubject, mes
     };
 
     await transporter.sendMail(mailOptions);
+    logger.info('New message email sent successfully', { email: email });
     return true;
   } catch (error) {
-    console.error('Błąd podczas wysyłania emaila o nowej wiadomości:', error);
+    logger.error('Error sending new message email', {
+      error: error.message,
+      stack: error.stack,
+      email: email
+    });
     return false;
   }
 };

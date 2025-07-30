@@ -14,13 +14,22 @@ async function getTestToken() {
     
     console.log('Znaleziony użytkownik:', user.email, 'ID:', user._id);
     
+    // Sprawdź czy JWT_SECRET jest ustawiony
+    if (!process.env.JWT_SECRET) {
+      console.error('❌ JWT_SECRET nie jest ustawiony w .env');
+      process.exit(1);
+    }
+
+    // Minimalny payload zgodny z wymaganiami bezpieczeństwa
     const token = jwt.sign(
       { 
         userId: user._id, 
-        email: user.email, 
-        role: user.role || 'user' 
+        role: user.role || 'user',
+        type: 'access',
+        iat: Math.floor(Date.now() / 1000),
+        jti: require('crypto').randomBytes(16).toString('hex')
       },
-      process.env.JWT_SECRET || 'your-secret-key',
+      process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
     

@@ -7,7 +7,7 @@
 import axios from 'axios';
 
 // Konfiguracja bazowego URL / Base URL configuration
-const API_URL = '/api/admin';
+const API_URL = '/api/admin-panel';
 
 // Konfiguracja axios / Axios configuration
 const api = axios.create({

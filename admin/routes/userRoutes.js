@@ -54,6 +54,18 @@ router.get('/',
 );
 
 /**
+ * GET /admin/users/stats
+ * Get user statistics (alias for analytics)
+ * Permissions: admin only
+ */
+router.get('/stats',
+  requireAdminRole(['admin']),
+  validateAnalyticsQuery,
+  logAdminActivity('users_stats_viewed'),
+  getUserAnalytics
+);
+
+/**
  * GET /admin/users/analytics
  * Get user analytics and insights
  * Permissions: admin only

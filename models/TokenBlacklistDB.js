@@ -18,7 +18,7 @@ const tokenBlacklistSchema = new mongoose.Schema({
   },
   reason: {
     type: String,
-    enum: ['LOGOUT', 'PASSWORD_CHANGE', 'ROTATION', 'SECURITY_ISSUE', 'OTHER'],
+    enum: ['LOGOUT', 'PASSWORD_CHANGE', 'ROTATION', 'SECURITY_ISSUE', 'OTHER', 'TEST'],
     default: 'OTHER'
   },
   userId: {

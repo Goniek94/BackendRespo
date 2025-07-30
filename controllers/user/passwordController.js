@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { validationResult } from 'express-validator';
 import User from '../../models/user.js';
+import logger from '../../utils/logger.js';
 
 /**
  * Change password (when user is logged in)
@@ -47,7 +48,11 @@ export const changePassword = async (req, res) => {
     user.updatedAt = new Date();
     await user.save();
 
-    console.log(`✅ Password changed successfully for user: ${user.email}`);
+    logger.auth('Password changed successfully', {
+      userId: user._id,
+      ip: req.ip,
+      userAgent: req.get('User-Agent')
+    });
 
     res.status(200).json({
       success: true,
@@ -102,8 +107,11 @@ export const requestPasswordReset = async (req, res) => {
     await user.save();
 
     // TODO: Send email with reset link
-    console.log(`🔑 Password reset requested for: ${email}`);
-    console.log(`Reset token: ${resetToken}`);
+    logger.auth('Password reset requested', {
+      userId: user._id,
+      ip: req.ip,
+      userAgent: req.get('User-Agent')
+    });
 
     res.status(200).json({
       success: true,
@@ -196,7 +204,11 @@ export const resetPassword = async (req, res) => {
     user.updatedAt = new Date();
     await user.save();
 
-    console.log(`✅ Password reset successfully for user: ${user.email}`);
+    logger.auth('Password reset successfully', {
+      userId: user._id,
+      ip: req.ip,
+      userAgent: req.get('User-Agent')
+    });
 
     res.status(200).json({
       success: true,

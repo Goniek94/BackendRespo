@@ -97,6 +97,39 @@ const userSchema = new mongoose.Schema({
   twoFACodeExpires: {
     type: Date
   },
+  
+  // Email verification fields
+  emailVerificationCode: {
+    type: String
+  },
+  emailVerificationCodeExpires: {
+    type: Date
+  },
+  
+  // SMS verification fields
+  smsVerificationCode: {
+    type: String
+  },
+  smsVerificationCodeExpires: {
+    type: Date
+  },
+  
+  // Terms acceptance
+  termsAccepted: {
+    type: Boolean,
+    default: false
+  },
+  termsAcceptedAt: {
+    type: Date
+  },
+  
+  // Registration completion tracking
+  registrationStep: {
+    type: String,
+    enum: ['basic_info', 'email_verification', 'sms_verification', 'completed'],
+    default: 'basic_info'
+  },
+  
   isVerified: {
     type: Boolean,
     default: false

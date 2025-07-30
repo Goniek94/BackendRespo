@@ -1,10 +1,11 @@
 import crypto from 'crypto';
+import logger from '../utils/logger.js';
 
 /**
  * Walidacja zmiennych środowiskowych - KRYTYCZNE dla bezpieczeństwa
  */
 const validateEnvironment = () => {
-  console.log('🔍 Sprawdzam zmienne środowiskowe...');
+  logger.info('Validating environment variables...');
   
   const required = [
     'JWT_SECRET',
@@ -15,18 +16,10 @@ const validateEnvironment = () => {
   const missing = required.filter(key => !process.env[key]);
   
   if (missing.length > 0) {
-    console.error(`❌ KRYTYCZNY BŁĄD: Brakujące zmienne środowiskowe: ${missing.join(', ')}`);
-    console.error('');
-    console.error('Dodaj te zmienne do pliku .env:');
-    missing.forEach(key => {
-      if (key.includes('SECRET')) {
-        console.error(`${key}=${crypto.randomBytes(64).toString('hex')}`);
-      } else {
-        console.error(`${key}=your_${key.toLowerCase()}_here`);
-      }
+    logger.error('CRITICAL ERROR: Missing required environment variables', {
+      missingVariables: missing
     });
-    console.error('');
-    console.error('Aplikacja nie może zostać uruchomiona bez tych zmiennych!');
+    logger.error('Application cannot start without these variables!');
     process.exit(1);
   }
   
@@ -45,29 +38,29 @@ const validateEnvironment = () => {
   const isShortRefresh = process.env.JWT_REFRESH_SECRET.length < 32;
   
   if (isWeakJWT || isWeakRefresh || isShortJWT || isShortRefresh) {
-    console.error('❌ KRYTYCZNY BŁĄD BEZPIECZEŃSTWA: Używasz słabych sekretów JWT!');
-    console.error('');
-    console.error('Wygeneruj silne sekrety i dodaj do .env:');
-    console.error(`JWT_SECRET=${crypto.randomBytes(64).toString('hex')}`);
-    console.error(`JWT_REFRESH_SECRET=${crypto.randomBytes(64).toString('hex')}`);
-    console.error('');
-    console.error('To jest KATASTROFA BEZPIECZEŃSTWA na produkcji!');
+    logger.error('CRITICAL SECURITY ERROR: Using weak JWT secrets!', {
+      weakJWT: isWeakJWT,
+      weakRefresh: isWeakRefresh,
+      shortJWT: isShortJWT,
+      shortRefresh: isShortRefresh
+    });
     
     if (process.env.NODE_ENV === 'production') {
+      logger.error('This is a SECURITY CATASTROPHE in production!');
       process.exit(1);
     } else {
-      console.warn('⚠️ Kontynuuję w trybie deweloperskim, ale MUSISZ to naprawić przed produkcją!');
+      logger.warn('Continuing in development mode, but you MUST fix this before production!');
     }
   }
   
   // Sprawdź połączenie MongoDB URI
   if (!process.env.MONGO_URI.includes('mongodb')) {
-    console.error('❌ MONGO_URI nie wygląda na prawidłowy URI MongoDB');
+    logger.error('MONGO_URI does not look like a valid MongoDB URI');
     process.exit(1);
   }
   
-  console.log('✅ Wszystkie wymagane zmienne środowiskowe są ustawione');
-  console.log('✅ Sekrety JWT są bezpieczne');
+  logger.info('All required environment variables are set');
+  logger.info('JWT secrets validation completed');
 };
 
 /**
@@ -99,15 +92,17 @@ const getSecurityConfig = () => {
       algorithm: 'HS256'
     },
     
-    // Cookie Configuration
+    // Cookie Configuration - Enhanced Security
     cookies: {
-      httpOnly: true,
-      secure: isProduction, // HTTPS tylko na produkcji
-      sameSite: isProduction ? 'strict' : 'lax',
-      maxAge: {
-        accessToken: isProduction ? 15 * 60 * 1000 : 3600000, // 15min vs 1h
-        refreshToken: 7 * 24 * 3600000 // 7 dni
-      }
+      httpOnly: true, // Prevents XSS attacks
+      secure: isProduction, // HTTPS only in production
+      sameSite: isProduction ? 'strict' : 'lax', // CSRF protection
+      domain: undefined, // Let browser set automatically
+      path: '/', // Available for entire domain
+      maxAge: isProduction ? 15 * 60 * 1000 : 3600000, // 15min vs 1h for access token
+      priority: 'high', // High priority cookie
+      partitioned: false, // Not partitioned by default
+      refreshTokenMaxAge: 7 * 24 * 3600000 // 7 days for refresh token
     },
     
     // Rate Limiting

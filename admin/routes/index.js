@@ -2,6 +2,7 @@ import express from 'express';
 import userRoutes from './userRoutes.js';
 import dashboardRoutes from './dashboardRoutes.js';
 import authRoutes from './authRoutes.js';
+import listingRoutes from './listingRoutes.js';
 import { requireAdminAuth, adminApiLimiter } from '../middleware/adminAuth.js';
 
 /**
@@ -19,16 +20,21 @@ const router = express.Router();
 router.use(adminApiLimiter);
 
 /**
- * API versioning and health check
+ * API versioning and health check (protected)
  */
-router.get('/health', (req, res) => {
+router.get('/health', requireAdminAuth, (req, res) => {
   res.json({
     success: true,
     service: 'Admin Panel API',
     version: '1.0.0',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    user: {
+      id: req.user._id,
+      role: req.user.role,
+      email: req.user.email
+    }
   });
 });
 
@@ -51,9 +57,14 @@ router.use('/dashboard', requireAdminAuth, dashboardRoutes);
 router.use('/users', requireAdminAuth, userRoutes);
 
 /**
+ * Listing management routes (protected)
+ * All listing-related admin operations
+ */
+router.use('/listings', requireAdminAuth, listingRoutes);
+
+/**
  * Future route modules will be added here:
  * 
- * router.use('/listings', listingRoutes);
  * router.use('/promotions', promotionRoutes);
  * router.use('/reports', reportRoutes);
  * router.use('/comments', commentRoutes);

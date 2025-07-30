@@ -7,7 +7,7 @@
  */
 export const sendVerificationCode = async (phone, code) => {
   console.log('====================================');
-  console.log(`SYMULACJA TWILIO: Wysyłanie kodu ${code} na numer ${phone}`);
+  console.log(`SYMULACJA TWILIO: Wysyłanie kodu weryfikacyjnego na numer ${phone.substring(0, 3)}***`);
   console.log('====================================');
   
   // Symulacja opóźnienia sieciowego
@@ -32,7 +32,7 @@ export const sendVerificationCode = async (phone, code) => {
  */
 export const verifyCode = async (phone, code) => {
   console.log('====================================');
-  console.log(`SYMULACJA TWILIO: Weryfikacja kodu ${code} dla numeru ${phone}`);
+  console.log(`SYMULACJA TWILIO: Weryfikacja kodu dla numeru ${phone.substring(0, 3)}***`);
   console.log('====================================');
   
   // Symulacja opóźnienia

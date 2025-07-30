@@ -1,180 +1,209 @@
-import { getSecurityConfig } from '../config/security.js';
+/**
+ * ENTERPRISE SECURITY LOGGER
+ * 
+ * Profesjonalny system logowania z automatycznym filtrowaniem wrażliwych danych.
+ * - Poziomy logowania kontrolowane przez ENV
+ * - Automatyczne filtrowanie tokenów, sekretów, haseł
+ * - Bezpieczne logowanie na produkcji
+ * - Strukturalne logi JSON dla monitoringu
+ */
 
-const config = getSecurityConfig();
+import winston from 'winston';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Konfiguracja poziomów logowania
+const LOG_LEVEL = process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'error' : 'debug');
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+
+// Lista wrażliwych słów kluczowych do filtrowania
+const SENSITIVE_KEYWORDS = [
+  'password', 'token', 'secret', 'key', 'jwt', 'auth', 'credential',
+  'bearer', 'authorization', 'cookie', 'session', 'fingerprint',
+  'email', 'phone', 'ssn', 'credit', 'card', 'cvv', 'pin'
+];
 
 /**
- * Bezpieczny system logowania - nie wyciekają wrażliwe dane na produkcji
+ * Filtruje wrażliwe dane z obiektów i stringów
  */
-class SecureLogger {
-  constructor() {
-    this.isDev = config.isDevelopment;
-    this.isProduction = config.isProduction;
-    this.includeStack = config.logging.includeStack;
-    this.includeSensitiveData = config.logging.includeSensitiveData;
+const sanitizeData = (data) => {
+  if (typeof data === 'string') {
+    // Filtruj tokeny JWT (format: xxx.yyy.zzz)
+    data = data.replace(/[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+/g, '[JWT_TOKEN_FILTERED]');
+    
+    // Filtruj długie stringi które mogą być tokenami (>50 znaków alfanumerycznych)
+    data = data.replace(/[A-Za-z0-9]{50,}/g, '[LONG_TOKEN_FILTERED]');
+    
+    // Filtruj hasła i sekrety
+    SENSITIVE_KEYWORDS.forEach(keyword => {
+      const regex = new RegExp(`(${keyword}[\\s]*[:=][\\s]*)[^\\s,}]+`, 'gi');
+      data = data.replace(regex, `$1[${keyword.toUpperCase()}_FILTERED]`);
+    });
+    
+    return data;
   }
-
-  /**
-   * Czyści wrażliwe dane z obiektów przed logowaniem
-   */
-  sanitizeData(data) {
-    if (!data || typeof data !== 'object') return data;
+  
+  if (typeof data === 'object' && data !== null) {
+    const sanitized = Array.isArray(data) ? [] : {};
     
-    const sensitiveFields = [
-      'password', 'token', 'secret', 'key', 'authorization',
-      'cookie', 'session', 'jwt', 'refresh', 'twoFACode',
-      'phoneNumber', 'email', 'dob'
-    ];
-    
-    const sanitized = { ...data };
-    
-    for (const field of sensitiveFields) {
-      if (sanitized[field]) {
-        if (this.includeSensitiveData) {
-          // W dev mode pokazuj częściowo
-          if (typeof sanitized[field] === 'string') {
-            sanitized[field] = sanitized[field].substring(0, 3) + '***';
-          }
-        } else {
-          // Na produkcji ukryj całkowicie
-          sanitized[field] = '[HIDDEN]';
-        }
+    for (const [key, value] of Object.entries(data)) {
+      const lowerKey = key.toLowerCase();
+      
+      // Filtruj wrażliwe klucze
+      if (SENSITIVE_KEYWORDS.some(keyword => lowerKey.includes(keyword))) {
+        sanitized[key] = '[SENSITIVE_DATA_FILTERED]';
+      } else {
+        sanitized[key] = sanitizeData(value);
       }
     }
     
     return sanitized;
   }
-
-  /**
-   * Formatuje timestamp
-   */
-  getTimestamp() {
-    return new Date().toISOString();
-  }
-
-  /**
-   * Informacyjne logi
-   */
-  info(message, data = {}) {
-    const sanitizedData = this.sanitizeData(data);
-    const hasData = Object.keys(sanitizedData).length > 0;
-    
-    if (this.isDev) {
-      console.log(`ℹ️ [${this.getTimestamp()}] ${message}`, hasData ? sanitizedData : '');
-    } else {
-      // Na produkcji tylko message bez danych
-      console.log(`ℹ️ [${this.getTimestamp()}] ${message}`);
-    }
-  }
-
-  /**
-   * Logi błędów
-   */
-  error(message, error = {}) {
-    const timestamp = this.getTimestamp();
-    
-    if (this.isDev) {
-      console.error(`❌ [${timestamp}] ${message}`, {
-        message: error.message,
-        stack: this.includeStack ? error.stack : undefined,
-        ...this.sanitizeData(error)
-      });
-    } else {
-      // Na produkcji nie loguj stack trace
-      console.error(`❌ [${timestamp}] ${message}: ${error.message || 'Unknown error'}`);
-    }
-  }
-
-  /**
-   * Logi ostrzeżeń
-   */
-  warn(message, data = {}) {
-    const sanitizedData = this.sanitizeData(data);
-    console.warn(`⚠️ [${this.getTimestamp()}] ${message}`, this.isDev ? sanitizedData : '');
-  }
-
-  /**
-   * Logi bezpieczeństwa - zawsze pełne (dla audytu)
-   */
-  security(message, ip, userId = null, additionalData = {}) {
-    const timestamp = this.getTimestamp();
-    const logData = {
-      ip: ip || 'unknown',
-      userId: userId || 'anonymous',
-      timestamp,
-      ...additionalData
-    };
-    
-    console.log(`🔒 [SECURITY] ${message}`, logData);
-  }
-
-  /**
-   * Logi debugowania - tylko w dev mode
-   */
-  debug(message, data = {}) {
-    if (this.isDev) {
-      console.log(`🐛 [${this.getTimestamp()}] DEBUG: ${message}`, this.sanitizeData(data));
-    }
-  }
-
-  /**
-   * Logi wydajności
-   */
-  performance(message, duration, additionalData = {}) {
-    const emoji = duration > 1000 ? '🐌' : duration > 500 ? '⚡' : '🚀';
-    console.log(`${emoji} [${this.getTimestamp()}] ${message} (${duration}ms)`, 
-      this.isDev ? this.sanitizeData(additionalData) : '');
-  }
-
-  /**
-   * Logi HTTP requestów
-   */
-  http(method, url, statusCode, duration, ip, userId = null) {
-    const emoji = statusCode >= 500 ? '💥' : statusCode >= 400 ? '⚠️' : '✅';
-    const message = `${emoji} ${method} ${url} ${statusCode} (${duration}ms)`;
-    
-    if (this.isDev) {
-      console.log(`🌐 [${this.getTimestamp()}] ${message} IP: ${ip} User: ${userId || 'anonymous'}`);
-    } else {
-      console.log(`🌐 [${this.getTimestamp()}] ${message}`);
-    }
-  }
-
-  /**
-   * Logi startowe aplikacji
-   */
-  startup(message, data = {}) {
-    console.log(`🚀 [${this.getTimestamp()}] ${message}`, data);
-  }
-
-  /**
-   * Logi bazy danych
-   */
-  database(message, data = {}) {
-    const sanitizedData = this.sanitizeData(data);
-    console.log(`🗄️ [${this.getTimestamp()}] ${message}`, this.isDev ? sanitizedData : '');
-  }
-}
-
-// Singleton instance
-const logger = new SecureLogger();
-
-// Middleware do logowania HTTP requestów
-const httpLoggerMiddleware = (req, res, next) => {
-  const start = Date.now();
   
-  // Override res.end to capture response
-  const originalEnd = res.end;
-  res.end = function(...args) {
-    const duration = Date.now() - start;
-    const userId = req.user?.userId;
-    
-    logger.http(req.method, req.originalUrl, res.statusCode, duration, req.ip, userId);
-    
-    originalEnd.apply(this, args);
-  };
-  
-  next();
+  return data;
 };
 
-export { logger as secureLog, httpLoggerMiddleware };
-export default logger;
+/**
+ * Custom format dla bezpiecznego logowania
+ */
+const secureFormat = winston.format.combine(
+  winston.format.timestamp(),
+  winston.format.errors({ stack: true }),
+  winston.format.printf(({ timestamp, level, message, stack, ...meta }) => {
+    // Sanityzuj wszystkie dane
+    const sanitizedMessage = IS_PRODUCTION ? sanitizeData(message) : message;
+    const sanitizedMeta = IS_PRODUCTION ? sanitizeData(meta) : meta;
+    
+    let logEntry = {
+      timestamp,
+      level,
+      message: sanitizedMessage,
+      ...(Object.keys(sanitizedMeta).length > 0 && { meta: sanitizedMeta }),
+      ...(stack && !IS_PRODUCTION && { stack })
+    };
+    
+    return JSON.stringify(logEntry);
+  })
+);
+
+/**
+ * Konfiguracja transportów
+ */
+const transports = [];
+
+// Console transport (tylko dla development)
+if (!IS_PRODUCTION) {
+  transports.push(
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple()
+      )
+    })
+  );
+}
+
+// File transport dla błędów (zawsze aktywny)
+transports.push(
+  new winston.transports.File({
+    filename: path.join(__dirname, '../logs/error.log'),
+    level: 'error',
+    format: secureFormat,
+    maxsize: 10 * 1024 * 1024, // 10MB
+    maxFiles: 5
+  })
+);
+
+// File transport dla wszystkich logów (tylko development)
+if (!IS_PRODUCTION) {
+  transports.push(
+    new winston.transports.File({
+      filename: path.join(__dirname, '../logs/combined.log'),
+      format: secureFormat,
+      maxsize: 50 * 1024 * 1024, // 50MB
+      maxFiles: 3
+    })
+  );
+}
+
+// Audit log dla akcji bezpieczeństwa (zawsze aktywny)
+const auditLogger = winston.createLogger({
+  level: 'info',
+  format: secureFormat,
+  transports: [
+    new winston.transports.File({
+      filename: path.join(__dirname, '../logs/audit.log'),
+      maxsize: 100 * 1024 * 1024, // 100MB
+      maxFiles: 10
+    })
+  ]
+});
+
+/**
+ * Główny logger
+ */
+const logger = winston.createLogger({
+  level: LOG_LEVEL,
+  format: secureFormat,
+  transports,
+  // Nie loguj uncaught exceptions na produkcji (bezpieczeństwo)
+  exitOnError: false
+});
+
+/**
+ * Bezpieczne metody logowania
+ */
+const secureLogger = {
+  // Standardowe poziomy
+  error: (message, meta = {}) => logger.error(message, meta),
+  warn: (message, meta = {}) => logger.warn(message, meta),
+  info: (message, meta = {}) => logger.info(message, meta),
+  debug: (message, meta = {}) => {
+    // Debug logi tylko w development
+    if (!IS_PRODUCTION) {
+      logger.debug(message, meta);
+    }
+  },
+  
+  // Specjalne metody dla bezpieczeństwa
+  security: (message, meta = {}) => {
+    auditLogger.info(`[SECURITY] ${message}`, meta);
+    logger.warn(`[SECURITY] ${message}`, meta);
+  },
+  
+  auth: (message, meta = {}) => {
+    auditLogger.info(`[AUTH] ${message}`, meta);
+    if (!IS_PRODUCTION) {
+      logger.info(`[AUTH] ${message}`, meta);
+    }
+  },
+  
+  audit: (message, meta = {}) => {
+    auditLogger.info(`[AUDIT] ${message}`, meta);
+  },
+  
+  // Metoda do bezpiecznego logowania błędów z kontekstem
+  errorWithContext: (error, context = {}) => {
+    const errorInfo = {
+      message: error.message,
+      name: error.name,
+      ...(context && { context: sanitizeData(context) }),
+      ...(error.stack && !IS_PRODUCTION && { stack: error.stack })
+    };
+    
+    logger.error('Application error occurred', errorInfo);
+    auditLogger.error('Application error occurred', errorInfo);
+  }
+};
+
+// Tworzenie katalogu logs jeśli nie istnieje
+import fs from 'fs';
+const logsDir = path.join(__dirname, '../logs');
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir, { recursive: true });
+}
+
+export default secureLogger;

@@ -11,21 +11,22 @@ export {
   logoutUser,
   verify2FACode,
   send2FACode,
-  checkAuth
+  checkAuth,
+  requestPasswordReset,
+  resetPassword
 } from './authController.js';
 
 // Profile Controller
 export {
   getUserProfile,
-  updateUserProfile
+  updateUserProfile,
+  getRecentlyViewed
 } from './profileController.js';
 
 // Password Controller
 export {
   changePassword,
-  requestPasswordReset,
-  verifyResetToken,
-  resetPassword
+  verifyResetToken
 } from './passwordController.js';
 
 // Validation Controller
@@ -34,13 +35,3 @@ export {
   checkPhoneExists,
   verifyEmailCode
 } from './validationController.js';
-
-// Favorites Controller
-export {
-  addToFavorites,
-  removeFromFavorites,
-  toggleFavorite,
-  getUserFavorites,
-  checkIsFavorite,
-  getFavoritesCount
-} from './favoritesController.js';

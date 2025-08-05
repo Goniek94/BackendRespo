@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { validationResult } from 'express-validator';
-import User from '../../models/user.js';
+import User from '../../models/user/user.js';
 import logger from '../../utils/logger.js';
 
 /**

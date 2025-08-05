@@ -3,7 +3,7 @@
  * Manages CRUD operations for advertisements
  */
 
-import Ad from '../../models/ad.js';
+import Ad from '../../models/listings/ad.js';
 import { getActiveStatusFilter, getActiveAdsCount } from '../../utils/listings/commonFilters.js';
 
 /**

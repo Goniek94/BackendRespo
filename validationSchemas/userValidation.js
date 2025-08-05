@@ -6,16 +6,28 @@ const registerSchema = Joi.object({
     'string.min': 'Imię musi zawierać co najmniej 2 znaki.',
     'any.required': 'Imię jest wymagane.'
   }),
+  lastName: Joi.string().min(2).optional().messages({
+    'string.min': 'Nazwisko musi zawierać co najmniej 2 znaki.'
+  }),
   email: Joi.string().email().required().messages({
     'string.email': 'Nieprawidłowy format email.',
     'any.required': 'Email jest wymagany.'
+  }),
+  confirmEmail: Joi.string().email().valid(Joi.ref('email')).required().messages({
+    'string.email': 'Nieprawidłowy format email w potwierdzeniu.',
+    'any.only': 'Adresy email nie są identyczne.',
+    'any.required': 'Potwierdzenie email jest wymagane.'
   }),
   password: Joi.string().pattern(new RegExp('^(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$')).required().messages({
     'string.pattern.base': 'Hasło musi mieć co najmniej 8 znaków, jedną wielką literę, jedną cyfrę i jeden znak specjalny.',
     'any.required': 'Hasło jest wymagane.'
   }),
-  phone: Joi.string().pattern(/^[0-9]{9,12}$/).required().messages({
-    'string.pattern.base': 'Nieprawidłowy numer telefonu. Powinien zawierać 9-12 cyfr.',
+  confirmPassword: Joi.string().valid(Joi.ref('password')).required().messages({
+    'any.only': 'Hasła nie są identyczne.',
+    'any.required': 'Potwierdzenie hasła jest wymagane.'
+  }),
+  phone: Joi.string().pattern(/^(\+[1-9]\d{1,14}|[0-9]{9,12})$/).required().messages({
+    'string.pattern.base': 'Nieprawidłowy numer telefonu. Powinien zawierać 9-12 cyfr lub być w formacie międzynarodowym (+48123456789).',
     'any.required': 'Numer telefonu jest wymagany.'
   }),
   dob: Joi.date().less('now').required().messages({

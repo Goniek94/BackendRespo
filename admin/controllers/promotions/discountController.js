@@ -4,8 +4,8 @@
  * Controller for managing discounts and bonuses by administrator
  */
 
-import Ad from '../../models/ad.js';
-import User from '../../models/user.js';
+import Ad from '../../../models/listings/ad.js';
+import User from '../../../models/user/user.js';
 
 /**
  * Pobiera listę aktywnych zniżek z możliwością filtrowania i paginacji

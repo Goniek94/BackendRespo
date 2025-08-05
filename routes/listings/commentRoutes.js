@@ -4,9 +4,9 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import auth from '../../middleware/auth.js'; // Middleware do autoryzacji
-import Comment from '../../models/comment.js';
-import Ad from '../../models/ad.js'; // Import modelu ogłoszeń dla sprawdzenia istnienia ogłoszenia
-import Notification from '../../models/notification.js'; // Model powiadomień
+import Comment from '../../models/listings/comment.js';
+import Ad from '../../models/listings/ad.js'; // Import modelu ogłoszeń dla sprawdzenia istnienia ogłoszenia
+import Notification from '../../models/communication/notification.js'; // Model powiadomień
 
 const router = express.Router();
 

@@ -3,7 +3,7 @@
  * Funkcje pomocnicze dla route'ów ogłoszeń
  */
 
-import Ad from '../../../models/ad.js';
+import Ad from '../../../models/listings/ad.js';
 
 /**
  * Creates filter object for ad queries based on request parameters

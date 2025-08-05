@@ -4,9 +4,9 @@
  * Controller for managing comments by administrator
  */
 
-import Comment from '../../models/comment.js';
-import Ad from '../../models/ad.js';
-import User from '../../models/user.js';
+import Comment from '../../models/listings/comment.js';
+import Ad from '../../models/listings/ad.js';
+import User from '../../models/user/user.js';
 
 /**
  * Pobiera listę komentarzy z możliwością filtrowania i paginacji

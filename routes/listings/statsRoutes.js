@@ -1,7 +1,7 @@
 import express from 'express';
 import { Router } from 'express';
-import Ad from '../../models/ad.js';
-import errorHandler from '../../middleware/errorHandler.js';
+import Ad from '../../models/listings/ad.js';
+import errorHandler from '../../middleware/errors/errorHandler.js';
 
 const router = Router();
 

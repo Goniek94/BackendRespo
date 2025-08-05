@@ -8,7 +8,7 @@
  * - Loguje informacje o załadowanym środowisku
  * 
  * UŻYCIE:
- * import config from './config/index.js';
+ * import config from '../config/index.js';
  * console.log(config.environment); // 'development', 'staging', 'production'
  */
 

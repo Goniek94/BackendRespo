@@ -3,6 +3,9 @@ import userRoutes from './userRoutes.js';
 import dashboardRoutes from './dashboardRoutes.js';
 import authRoutes from './authRoutes.js';
 import listingRoutes from './listingRoutes.js';
+import reportRoutes from './reportRoutes.js';
+// import promotionRoutes from './promotionRoutes.js'; // TODO: Create this file
+import cleanupRoutes from './cleanupRoutes.js';
 import { requireAdminAuth, adminApiLimiter } from '../middleware/adminAuth.js';
 
 /**
@@ -63,10 +66,27 @@ router.use('/users', requireAdminAuth, userRoutes);
 router.use('/listings', requireAdminAuth, listingRoutes);
 
 /**
+ * Report management routes (protected)
+ * All report-related admin operations
+ */
+router.use('/reports', requireAdminAuth, reportRoutes);
+
+/**
+ * Promotion management routes (protected)
+ * All promotion-related admin operations
+ * TODO: Uncomment when promotionRoutes.js is created
+ */
+// router.use('/promotions', requireAdminAuth, promotionRoutes);
+
+/**
+ * Cleanup and session management routes
+ * Cookie cleanup and session management (some public for fixing HTTP 431)
+ */
+router.use('/', cleanupRoutes);
+
+/**
  * Future route modules will be added here:
  * 
- * router.use('/promotions', promotionRoutes);
- * router.use('/reports', reportRoutes);
  * router.use('/comments', commentRoutes);
  * router.use('/analytics', analyticsRoutes);
  * router.use('/settings', settingsRoutes);
@@ -93,7 +113,18 @@ router.use('*', (req, res) => {
       'GET /admin-panel/users/:id',
       'PUT /admin-panel/users/:id',
       'POST /admin-panel/users/:id/block',
-      'DELETE /admin-panel/users/:id'
+      'DELETE /admin-panel/users/:id',
+      'GET /admin-panel/listings',
+      'POST /admin-panel/listings',
+      'GET /admin-panel/listings/stats',
+      'GET /admin-panel/listings/pending',
+      'GET /admin-panel/listings/:id',
+      'PUT /admin-panel/listings/:id',
+      'DELETE /admin-panel/listings/:id',
+      'POST /admin-panel/listings/:id/approve',
+      'POST /admin-panel/listings/:id/reject',
+      'POST /admin-panel/listings/:id/moderate',
+      'POST /admin-panel/listings/bulk-discount'
     ]
   });
 });

@@ -1,8 +1,8 @@
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
-import User from '../../models/user.js';
+import User from '../../models/user/user.js';
 import AdminActivity from '../models/AdminActivity.js';
-import { isBlacklisted } from '../../models/TokenBlacklist.js';
+import { isBlacklisted } from '../../models/security/TokenBlacklist.js';
 import logger from '../../utils/logger.js';
 
 /**
@@ -62,6 +62,7 @@ export const adminApiLimiter = rateLimit({
 
 /**
  * Validates JWT token and extracts admin user information
+ * UPDATED: Obsługuje minimalne tokeny z polami 'id' i 'r'
  * @param {string} token - JWT token to validate
  * @returns {Object} Decoded token payload
  * @throws {Error} If token is invalid or expired
@@ -71,19 +72,20 @@ const validateJwtToken = (token) => {
     // Używamy tego samego JWT_SECRET co zwykłe logowanie
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Validate basic token structure (userId może być jako userId lub id)
-    const userId = decoded.userId || decoded.id;
+    // Validate basic token structure - obsługuje minimalne tokeny
+    const userId = decoded.userId || decoded.id; // 'id' to nowe minimalne pole
     if (!userId) {
       throw new Error('Invalid token structure - missing user ID');
     }
     
-    // Nie sprawdzamy roli w tokenie - sprawdzimy w bazie danych
-    // Token może nie mieć roli lub może być nieaktualna
+    // Obsługuj skróconą rolę 'r' lub pełną 'role'
+    const role = decoded.r || decoded.role;
     
     return {
       ...decoded,
       userId: userId, // Normalizujemy do userId
-      id: userId // Zachowujemy też id dla kompatybilności
+      id: userId, // Zachowujemy też id dla kompatybilności
+      role: role // Dodajemy rolę jeśli jest dostępna
     };
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
@@ -140,7 +142,7 @@ const logSecurityEvent = async (req, eventType, details = {}) => {
     };
     
     // Use secure logger instead of console.log
-    logger.security('Admin security event', securityLog);
+    logger.warn('Admin security event', securityLog);
     
     // Could also store in database for compliance
     // await SecurityLog.create(securityLog);
@@ -187,13 +189,9 @@ export const requireAdminAuth = async (req, res, next) => {
         tokenPrefix: token.substring(0, 20) 
       });
       
-      // Clear the cookie if it's blacklisted
-      res.clearCookie('token', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-        path: '/'
-      });
+      // Clear the cookies if token is blacklisted - używa standardowej konfiguracji
+      const { clearAuthCookies } = await import('../../config/cookieConfig.js');
+      clearAuthCookies(res);
       
       return res.status(401).json({
         success: false,

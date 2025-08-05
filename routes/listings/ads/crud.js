@@ -4,14 +4,14 @@
  */
 
 import { Router } from 'express';
-import Ad from '../../../models/ad.js';
-import User from '../../../models/user.js';
+import Ad from '../../../models/listings/ad.js';
+import User from '../../../models/user/user.js';
 import auth from '../../../middleware/auth.js';
-import validate from '../../../middleware/validate.js';
+import validate from '../../../middleware/validation/validate.js';
 import adValidationSchema from '../../../validationSchemas/adValidation.js';
 import rateLimit from 'express-rate-limit';
-import errorHandler from '../../../middleware/errorHandler.js';
-import { notificationService } from '../../../controllers/notifications/notificationController.js';
+import errorHandler from '../../../middleware/errors/errorHandler.js';
+import NotificationService from '../../../services/notificationService.js';
 import { mapFormDataToBackend } from './helpers.js';
 import AdController from '../../../controllers/listings/adController.js';
 
@@ -213,8 +213,7 @@ router.post('/add', auth, createAdLimiter, validate(adValidationSchema), async (
     
     // Create notification about ad creation
     try {
-      const adTitle = headline || `${brand} ${model}`;
-      await notificationService.notifyAdCreated(req.user.userId, adTitle);
+      await NotificationService.createListingPublishedNotification(req.user.userId, ad);
       console.log(`Created notification about ad creation for user ${req.user.userId}`);
     } catch (notificationError) {
       console.error('Error creating notification:', notificationError);
@@ -261,8 +260,18 @@ router.put('/:id/status', auth, async (req, res, next) => {
     // Create notification about ad status change
     if (previousStatus !== status) {
       try {
-        const adTitle = ad.headline || `${ad.brand} ${ad.model}`;
-        await notificationService.notifyAdStatusChange(ad.owner.toString(), adTitle, status);
+        if (status === 'active') {
+          await NotificationService.createListingPublishedNotification(ad.owner.toString(), ad);
+        } else if (status === 'archived') {
+          await NotificationService.createListingExpiredNotification(ad.owner.toString(), ad);
+        } else {
+          // For other status changes, create a generic system notification
+          await NotificationService.createSystemNotification(
+            ad.owner.toString(),
+            'Status ogłoszenia zmieniony',
+            `Status Twojego ogłoszenia "${ad.headline || ad.brand + ' ' + ad.model}" został zmieniony na: ${status}`
+          );
+        }
         console.log(`Created notification about ad status change for user ${ad.owner}`);
       } catch (notificationError) {
         console.error('Error creating notification:', notificationError);
@@ -372,14 +381,29 @@ router.put('/:id', auth, async (req, res, next) => {
       'purchaseOptions'
     ];
 
-    console.log('Updating ad:', req.params.id);
-    console.log('Data to update:', req.body);
+    console.log('=== AKTUALIZACJA OGŁOSZENIA ===');
+    console.log('ID ogłoszenia:', req.params.id);
+    console.log('Użytkownik:', req.user.userId);
+    console.log('Dane otrzymane z frontendu:', JSON.stringify(req.body, null, 2));
+    console.log('Dozwolone pola do aktualizacji:', updatableFields);
 
-    // Update only allowed fields
+    // Loguj pola przed aktualizacją
+    console.log('=== POLA PRZED AKTUALIZACJĄ ===');
     updatableFields.forEach(field => {
-      if (req.body[field] !== undefined) {
-        console.log(`Updating field ${field}: ${ad[field]} -> ${req.body[field]}`);
-        ad[field] = req.body[field];
+      if (req.body.hasOwnProperty(field)) {
+        console.log(`${field}: "${ad[field]}" (obecne w request)`);
+      }
+    });
+
+    // Aktualizuj tylko dozwolone pola - używaj hasOwnProperty i sprawdzaj undefined
+    updatableFields.forEach(field => {
+      if (req.body.hasOwnProperty(field) && req.body[field] !== undefined && req.body[field] !== null) {
+        const oldValue = ad[field];
+        const newValue = req.body[field];
+        console.log(`Aktualizuję pole ${field}: "${oldValue}" -> "${newValue}"`);
+        ad[field] = newValue;
+      } else if (req.body.hasOwnProperty(field)) {
+        console.log(`Pomijam pole ${field} - wartość undefined/null:`, req.body[field]);
       }
     });
 
@@ -399,11 +423,33 @@ router.put('/:id', auth, async (req, res, next) => {
       console.log('Generated shortDescription:', ad.shortDescription);
     }
 
-    // Save changes
-    await ad.save();
+    // Loguj pola po aktualizacji
+    console.log('=== POLA PO AKTUALIZACJI ===');
+    updatableFields.forEach(field => {
+      if (req.body.hasOwnProperty(field)) {
+        console.log(`${field}: "${ad[field]}" (po aktualizacji)`);
+      }
+    });
 
-    console.log('Ad updated successfully');
-    res.status(200).json({ message: 'Ad updated', ad });
+    // Save changes
+    console.log('Zapisuję zmiany do bazy danych...');
+    const savedAd = await ad.save();
+    console.log('Ogłoszenie zapisane pomyślnie w bazie danych');
+    
+    // Sprawdź czy zmiany rzeczywiście zostały zapisane
+    const verifyAd = await Ad.findById(req.params.id);
+    console.log('=== WERYFIKACJA PO ZAPISIE ===');
+    updatableFields.forEach(field => {
+      if (req.body.hasOwnProperty(field)) {
+        console.log(`${field}: "${verifyAd[field]}" (z bazy po zapisie)`);
+      }
+    });
+
+    res.status(200).json({ 
+      message: 'Ogłoszenie zostało zaktualizowane', 
+      ad: savedAd,
+      updatedFields: Object.keys(req.body).filter(key => updatableFields.includes(key))
+    });
   } catch (err) {
     console.error('Error updating ad:', err);
     next(err);
@@ -495,8 +541,7 @@ router.post('/:id/renew', auth, async (req, res, next) => {
 
     // Create notification about ad renewal
     try {
-      const adTitle = ad.headline || `${ad.brand} ${ad.model}`;
-      await notificationService.notifyAdStatusChange(ad.owner.toString(), adTitle, 'odnowione');
+      await NotificationService.createListingPublishedNotification(ad.owner.toString(), ad);
       console.log(`Created notification about ad renewal for user ${ad.owner}`);
     } catch (notificationError) {
       console.error('Error creating notification:', notificationError);

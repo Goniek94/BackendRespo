@@ -6,8 +6,8 @@
 import express from 'express';
 import { Router } from 'express';
 import auth from '../../middleware/auth.js';
-import Ad from '../../models/ad.js';
-import errorHandler from '../../middleware/errorHandler.js';
+import Ad from '../../models/listings/ad.js';
+import errorHandler from '../../middleware/errors/errorHandler.js';
 import { notificationService } from '../../controllers/notifications/notificationController.js';
 
 const router = Router();

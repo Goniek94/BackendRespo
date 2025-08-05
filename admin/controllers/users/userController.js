@@ -41,7 +41,17 @@ export const getUsers = async (req, res) => {
 
     res.json({
       success: true,
-      data: result,
+      data: {
+        users: result.users,
+        pagination: {
+          totalCount: result.pagination.totalCount,
+          totalPages: result.pagination.totalPages,
+          currentPage: result.pagination.currentPage,
+          limit: result.pagination.limit,
+          hasNextPage: result.pagination.hasNextPage,
+          hasPrevPage: result.pagination.hasPrevPage
+        }
+      },
       message: `Retrieved ${result.users.length} users`
     });
   } catch (error) {
@@ -381,21 +391,39 @@ export const bulkUpdateUsers = async (req, res) => {
  */
 export const getUserAnalytics = async (req, res) => {
   try {
-    const options = {
-      timeframe: req.query.timeframe || '30d'
+    // Import User model directly to avoid service complications
+    const User = (await import('../../../models/user/user.js')).default;
+
+    // Simple direct queries to database
+    const total = await User.countDocuments();
+    const verified = await User.countDocuments({ 
+      $or: [
+        { isVerified: true },
+        { emailVerified: true },
+        { isEmailVerified: true }
+      ]
+    });
+    const inactive = await User.countDocuments({ 
+      $or: [
+        { status: 'inactive' },
+        { status: 'pending' },
+        { registrationStep: { $lt: 5 } }
+      ]
+    });
+    const blocked = await User.countDocuments({ 
+      $or: [
+        { status: 'blocked' },
+        { status: 'suspended' }
+      ]
+    });
+
+    // Return exactly what frontend expects
+    const analytics = {
+      total,
+      verified,
+      inactive,
+      blocked
     };
-
-    // Validate timeframe
-    const validTimeframes = ['7d', '30d', '90d'];
-    if (!validTimeframes.includes(options.timeframe)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid timeframe. Must be one of: 7d, 30d, 90d',
-        code: 'INVALID_TIMEFRAME'
-      });
-    }
-
-    const analytics = await userService.getUserAnalytics(options);
 
     res.json({
       success: true,

@@ -3,8 +3,8 @@
  * @module controllers/notificationHelpers
  */
 
-import { NotificationType, notificationTemplates } from '../utils/notificationTypes.js';
-import socketService from '../services/socketService.js';
+import { NotificationType, notificationTemplates } from '../../utils/notificationTypes.js';
+import socketService from '../../services/socketService.js';
 
 /**
  * Formatuje powiadomienie do formatu API

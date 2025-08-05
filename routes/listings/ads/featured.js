@@ -4,9 +4,9 @@
  */
 
 import { Router } from 'express';
-import Ad from '../../../models/ad.js';
+import Ad from '../../../models/listings/ad.js';
 import auth from '../../../middleware/auth.js';
-import errorHandler from '../../../middleware/errorHandler.js';
+import errorHandler from '../../../middleware/errors/errorHandler.js';
 import { processAdImages, getRandomAds } from './helpers.js';
 
 const router = Router();

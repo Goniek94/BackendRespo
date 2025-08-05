@@ -1,6 +1,6 @@
-import Transaction from '../../models/Transaction.js';
-import User from '../../models/user.js';
-import Ad from '../../models/ad.js';
+import Transaction from '../../models/payments/Transaction.js';
+import User from '../../models/user/user.js';
+import Ad from '../../models/listings/ad.js';
 import { notificationService } from '../notifications/notificationController.js';
 import nodemailer from 'nodemailer';
 import PDFDocument from 'pdfkit';
@@ -73,7 +73,7 @@ class TransactionController {
    */
   async createTransaction(req, res) {
     try {
-      const { adId, amount, type = 'listing_payment', paymentMethod } = req.body;
+      const { adId, amount, type = 'standard_listing', paymentMethod } = req.body;
       const userId = req.user.userId;
       
       console.log('Tworzenie nowej transakcji:', { userId, adId, amount, type, paymentMethod });
@@ -82,6 +82,14 @@ class TransactionController {
       if (!adId || !amount || !paymentMethod) {
         return res.status(400).json({
           message: 'Brak wymaganych danych: adId, amount, paymentMethod'
+        });
+      }
+      
+      // Walidacja typu transakcji
+      const validTypes = ['standard_listing', 'featured_listing', 'refund'];
+      if (!validTypes.includes(type)) {
+        return res.status(400).json({
+          message: 'Nieprawidłowy typ transakcji. Dozwolone: standard_listing, featured_listing, refund'
         });
       }
       
@@ -107,7 +115,7 @@ class TransactionController {
         transactionId,
         metadata: {
           adTitle: ad.headline || `${ad.brand} ${ad.model}`,
-          createdBy: 'payment_simulation'
+          createdBy: 'listing_payment_system'
         }
       });
       
@@ -116,11 +124,21 @@ class TransactionController {
       // Utwórz powiadomienie o udanej płatności
       try {
         const adTitle = ad.headline || `${ad.brand} ${ad.model}`;
-        await notificationService.notifyPaymentStatusChange(
+        const notificationMessage = type === 'featured_listing' 
+          ? `Twoje ogłoszenie "${adTitle}" zostało wyróżnione`
+          : `Opłata za ogłoszenie "${adTitle}" została zrealizowana`;
+          
+        await notificationService.createNotification(
           userId,
-          'completed',
-          adTitle,
-          { transactionId: transaction.transactionId, amount }
+          'Płatność zrealizowana',
+          notificationMessage,
+          'payment_success',
+          {
+            transactionId: transaction.transactionId,
+            amount,
+            type,
+            link: `/profile/transactions`
+          }
         );
         console.log('Utworzono powiadomienie o udanej płatności');
       } catch (notificationError) {
@@ -341,9 +359,7 @@ class TransactionController {
         
         // Pozycja faktury
         const itemY = tableTop + 30;
-        const serviceName = transaction.type === 'listing_payment' 
-          ? 'Opłata za publikację ogłoszenia' 
-          : 'Opłata za promocję ogłoszenia';
+        const serviceName = this.getServiceName(transaction.type);
         
         const netAmount = (transaction.amount / 1.23).toFixed(2); // Zakładając VAT 23%
         const vatAmount = (transaction.amount - netAmount).toFixed(2);
@@ -476,6 +492,21 @@ class TransactionController {
     };
     
     return methods[method] || method;
+  }
+  
+  /**
+   * Pobieranie nazwy usługi na podstawie typu transakcji
+   * @param {string} type - Typ transakcji
+   * @returns {string} - Nazwa usługi
+   */
+  getServiceName(type) {
+    const services = {
+      'standard_listing': 'Opłata za publikację ogłoszenia',
+      'featured_listing': 'Opłata za wyróżnienie ogłoszenia',
+      'refund': 'Zwrot za anulowane ogłoszenie'
+    };
+    
+    return services[type] || 'Opłata za usługę';
   }
 }
 

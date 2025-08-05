@@ -29,7 +29,6 @@ export { default as passwordController } from './user/passwordController.js';
 export { default as settingsController } from './user/settingsController.js';
 export { default as validationController } from './user/validationController.js';
 export { default as verificationController } from './user/verificationController.js';
-export { default as userController } from './user/userController.js';
 
 // Communication sub-controllers
 export { default as adMessages } from './communication/adMessages.js';

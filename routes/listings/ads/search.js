@@ -4,8 +4,8 @@
  */
 
 import { Router } from 'express';
-import Ad from '../../../models/ad.js';
-import errorHandler from '../../../middleware/errorHandler.js';
+import Ad from '../../../models/listings/ad.js';
+import errorHandler from '../../../middleware/errors/errorHandler.js';
 import { createAdFilter, calculateMatchScore } from './helpers.js';
 import { getActiveStatusFilter } from '../../../utils/listings/commonFilters.js';
 import { getFilterCounts, getMatchingAdsCount, createPartialFilter } from '../../../utils/listings/aggregationHelpers.js';

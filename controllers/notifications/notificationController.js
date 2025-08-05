@@ -1,4 +1,4 @@
-import Notification from '../../models/notification.js';
+import Notification from '../../models/communication/notification.js';
 import { NotificationType, NotificationTypeNames, NotificationTypeDescriptions, createNotificationData } from '../../utils/notificationTypes.js';
 import socketService from '../../services/socketService.js';
 
@@ -10,7 +10,7 @@ const notificationTemplates = {
     `Twoje ogłoszenie "${adTitle}" zostało pomyślnie opublikowane!`,
   
   [NotificationType.LISTING_EXPIRING]: (adTitle, daysLeft) => 
-    `Twoje ogłoszenie "${adTitle}" wygaśnie za ${daysLeft} ${daysLeft === 1 ? 'dzień' : 'dni'}.`,
+    `Twoje ogłoszenie "${adTitle}" wkrótce straci ważność, przedłuż teraz! (${daysLeft} ${daysLeft === 1 ? 'dzień' : 'dni'} do końca)`,
   
   [NotificationType.LISTING_EXPIRED]: (adTitle) => 
     `Twoje ogłoszenie "${adTitle}" wygasło.`,
@@ -25,7 +25,7 @@ const notificationTemplates = {
     viewCount ? `Twoje ogłoszenie "${adTitle}" zostało wyświetlone ${viewCount} razy.` : `Ktoś wyświetlił Twoje ogłoszenie "${adTitle}".`,
   
   [NotificationType.NEW_MESSAGE]: (senderName, adTitle) => 
-    adTitle ? `${senderName} wysłał Ci wiadomość dotyczącą ogłoszenia "${adTitle}".` : `${senderName} wysłał Ci wiadomość.`,
+    adTitle ? `Masz nową wiadomość od ${senderName} dotyczącą ogłoszenia "${adTitle}"` : `Masz nową wiadomość od ${senderName}`,
   
   [NotificationType.NEW_COMMENT]: (adTitle) => 
     `Ktoś skomentował Twoje ogłoszenie "${adTitle}".`,
@@ -34,7 +34,7 @@ const notificationTemplates = {
     `Ktoś odpowiedział na Twój komentarz w ogłoszeniu "${adTitle}".`,
   
   [NotificationType.PAYMENT_COMPLETED]: (adTitle) => 
-    adTitle ? `Płatność za ogłoszenie "${adTitle}" została zrealizowana.` : 'Płatność została zrealizowana.',
+    adTitle ? `Twoja płatność za ogłoszenie "${adTitle}" zakończyła się sukcesem!` : 'Twoja płatność zakończyła się sukcesem!',
   
   [NotificationType.PAYMENT_FAILED]: (reason) => 
     reason ? `Płatność nie powiodła się. Powód: ${reason}` : 'Płatność nie powiodła się.',
@@ -84,7 +84,7 @@ class NotificationService {
       // Sprawdź, czy użytkownik istnieje w bazie danych
       try {
         const mongoose = await import('mongoose');
-        const User = mongoose.models.User;
+        const User = mongoose.default.models?.User || mongoose.models?.User;
         
         if (User) {
           const userExists = await User.exists({ _id: userId });
@@ -156,10 +156,15 @@ class NotificationService {
    * @returns {Promise<Object>} - Utworzone powiadomienie
    */
   async notifyAdExpiringSoon(userId, adTitle, daysLeft, adId = null) {
+    const title = "Ogłoszenie wkrótce wygaśnie";
     const message = notificationTemplates[NotificationType.LISTING_EXPIRING](adTitle, daysLeft);
-    const metadata = adId ? { adId, daysLeft } : { daysLeft };
+    const options = {
+      adId: adId,
+      link: adId ? `/ads/${adId}` : null,
+      metadata: { adId, daysLeft }
+    };
     
-    return this.createNotification(userId, message, NotificationType.LISTING_EXPIRING, metadata);
+    return this.createNotification(userId, title, message, NotificationType.LISTING_EXPIRING, options);
   }
 
   /**
@@ -171,13 +176,19 @@ class NotificationService {
    * @returns {Promise<Object>} - Utworzone powiadomienie
    */
   async notifyNewMessage(userId, senderName, adTitle = null, metadata = {}) {
+    const title = "Nowa wiadomość";
     const message = notificationTemplates[NotificationType.NEW_MESSAGE](senderName, adTitle);
     
     if (adTitle) {
       metadata.adTitle = adTitle;
     }
     
-    return this.createNotification(userId, message, NotificationType.NEW_MESSAGE, metadata);
+    const options = {
+      link: '/profile/messages',
+      metadata: metadata
+    };
+    
+    return this.createNotification(userId, title, message, NotificationType.NEW_MESSAGE, options);
   }
 
   /**
@@ -191,22 +202,34 @@ class NotificationService {
   async notifyPaymentStatusChange(userId, status, adTitle = null, metadata = {}) {
     // Dla statusu 'completed' używamy dedykowanego typu PAYMENT_COMPLETED
     if (status === 'completed') {
+      const title = "Płatność zakończona sukcesem";
       const message = notificationTemplates[NotificationType.PAYMENT_COMPLETED](adTitle);
       
       if (adTitle) {
         metadata.adTitle = adTitle;
       }
       
-      return this.createNotification(userId, message, NotificationType.PAYMENT_COMPLETED, metadata);
+      const options = {
+        link: '/profile/payments',
+        metadata: metadata
+      };
+      
+      return this.createNotification(userId, title, message, NotificationType.PAYMENT_COMPLETED, options);
     } else {
       // Dla innych statusów używamy systemowego powiadomienia
+      const title = "Status płatności";
       const statusMessage = `Status Twojej płatności${adTitle ? ` za ogłoszenie "${adTitle}"` : ''} został zmieniony na "${status}".`;
       metadata.status = status;
       if (adTitle) {
         metadata.adTitle = adTitle;
       }
       
-      return this.createNotification(userId, statusMessage, NotificationType.SYSTEM_NOTIFICATION, metadata);
+      const options = {
+        link: '/profile/payments',
+        metadata: metadata
+      };
+      
+      return this.createNotification(userId, title, statusMessage, NotificationType.SYSTEM_NOTIFICATION, options);
     }
   }
 
@@ -219,13 +242,15 @@ class NotificationService {
    * @returns {Promise<Object>} - Utworzone powiadomienie
    */
   async notifyAdStatusChange(userId, adTitle, status, adId = null) {
+    const title = "Status ogłoszenia zmieniony";
     const message = notificationTemplates[NotificationType.LISTING_STATUS_CHANGED](adTitle, status);
-    const metadata = {
-      status,
-      ...(adId ? { adId } : {})
+    const options = {
+      adId: adId,
+      link: adId ? `/ads/${adId}` : null,
+      metadata: { status, adId }
     };
     
-    return this.createNotification(userId, message, NotificationType.LISTING_STATUS_CHANGED, metadata);
+    return this.createNotification(userId, title, message, NotificationType.LISTING_STATUS_CHANGED, options);
   }
 
   /**
@@ -307,10 +332,15 @@ class NotificationService {
    * @returns {Promise<Object>} - Utworzone powiadomienie
    */
   async notifyAdExpired(userId, adTitle, adId = null) {
+    const title = "Ogłoszenie wygasło";
     const message = notificationTemplates[NotificationType.LISTING_EXPIRED](adTitle);
-    const metadata = adId ? { adId } : {};
+    const options = {
+      adId: adId,
+      link: adId ? `/ads/${adId}` : null,
+      metadata: { adId }
+    };
     
-    return this.createNotification(userId, message, NotificationType.LISTING_EXPIRED, metadata);
+    return this.createNotification(userId, title, message, NotificationType.LISTING_EXPIRED, options);
   }
 
   /**
@@ -339,13 +369,19 @@ class NotificationService {
    * @returns {Promise<Object>} - Utworzone powiadomienie
    */
   async notifyPaymentFailed(userId, reason = null, metadata = {}) {
+    const title = "Płatność nieudana";
     const message = notificationTemplates[NotificationType.PAYMENT_FAILED](reason);
     
     if (reason) {
       metadata.reason = reason;
     }
     
-    return this.createNotification(userId, message, NotificationType.PAYMENT_FAILED, metadata);
+    const options = {
+      link: '/profile/payments',
+      metadata: metadata
+    };
+    
+    return this.createNotification(userId, title, message, NotificationType.PAYMENT_FAILED, options);
   }
 
   /**

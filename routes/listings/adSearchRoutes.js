@@ -5,8 +5,8 @@
 
 import express from 'express';
 import { Router } from 'express';
-import Ad from '../../models/ad.js';
-import errorHandler from '../../middleware/errorHandler.js';
+import Ad from '../../models/listings/ad.js';
+import errorHandler from '../../middleware/errors/errorHandler.js';
 import { createAdFilter, getActiveStatusFilter, getActiveAdsCount } from '../../utils/listings/commonFilters.js';
 
 const router = Router();
@@ -61,7 +61,6 @@ router.get('/', async (req, res, next) => {
         views: 1,
         // Dodatkowe pola dla przyszłych filtrów
         bodyType: 1,
-        color: 1,
         region: 1,
         city: 1,
         engineCapacity: 1,
@@ -256,7 +255,6 @@ router.get('/search', async (req, res, next) => {
         createdAt: 1,
         views: 1,
         bodyType: 1,
-        color: 1,
         region: 1,
         city: 1,
         voivodeship: 1,

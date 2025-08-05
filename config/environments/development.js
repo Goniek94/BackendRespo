@@ -80,6 +80,13 @@ export default {
         maxAge: 0,
         includeSubDomains: false,
         preload: false
+      },
+      
+      // Dodatkowe nagłówki bezpieczeństwa
+      additionalHeaders: {
+        'X-Frame-Options': 'DENY',                     // Zapobiegaj clickjacking
+        'X-Content-Type-Options': 'nosniff',           // Zapobiegaj MIME sniffing
+        'X-XSS-Protection': '1; mode=block'            // Ochrona XSS
       }
     }
   },

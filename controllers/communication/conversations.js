@@ -1,6 +1,6 @@
-import Message from '../../models/message.js';
-import User from '../../models/user.js';
-import Ad from '../../models/ad.js';
+import Message from '../../models/communication/message.js';
+import User from '../../models/user/user.js';
+import Ad from '../../models/listings/ad.js';
 import mongoose from 'mongoose';
 import notificationService from '../notifications/notificationController.js';
 

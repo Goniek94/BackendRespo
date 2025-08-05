@@ -53,4 +53,10 @@ router.get('/check', requireAdminAuth, checkAdminAuth);
  */
 router.get('/me', requireAdminAuth, checkAdminAuth);
 
+/**
+ * GET /api/admin-panel/auth/session
+ * Check admin session status (frontend compatibility)
+ */
+router.get('/session', requireAdminAuth, checkAdminAuth);
+
 export default router;

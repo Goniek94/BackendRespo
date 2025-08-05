@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { NotificationType } from '../utils/notificationTypes.js';
+import { NotificationType } from '../../utils/notificationTypes.js';
 
 /**
  * Schema dla modelu powiadomień

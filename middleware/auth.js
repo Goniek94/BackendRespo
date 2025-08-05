@@ -25,8 +25,8 @@ import mongoose from 'mongoose';
 // Import configuration and models
 import config from '../config/index.js';
 import adminConfig from '../config/adminConfig.js';
-import { addToBlacklist, isBlacklisted } from '../models/TokenBlacklist.js';
-import User from '../models/user.js';
+import { addToBlacklist, isBlacklisted } from '../models/security/TokenBlacklist.js';
+import User from '../models/user/user.js';
 import logger from '../utils/logger.js';
 import { setAuthCookies as setSecureAuthCookies, clearAuthCookies as clearSecureAuthCookies, setSecureCookie } from '../config/cookieConfig.js';
 

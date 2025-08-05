@@ -90,9 +90,6 @@ export const createAdFilter = (query) => {
   
   // === FILTRY ZAAWANSOWANE ===
   
-  // Kolor
-  if (query.color) filter.color = query.color;
-  
   // Wykończenie lakieru
   if (query.finish) filter.paintFinish = query.finish;
   

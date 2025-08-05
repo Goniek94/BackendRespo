@@ -21,11 +21,16 @@ import {
   archiveMessage,
   unarchiveMessage,
   getUnreadCount
-} from '../../controllers/communication/messagesController.js';
+} from '../../controllers/communication/index.js';
+import {
+  starConversation,
+  archiveConversation,
+  deleteConversation
+} from '../../controllers/communication/messageFlags.js';
 import auth from '../../middleware/auth.js';
-import Message from '../../models/message.js';
-import User from '../../models/user.js';
-import Ad from '../../models/ad.js';
+import Message from '../../models/communication/message.js';
+import User from '../../models/user/user.js';
+import Ad from '../../models/listings/ad.js';
 import notificationService from '../../controllers/notifications/notificationController.js';
 
 const router = express.Router();
@@ -432,6 +437,17 @@ router.get('/conversations/search', async (req, res) => {
   }
 });
 
+// ========== NOWE ENDPOINTY DO ZARZĄDZANIA KONWERSACJAMI ==========
+
+// 🌟 Oznaczanie całej konwersacji jako ważnej
+router.patch('/conversations/:userId/star', starConversation);
+
+// 📦 Przenoszenie całej konwersacji do archiwum  
+router.patch('/conversations/:userId/archive', archiveConversation);
+
+// 🗑️ Usuwanie całej konwersacji
+router.delete('/conversations/:userId', deleteConversation);
+
 // ========== ISTNIEJĄCE ENDPOINTY ==========
 
 // WAŻNE: Trasy z wzorcami muszą być przed parametryzowanymi trasami
@@ -507,6 +523,66 @@ router.patch('/archive/:id', archiveMessage);
 
 // Przywracanie wiadomości z archiwum
 router.patch('/unarchive/:id', unarchiveMessage);
+
+// Edytowanie wiadomości
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { content, attachments } = req.body;
+    const userId = req.user.userId;
+    
+    console.log('✏️ Edytowanie wiadomości:', { id, userId, hasContent: !!content });
+    
+    if (!content || !content.trim()) {
+      return res.status(400).json({ message: 'Treść wiadomości jest wymagana' });
+    }
+    
+    // Znajdź wiadomość
+    const message = await Message.findById(id);
+    if (!message) {
+      return res.status(404).json({ message: 'Wiadomość nie znaleziona' });
+    }
+    
+    // Sprawdź czy użytkownik jest właścicielem wiadomości
+    if (message.sender.toString() !== userId) {
+      return res.status(403).json({ message: 'Brak uprawnień do edycji tej wiadomości' });
+    }
+    
+    // Sprawdź czy wiadomość nie jest starsza niż 24 godziny (opcjonalne ograniczenie)
+    const hoursSinceCreation = (Date.now() - message.createdAt.getTime()) / (1000 * 60 * 60);
+    if (hoursSinceCreation > 24) {
+      return res.status(400).json({ message: 'Nie można edytować wiadomości starszych niż 24 godziny' });
+    }
+    
+    // Aktualizuj wiadomość
+    message.content = content.trim();
+    message.isEdited = true;
+    message.editedAt = new Date();
+    
+    // Opcjonalnie aktualizuj załączniki (jeśli są przesłane)
+    if (attachments && Array.isArray(attachments)) {
+      message.attachments = attachments;
+    }
+    
+    await message.save();
+    
+    console.log('✅ Wiadomość zaktualizowana:', message._id);
+    
+    res.status(200).json({
+      message: 'Wiadomość zaktualizowana',
+      data: {
+        _id: message._id,
+        content: message.content,
+        isEdited: message.isEdited,
+        editedAt: message.editedAt,
+        attachments: message.attachments
+      }
+    });
+  } catch (error) {
+    console.error('💥 Błąd podczas edycji wiadomości:', error);
+    res.status(500).json({ message: 'Błąd serwera', error: error.message });
+  }
+});
 
 // Usuwanie wiadomości
 router.delete('/:id', deleteMessage);

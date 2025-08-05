@@ -33,8 +33,8 @@ const transactionSchema = new mongoose.Schema(
     type: {
       type: String,
       required: true,
-      enum: ['listing_payment', 'promotion_payment'],
-      default: 'listing_payment'
+      enum: ['standard_listing', 'featured_listing', 'refund'],
+      default: 'standard_listing'
     },
     
     // Status transakcji (wymagane)
@@ -169,8 +169,44 @@ const transactionSchema = new mongoose.Schema(
           createdAt: this.createdAt,
           updatedAt: this.updatedAt,
           invoiceRequestedAt: this.invoiceRequestedAt,
-          invoiceGeneratedAt: this.invoiceGeneratedAt
+          invoiceGeneratedAt: this.invoiceGeneratedAt,
+          description: this.getTransactionDescription(),
+          category: this.getTransactionCategory()
         };
+      },
+      
+      /**
+       * Generuje opis transakcji na podstawie typu
+       * @returns {string}
+       */
+      getTransactionDescription() {
+        switch (this.type) {
+          case 'standard_listing':
+            return 'Opłata za publikację ogłoszenia';
+          case 'featured_listing':
+            return 'Opłata za wyróżnienie ogłoszenia';
+          case 'refund':
+            return 'Zwrot za anulowane ogłoszenie';
+          default:
+            return 'Opłata za usługę';
+        }
+      },
+      
+      /**
+       * Generuje kategorię transakcji na podstawie typu
+       * @returns {string}
+       */
+      getTransactionCategory() {
+        switch (this.type) {
+          case 'standard_listing':
+            return 'Ogłoszenie standardowe';
+          case 'featured_listing':
+            return 'Ogłoszenie wyróżnione';
+          case 'refund':
+            return 'Zwrot';
+          default:
+            return 'Inne';
+        }
       }
     }
   }

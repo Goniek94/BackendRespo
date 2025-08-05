@@ -1,6 +1,5 @@
-import User from '../../../models/user.js';
-import Ad from '../../../models/ad.js';
-import Report from '../../../models/report.js';
+import User from '../../../models/user/user.js';
+import Ad from '../../../models/listings/ad.js';
 
 const getDashboardStats = async (req, res) => {
   try {
@@ -10,8 +9,8 @@ const getDashboardStats = async (req, res) => {
     // Get total ads count
     const totalListings = await Ad.countDocuments();
 
-    // Get pending reports count (assuming reports have status field)
-    const pendingReports = await Report.countDocuments({ status: 'pending' }).catch(() => 0);
+    // Get pending reports count (no Report model available yet)
+    const pendingReports = 0;
 
     // Get recent users (last 7 days)
     const sevenDaysAgo = new Date();
@@ -33,7 +32,7 @@ const getDashboardStats = async (req, res) => {
       .limit(5);
 
     const recentAds = await Ad.find()
-      .select('title createdAt userId')
+      .select('headline createdAt owner')
       .sort({ createdAt: -1 })
       .limit(5);
 
@@ -54,9 +53,9 @@ const getDashboardStats = async (req, res) => {
     // Add recent ads
     recentAds.forEach(ad => {
       recentActivity.push({
-        id: `ad_${ad.title}`,
+        id: `ad_${ad.headline}`,
         type: 'listing_created',
-        message: `Nowe ogłoszenie: ${ad.title}`,
+        message: `Nowe ogłoszenie: ${ad.headline}`,
         time: formatTimeAgo(ad.createdAt),
         timestamp: ad.createdAt
       });

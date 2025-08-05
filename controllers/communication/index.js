@@ -33,5 +33,6 @@ export const {
 export const {
   searchMessages,
   getUserSuggestions,
-  saveDraft
+  saveDraft,
+  getUnreadCount
 } = utils;

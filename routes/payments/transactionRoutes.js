@@ -2,7 +2,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import auth from '../../middleware/auth.js';
 import transactionController from '../../controllers/payments/transactionController.js';
-import Transaction from '../../models/Transaction.js';
+import Transaction from '../../models/payments/Transaction.js';
 
 const router = express.Router();
 

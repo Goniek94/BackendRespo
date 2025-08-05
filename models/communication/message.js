@@ -52,6 +52,14 @@ const messageSchema = new mongoose.Schema({
     ref: 'Ad',
     default: null
   },
+  isEdited: {
+    type: Boolean,
+    default: false
+  },
+  editedAt: {
+    type: Date,
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now

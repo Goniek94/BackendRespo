@@ -13,6 +13,14 @@ class SocketService {
     this.socketUsers = new Map(); // Mapa przechowująca użytkowników dla socketów: socket.id -> userId
     this.activeConversations = new Map(); // Mapa aktywnych konwersacji: userId -> Set of conversationId/participantId
     this.conversationNotificationState = new Map(); // Mapa stanu powiadomień dla konwersacji: "userId:participantId" -> lastNotificationTime
+    this.heartbeatInterval = null; // Interval dla heartbeat
+    this.userLastSeen = new Map(); // Mapa ostatniego widzenia użytkowników: userId -> timestamp
+    this.connectionStats = {
+      totalConnections: 0,
+      totalDisconnections: 0,
+      currentConnections: 0,
+      startTime: Date.now()
+    };
   }
 
   /**
@@ -28,7 +36,11 @@ class SocketService {
 
     this.io = new Server(server, {
       cors: {
-        origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+        origin: [
+          'http://localhost:3000',
+          'http://localhost:3001',
+          process.env.FRONTEND_URL || 'http://localhost:3001'
+        ],
         methods: ['GET', 'POST'],
         credentials: true
       },
@@ -40,6 +52,9 @@ class SocketService {
 
     // Obsługa połączeń
     this.io.on('connection', this.handleConnection.bind(this));
+
+    // Uruchom mechanizm heartbeat
+    this.startHeartbeat();
 
     logger.info('Socket.IO initialized successfully');
     return this.io;
@@ -451,6 +466,238 @@ class SocketService {
     logger.debug('Conversation notification state reset', {
       conversationKey: conversationKey
     });
+  }
+
+  /**
+   * Uruchamia mechanizm heartbeat do monitorowania połączeń
+   */
+  startHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+    }
+
+    this.heartbeatInterval = setInterval(() => {
+      this.performHeartbeat();
+    }, 30000); // Co 30 sekund
+
+    logger.info('Heartbeat mechanism started');
+  }
+
+  /**
+   * Zatrzymuje mechanizm heartbeat
+   */
+  stopHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+      logger.info('Heartbeat mechanism stopped');
+    }
+  }
+
+  /**
+   * Wykonuje heartbeat - sprawdza aktywne połączenia
+   */
+  performHeartbeat() {
+    if (!this.io) return;
+
+    const now = Date.now();
+    let activeConnections = 0;
+    let staleConnections = 0;
+
+    // Sprawdź wszystkie połączenia
+    this.socketUsers.forEach((userId, socketId) => {
+      const socket = this.io.sockets.sockets.get(socketId);
+      
+      if (!socket || !socket.connected) {
+        // Połączenie nie istnieje lub jest nieaktywne
+        this.cleanupStaleConnection(socketId, userId);
+        staleConnections++;
+      } else {
+        // Aktualizuj ostatnie widzenie użytkownika
+        this.userLastSeen.set(userId, now);
+        activeConnections++;
+        
+        // Wyślij ping do klienta
+        socket.emit('ping', { timestamp: now });
+      }
+    });
+
+    // Aktualizuj statystyki
+    this.connectionStats.currentConnections = activeConnections;
+
+    if (staleConnections > 0) {
+      logger.info(`Heartbeat: Cleaned up ${staleConnections} stale connections, ${activeConnections} active`);
+    }
+
+    // Wyczyść stare stany konwersacji (starsze niż 1 godzina)
+    this.cleanupOldConversationStates(now);
+  }
+
+  /**
+   * Czyści nieaktywne połączenie
+   * @param {string} socketId - ID socketa
+   * @param {string} userId - ID użytkownika
+   */
+  cleanupStaleConnection(socketId, userId) {
+    // Usuń z map
+    this.socketUsers.delete(socketId);
+    
+    if (this.userSockets.has(userId)) {
+      this.userSockets.get(userId).delete(socketId);
+      if (this.userSockets.get(userId).size === 0) {
+        this.userSockets.delete(userId);
+      }
+    }
+
+    logger.debug('Cleaned up stale connection', {
+      socketId: socketId,
+      userId: userId
+    });
+  }
+
+  /**
+   * Czyści stare stany konwersacji
+   * @param {number} now - Aktualny timestamp
+   */
+  cleanupOldConversationStates(now) {
+    const oneHourAgo = now - (60 * 60 * 1000); // 1 godzina
+    let cleanedCount = 0;
+
+    this.conversationNotificationState.forEach((timestamp, key) => {
+      if (timestamp < oneHourAgo) {
+        this.conversationNotificationState.delete(key);
+        cleanedCount++;
+      }
+    });
+
+    if (cleanedCount > 0) {
+      logger.debug(`Cleaned up ${cleanedCount} old conversation states`);
+    }
+  }
+
+  /**
+   * Aktualizuje statystyki połączeń
+   * @param {string} event - Typ zdarzenia ('connect' lub 'disconnect')
+   */
+  updateConnectionStats(event) {
+    if (event === 'connect') {
+      this.connectionStats.totalConnections++;
+      this.connectionStats.currentConnections++;
+    } else if (event === 'disconnect') {
+      this.connectionStats.totalDisconnections++;
+      this.connectionStats.currentConnections = Math.max(0, this.connectionStats.currentConnections - 1);
+    }
+  }
+
+  /**
+   * Zwraca statystyki połączeń
+   * @returns {Object} - Statystyki połączeń
+   */
+  getConnectionStats() {
+    const uptime = Date.now() - this.connectionStats.startTime;
+    
+    return {
+      ...this.connectionStats,
+      uptime: uptime,
+      uptimeFormatted: this.formatUptime(uptime),
+      onlineUsers: this.userSockets.size,
+      activeConversations: this.activeConversations.size,
+      conversationStates: this.conversationNotificationState.size
+    };
+  }
+
+  /**
+   * Formatuje czas działania
+   * @param {number} uptime - Czas w milisekundach
+   * @returns {string} - Sformatowany czas
+   */
+  formatUptime(uptime) {
+    const seconds = Math.floor(uptime / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) {
+      return `${days}d ${hours % 24}h ${minutes % 60}m`;
+    } else if (hours > 0) {
+      return `${hours}h ${minutes % 60}m`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${seconds % 60}s`;
+    } else {
+      return `${seconds}s`;
+    }
+  }
+
+  /**
+   * Zwraca listę online użytkowników
+   * @returns {Array} - Lista ID użytkowników online
+   */
+  getOnlineUsers() {
+    return Array.from(this.userSockets.keys());
+  }
+
+  /**
+   * Sprawdza ostatnie widzenie użytkownika
+   * @param {string} userId - ID użytkownika
+   * @returns {number|null} - Timestamp ostatniego widzenia lub null
+   */
+  getUserLastSeen(userId) {
+    return this.userLastSeen.get(userId) || null;
+  }
+
+  /**
+   * Wysyła wiadomość do konkretnego socketa
+   * @param {string} socketId - ID socketa
+   * @param {string} event - Nazwa zdarzenia
+   * @param {Object} data - Dane do wysłania
+   */
+  sendToSocket(socketId, event, data) {
+    if (!this.io) return;
+
+    const socket = this.io.sockets.sockets.get(socketId);
+    if (socket && socket.connected) {
+      socket.emit(event, data);
+    }
+  }
+
+  /**
+   * Rozłącza wszystkich użytkowników (np. podczas zamykania serwera)
+   */
+  disconnectAll() {
+    if (!this.io) return;
+
+    logger.info('Disconnecting all Socket.IO connections');
+    
+    this.io.sockets.sockets.forEach(socket => {
+      socket.emit('server_shutdown', { 
+        message: 'Serwer jest restartowany. Połączenie zostanie przywrócone automatycznie.' 
+      });
+      socket.disconnect(true);
+    });
+
+    // Wyczyść wszystkie mapy
+    this.userSockets.clear();
+    this.socketUsers.clear();
+    this.activeConversations.clear();
+    this.conversationNotificationState.clear();
+    this.userLastSeen.clear();
+
+    // Zatrzymaj heartbeat
+    this.stopHeartbeat();
+  }
+
+  /**
+   * Zamyka serwis Socket.IO
+   */
+  shutdown() {
+    logger.info('Shutting down Socket.IO service');
+    
+    this.disconnectAll();
+    
+    if (this.io) {
+      this.io.close();
+      this.io = null;
+    }
   }
 }
 

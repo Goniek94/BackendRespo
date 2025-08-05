@@ -9,12 +9,12 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import auth from '../../middleware/auth.js';
-import Ad from '../../models/ad.js';
-import User from '../../models/user.js';
-import validate from '../../middleware/validate.js';
+import Ad from '../../models/listings/ad.js';
+import User from '../../models/user/user.js';
+import validate from '../../middleware/validation/validate.js';
 import adValidationSchema from '../../validationSchemas/adValidation.js';
 import rateLimit from 'express-rate-limit';
-import errorHandler from '../../middleware/errorHandler.js';
+import errorHandler from '../../middleware/errors/errorHandler.js';
 import { notificationService } from '../../controllers/notifications/notificationController.js';
 
 const router = Router();
@@ -316,7 +316,7 @@ router.get('/:id', async (req, res, next) => {
 }, errorHandler);
 
 // PUT /ads/:id - Aktualizacja ogłoszenia
-router.put('/:id', auth, upload.array('images', 10), async (req, res, next) => {
+router.put('/:id', auth, validate(adValidationSchema), upload.array('images', 10), async (req, res, next) => {
   try {
     const ad = await Ad.findById(req.params.id);
 
@@ -354,50 +354,263 @@ router.put('/:id', auth, upload.array('images', 10), async (req, res, next) => {
     console.log('Dane otrzymane z frontendu:', JSON.stringify(req.body, null, 2));
     console.log('Dozwolone pola do aktualizacji:', updatableFields);
 
-    // Aktualizuj tylko dozwolone pola
+    // Loguj pola przed aktualizacją
+    console.log('=== POLA PRZED AKTUALIZACJĄ ===');
     updatableFields.forEach(field => {
-      if (req.body[field] !== undefined) {
+      if (req.body.hasOwnProperty(field)) {
+        console.log(`${field}: "${ad[field]}" (obecne w request)`);
+      }
+    });
+
+    // Aktualizuj tylko dozwolone pola - używaj hasOwnProperty i sprawdzaj undefined
+    updatableFields.forEach(field => {
+      if (req.body.hasOwnProperty(field) && req.body[field] !== undefined && req.body[field] !== null) {
         const oldValue = ad[field];
         const newValue = req.body[field];
         console.log(`Aktualizuję pole ${field}: "${oldValue}" -> "${newValue}"`);
         ad[field] = newValue;
+      } else if (req.body.hasOwnProperty(field)) {
+        console.log(`Pomijam pole ${field} - wartość undefined/null:`, req.body[field]);
       }
     });
 
-    // Specjalna obsługa dla mainImageIndex - konwertuj na mainImage
-    if (req.body.mainImageIndex !== undefined && ad.images && ad.images.length > 0) {
+    // === OBSŁUGA OPERACJI NA ZDJĘCIACH ===
+    console.log('=== OPERACJE NA ZDJĘCIACH ===');
+    
+    // 1. Obsługa nowych zdjęć z plików (upload)
+    if (req.files && req.files.length > 0) {
+      console.log(`Dodawanie ${req.files.length} nowych zdjęć z uploadu`);
+      const newImageUrls = req.files.map(file => file.path || file.filename);
+      ad.images = [...(ad.images || []), ...newImageUrls];
+      console.log('Zaktualizowana tablica zdjęć po dodaniu nowych:', ad.images);
+    }
+    
+    // 2. Obsługa nadpisania całej tablicy zdjęć (np. nowa tablica URL-i)
+    if (req.body.hasOwnProperty('images') && Array.isArray(req.body.images)) {
+      console.log('Nadpisywanie całej tablicy zdjęć:', req.body.images);
+      ad.images = req.body.images.filter(url => url && url.trim() !== ''); // Filtruj puste URL-e
+      console.log('Nowa tablica zdjęć po filtrowaniu:', ad.images);
+    }
+    
+    // 3. Obsługa usuwania zdjęć (jeśli przesłano listę do usunięcia)
+    if (req.body.hasOwnProperty('removeImages') && Array.isArray(req.body.removeImages)) {
+      console.log('Usuwanie zdjęć:', req.body.removeImages);
+      ad.images = ad.images.filter(imageUrl => !req.body.removeImages.includes(imageUrl));
+      console.log('Tablica zdjęć po usunięciu:', ad.images);
+    }
+    
+    // 4. Walidacja - ogłoszenie musi mieć przynajmniej jedno zdjęcie
+    if (!ad.images || ad.images.length === 0) {
+      return res.status(400).json({ 
+        message: 'Ogłoszenie musi zawierać przynajmniej jedno zdjęcie.' 
+      });
+    }
+    
+    // 5. Obsługa głównego zdjęcia
+    if (req.body.hasOwnProperty('mainImageIndex') && ad.images && ad.images.length > 0) {
       const index = parseInt(req.body.mainImageIndex);
       if (index >= 0 && index < ad.images.length) {
         ad.mainImage = ad.images[index];
         console.log(`Ustawiono główne zdjęcie na indeks ${index}: ${ad.mainImage}`);
+      } else {
+        console.log(`Nieprawidłowy indeks głównego zdjęcia: ${index}, używam pierwszego zdjęcia`);
+        ad.mainImage = ad.images[0];
       }
-    }
-
-    // Jeśli dodano nowe zdjęcia, zaktualizuj tablicę images
-    if (req.files && req.files.length > 0) {
-      console.log(`Dodawanie ${req.files.length} nowych zdjęć`);
-      const newImageUrls = req.files.map(file => file.path || file.filename);
-      ad.images = [...ad.images, ...newImageUrls];
-      console.log('Zaktualizowana tablica zdjęć:', ad.images);
+    } else if (req.body.hasOwnProperty('mainImage') && ad.images.includes(req.body.mainImage)) {
+      ad.mainImage = req.body.mainImage;
+      console.log(`Ustawiono główne zdjęcie bezpośrednio: ${ad.mainImage}`);
+    } else if (!ad.mainImage || !ad.images.includes(ad.mainImage)) {
+      // Jeśli główne zdjęcie nie istnieje lub nie ma go w tablicy, ustaw pierwsze
+      ad.mainImage = ad.images[0];
+      console.log(`Automatycznie ustawiono pierwsze zdjęcie jako główne: ${ad.mainImage}`);
     }
 
     // Automatyczne generowanie shortDescription z headline lub description
-    if (req.body.description || req.body.headline) {
+    if (req.body.hasOwnProperty('description') || req.body.hasOwnProperty('headline')) {
       const sourceText = req.body.headline || ad.headline || req.body.description || ad.description;
       ad.shortDescription = sourceText ? sourceText.substring(0, 120) : '';
       console.log('Wygenerowano shortDescription:', ad.shortDescription);
     }
 
-    // Zapisz zmiany
-    await ad.save();
+    // === ZAPIS ZMIAN Z OBSŁUGĄ BŁĘDÓW ===
+    console.log('=== PRZED ZAPISEM ===');
+    console.log('Zmodyfikowane pola:', ad.modifiedPaths());
+    console.log('Główne zdjęcie:', ad.mainImage);
+    console.log('Liczba zdjęć:', ad.images ? ad.images.length : 0);
 
-    console.log('Ogłoszenie zaktualizowane pomyślnie');
-    res.status(200).json({ message: 'Ogłoszenie zaktualizowane', ad });
+    try {
+      const savedAd = await ad.save();
+      console.log('=== PO ZAPISIE ===');
+      console.log('Ogłoszenie zaktualizowane pomyślnie, ID:', savedAd._id);
+      
+      res.status(200).json({ 
+        message: 'Ogłoszenie zaktualizowane pomyślnie', 
+        ad: savedAd,
+        modifiedFields: ad.modifiedPaths()
+      });
+    } catch (saveError) {
+      console.error('=== BŁĄD ZAPISU ===');
+      console.error('Błąd podczas zapisu w bazie danych:', saveError);
+      
+      if (saveError.name === 'ValidationError') {
+        console.error('Błędy walidacji Mongoose:', saveError.errors);
+        const validationErrors = Object.keys(saveError.errors).map(key => ({
+          field: key,
+          message: saveError.errors[key].message,
+          value: saveError.errors[key].value
+        }));
+        
+        return res.status(400).json({ 
+          message: 'Błąd walidacji danych', 
+          errors: validationErrors,
+          details: saveError.message
+        });
+      } else if (saveError.name === 'CastError') {
+        console.error('Błąd rzutowania typu:', saveError);
+        return res.status(400).json({ 
+          message: 'Nieprawidłowy format danych', 
+          field: saveError.path,
+          value: saveError.value,
+          details: saveError.message
+        });
+      } else {
+        console.error('Nieznany błąd zapisu:', saveError);
+        return res.status(500).json({ 
+          message: 'Błąd serwera podczas zapisu', 
+          details: process.env.NODE_ENV === 'development' ? saveError.message : 'Wewnętrzny błąd serwera'
+        });
+      }
+    }
   } catch (err) {
     console.error('Błąd podczas aktualizacji ogłoszenia:', err);
     next(err);
   }
 }, errorHandler);
+
+// ALTERNATYWNA IMPLEMENTACJA Z findByIdAndUpdate (OPCJONALNA)
+// Można użyć tej implementacji zamiast powyższej dla lepszej wydajności
+/*
+router.put('/:id-alternative', auth, validate(adValidationSchema), async (req, res, next) => {
+  try {
+    console.log('=== ALTERNATYWNA AKTUALIZACJA OGŁOSZENIA (findByIdAndUpdate) ===');
+    console.log('ID ogłoszenia:', req.params.id);
+    console.log('Użytkownik:', req.user.userId);
+    console.log('Dane otrzymane z frontendu:', JSON.stringify(req.body, null, 2));
+
+    // Sprawdź czy ogłoszenie istnieje i czy użytkownik ma uprawnienia
+    const existingAd = await Ad.findById(req.params.id);
+    if (!existingAd) {
+      return res.status(404).json({ message: 'Ogłoszenie nie znalezione' });
+    }
+
+    if (existingAd.owner.toString() !== req.user.userId.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Brak uprawnień do edycji tego ogłoszenia' });
+    }
+
+    // Przygotuj dane do aktualizacji
+    const updateData = {};
+    const updatableFields = [
+      'description', 'price', 'city', 'voivodeship', 'color',
+      'headline', 'mainImage', 'images', 'mileage', 'negotiable',
+      'condition', 'accidentStatus', 'damageStatus', 'tuning', 
+      'imported', 'registeredInPL', 'firstOwner', 'disabledAdapted',
+      'bodyType', 'paintFinish', 'seats', 'lastOfficialMileage', 'power', 'engineSize', 
+      'drive', 'doors', 'weight', 'rentalPrice', 'countryOfOrigin', 'purchaseOptions',
+      ...(req.user.role === 'admin' ? ['vin', 'registrationNumber'] : [])
+    ];
+
+    // Filtruj i przygotuj dane do aktualizacji
+    updatableFields.forEach(field => {
+      if (req.body.hasOwnProperty(field) && req.body[field] !== undefined && req.body[field] !== null) {
+        updateData[field] = req.body[field];
+        console.log(`Przygotowuję aktualizację pola ${field}:`, req.body[field]);
+      }
+    });
+
+    // Obsługa zdjęć
+    if (req.body.hasOwnProperty('images') && Array.isArray(req.body.images)) {
+      updateData.images = req.body.images.filter(url => url && url.trim() !== '');
+      
+      // Walidacja - musi być przynajmniej jedno zdjęcie
+      if (updateData.images.length === 0) {
+        return res.status(400).json({ 
+          message: 'Ogłoszenie musi zawierać przynajmniej jedno zdjęcie.' 
+        });
+      }
+
+      // Ustaw główne zdjęcie
+      if (req.body.hasOwnProperty('mainImageIndex')) {
+        const index = parseInt(req.body.mainImageIndex);
+        if (index >= 0 && index < updateData.images.length) {
+          updateData.mainImage = updateData.images[index];
+        } else {
+          updateData.mainImage = updateData.images[0];
+        }
+      } else if (!req.body.hasOwnProperty('mainImage') || !updateData.images.includes(req.body.mainImage)) {
+        updateData.mainImage = updateData.images[0];
+      }
+    }
+
+    // Automatyczne generowanie shortDescription
+    if (updateData.headline || updateData.description) {
+      const sourceText = updateData.headline || existingAd.headline || updateData.description || existingAd.description;
+      updateData.shortDescription = sourceText ? sourceText.substring(0, 120) : '';
+    }
+
+    console.log('=== DANE DO AKTUALIZACJI ===');
+    console.log('Aktualizowane pola:', Object.keys(updateData));
+    console.log('Dane:', updateData);
+
+    try {
+      const updatedAd = await Ad.findByIdAndUpdate(
+        req.params.id,
+        { $set: updateData },
+        { 
+          new: true, 
+          runValidators: true,
+          context: 'query'
+        }
+      );
+
+      console.log('=== AKTUALIZACJA ZAKOŃCZONA POMYŚLNIE ===');
+      console.log('Zaktualizowane ogłoszenie ID:', updatedAd._id);
+
+      res.status(200).json({ 
+        message: 'Ogłoszenie zaktualizowane pomyślnie (findByIdAndUpdate)', 
+        ad: updatedAd,
+        updatedFields: Object.keys(updateData)
+      });
+
+    } catch (updateError) {
+      console.error('=== BŁĄD AKTUALIZACJI ===');
+      console.error('Błąd findByIdAndUpdate:', updateError);
+      
+      if (updateError.name === 'ValidationError') {
+        const validationErrors = Object.keys(updateError.errors).map(key => ({
+          field: key,
+          message: updateError.errors[key].message,
+          value: updateError.errors[key].value
+        }));
+        
+        return res.status(400).json({ 
+          message: 'Błąd walidacji danych', 
+          errors: validationErrors,
+          details: updateError.message
+        });
+      } else {
+        return res.status(500).json({ 
+          message: 'Błąd serwera podczas aktualizacji', 
+          details: process.env.NODE_ENV === 'development' ? updateError.message : 'Wewnętrzny błąd serwera'
+        });
+      }
+    }
+
+  } catch (err) {
+    console.error('Błąd podczas alternatywnej aktualizacji ogłoszenia:', err);
+    next(err);
+  }
+}, errorHandler);
+*/
 
 // PUT /ads/:id/status - Zmiana statusu ogłoszenia
 router.put('/:id/status', auth, async (req, res, next) => {

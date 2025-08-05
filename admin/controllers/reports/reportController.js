@@ -4,11 +4,11 @@
  * Controller for managing reports by administrator
  */
 
-import Report from '../../models/report.js';
-import User from '../../models/user.js';
-import Ad from '../../models/ad.js';
-import Comment from '../../models/comment.js';
-import Notification from '../../models/notification.js';
+import Report from '../../models/admin/report.js';
+import User from '../../../models/user/user.js';
+import Ad from '../../../models/listings/ad.js';
+import Comment from '../../../models/listings/comment.js';
+import Notification from '../../../models/communication/notification.js';
 
 /**
  * Pobiera listę zgłoszeń z możliwością filtrowania i paginacji
@@ -71,11 +71,11 @@ export const getReports = async (req, res) => {
       
       // Pobierz informacje o zgłoszonym elemencie w zależności od typu / Get info about reported item based on type
       if (report.reportType === 'ad') {
-        const ad = await Ad.findById(report.reportedItem).select('title user');
+        const ad = await Ad.findById(report.reportedItem).select('headline owner');
         if (ad) {
           reportObj.reportedItemDetails = {
-            title: ad.title,
-            userId: ad.user
+            title: ad.headline,
+            userId: ad.owner
           };
         }
       } else if (report.reportType === 'user') {
@@ -120,7 +120,7 @@ export const getReports = async (req, res) => {
  * Pobiera szczegóły pojedynczego zgłoszenia
  * Retrieves details of a single report
  */
-export const getReportDetails = async (req, res) => {
+export const getReportById = async (req, res) => {
   try {
     const { reportId } = req.params;
     
@@ -137,14 +137,14 @@ export const getReportDetails = async (req, res) => {
     
     if (report.reportType === 'ad') {
       const ad = await Ad.findById(report.reportedItem)
-        .populate('user', 'email name lastName');
+        .populate('owner', 'email name lastName');
       
       if (ad) {
         reportObj.reportedItemDetails = {
-          title: ad.title,
+          title: ad.headline,
           description: ad.description,
           price: ad.price,
-          user: ad.user
+          user: ad.owner
         };
       }
     } else if (report.reportType === 'user') {
@@ -249,6 +249,52 @@ export const deleteReport = async (req, res) => {
 };
 
 /**
+ * Rozwiązuje zgłoszenie
+ * Resolves a report
+ */
+export const resolveReport = async (req, res) => {
+  try {
+    const { reportId } = req.params;
+    const { action, notes } = req.body;
+    
+    // Sprawdź czy zgłoszenie istnieje / Check if report exists
+    const report = await Report.findById(reportId);
+    if (!report) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Zgłoszenie nie zostało znalezione.' 
+      });
+    }
+    
+    // Aktualizuj status zgłoszenia / Update report status
+    report.status = 'resolved';
+    report.resolvedAt = new Date();
+    report.resolvedBy = req.user.userId;
+    report.adminNote = notes || '';
+    report.actionTaken = action || 'none';
+    
+    await report.save();
+    
+    // Wykonaj działanie jeśli zostało określone / Execute action if specified
+    if (action && action !== 'none') {
+      await executeAction(report, action, req.user.userId);
+    }
+    
+    return res.status(200).json({ 
+      success: true,
+      message: 'Zgłoszenie zostało rozwiązane.',
+      data: report
+    });
+  } catch (error) {
+    console.error('Błąd podczas rozwiązywania zgłoszenia:', error);
+    return res.status(500).json({ 
+      success: false,
+      message: 'Błąd serwera podczas rozwiązywania zgłoszenia.' 
+    });
+  }
+};
+
+/**
  * Przypisuje zgłoszenie do administratora
  * Assigns a report to an administrator
  */
@@ -303,7 +349,7 @@ const executeAction = async (report, actionTaken, adminId) => {
       itemId = report.reportedItem;
       
       const ad = await Ad.findById(itemId);
-      if (ad) userId = ad.user;
+      if (ad) userId = ad.owner;
     } else if (report.reportType === 'comment') {
       Model = Comment;
       itemId = report.reportedItem;

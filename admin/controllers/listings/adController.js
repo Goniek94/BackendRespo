@@ -4,9 +4,212 @@
  * Controller for managing ads by administrator
  */
 
-import Ad from '../../../models/ad.js';
-import User from '../../../models/user.js';
-import Notification from '../../../models/notification.js';
+import Ad from '../../../models/listings/ad.js';
+import User from '../../../models/user/user.js';
+import Notification from '../../../models/communication/notification.js';
+
+/**
+ * Pobiera statystyki ogłoszeń
+ * Retrieves listings statistics
+ */
+export const getListingsStats = async (req, res) => {
+  try {
+    // Pobierz statystyki z bazy danych
+    const totalCount = await Ad.countDocuments();
+    const pendingCount = await Ad.countDocuments({ status: 'pending' });
+    const activeCount = await Ad.countDocuments({ status: 'active' });
+    const rejectedCount = await Ad.countDocuments({ status: 'rejected' });
+    
+    // Zakończone ogłoszenia (sold + archived)
+    const completedCount = await Ad.countDocuments({ 
+      status: { $in: ['sold', 'archived'] } 
+    });
+    
+    // Ukryte ogłoszenia (needs_changes + inne statusy)
+    const hiddenCount = await Ad.countDocuments({ 
+      status: { $in: ['needs_changes', 'opublikowane'] } 
+    });
+    
+    // Oblicz statystyki z poprzedniego miesiąca dla porównania
+    const lastMonth = new Date();
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    
+    const totalLastMonth = await Ad.countDocuments({ 
+      createdAt: { $lt: lastMonth } 
+    });
+    const pendingLastMonth = await Ad.countDocuments({ 
+      status: 'pending',
+      createdAt: { $lt: lastMonth } 
+    });
+    const activeLastMonth = await Ad.countDocuments({ 
+      status: 'active',
+      createdAt: { $lt: lastMonth } 
+    });
+    const rejectedLastMonth = await Ad.countDocuments({ 
+      status: 'rejected',
+      createdAt: { $lt: lastMonth } 
+    });
+    const completedLastMonth = await Ad.countDocuments({ 
+      status: { $in: ['sold', 'archived'] },
+      createdAt: { $lt: lastMonth } 
+    });
+    
+    // Oblicz zmiany procentowe
+    const calculateChange = (current, previous) => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return Math.round(((current - previous) / previous) * 100);
+    };
+    
+    const stats = {
+      total: totalCount,
+      pending: pendingCount,
+      approved: activeCount, // Aktywne ogłoszenia
+      rejected: rejectedCount,
+      completed: completedCount, // Zakończone (sold + archived)
+      hidden: hiddenCount, // Ukryte
+      totalChange: calculateChange(totalCount, totalLastMonth),
+      pendingChange: calculateChange(pendingCount, pendingLastMonth),
+      approvedChange: calculateChange(activeCount, activeLastMonth),
+      rejectedChange: calculateChange(rejectedCount, rejectedLastMonth),
+      completedChange: calculateChange(completedCount, completedLastMonth)
+    };
+    
+    return res.status(200).json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    console.error('Błąd podczas pobierania statystyk ogłoszeń:', error);
+    return res.status(500).json({ message: 'Błąd serwera podczas pobierania statystyk ogłoszeń.' });
+  }
+};
+
+/**
+ * Tworzy nowe ogłoszenie przez administratora
+ * Creates a new ad by administrator
+ */
+export const createAd = async (req, res) => {
+  try {
+    // Pobierz wszystkie możliwe pola z request body
+    const adData = req.body;
+    
+    // Mapowanie pól - obsługa różnych nazw pól
+    const title = adData.title || adData.headline;
+    const headline = adData.headline || adData.title;
+    
+    // Walidacja wymaganych pól
+    if (!headline || !adData.description || !adData.price) {
+      return res.status(400).json({ 
+        message: 'Tytuł, opis i cena są wymagane.' 
+      });
+    }
+
+    // Tworzenie nowego ogłoszenia z wszystkimi dostępnymi polami
+    const newAd = new Ad({
+      // Podstawowe informacje
+      headline: headline,
+      description: adData.description,
+      shortDescription: adData.shortDescription,
+      price: parseFloat(adData.price),
+      brand: adData.brand,
+      model: adData.model,
+      generation: adData.generation,
+      version: adData.version,
+      year: adData.year ? parseInt(adData.year) : undefined,
+      mileage: adData.mileage ? parseInt(adData.mileage) : undefined,
+      fuelType: adData.fuelType,
+      transmission: adData.transmission,
+      
+      // Identyfikatory pojazdu
+      vin: adData.vin,
+      registrationNumber: adData.registrationNumber,
+      
+      // Zdjęcia
+      images: adData.images || [],
+      mainImage: adData.mainImage,
+      
+      // Opcje ogłoszenia
+      purchaseOptions: adData.purchaseOptions,
+      negotiable: adData.negotiable,
+      listingType: adData.listingType || 'standardowe',
+      status: adData.status || 'active',
+      
+      // Dane techniczne
+      condition: adData.condition,
+      accidentStatus: adData.accidentStatus,
+      damageStatus: adData.damageStatus,
+      tuning: adData.tuning,
+      imported: adData.imported,
+      registeredInPL: adData.registeredInPL,
+      firstOwner: adData.firstOwner,
+      disabledAdapted: adData.disabledAdapted,
+      
+      bodyType: adData.bodyType,
+      color: adData.color,
+      paintFinish: adData.paintFinish,
+      seats: adData.seats,
+      lastOfficialMileage: adData.lastOfficialMileage ? parseInt(adData.lastOfficialMileage) : undefined,
+      power: adData.power ? parseInt(adData.power) : undefined,
+      engineSize: adData.engineSize ? parseFloat(adData.engineSize) : undefined,
+      drive: adData.drive,
+      doors: adData.doors,
+      weight: adData.weight ? parseInt(adData.weight) : undefined,
+      
+      // Lokalizacja
+      voivodeship: adData.voivodeship,
+      city: adData.city,
+      countryOfOrigin: adData.countryOfOrigin,
+      
+      // Najem
+      rentalPrice: adData.rentalPrice ? parseFloat(adData.rentalPrice) : undefined,
+      
+      // Informacje o właścicielu
+      owner: req.user.userId,
+      ownerName: adData.ownerName,
+      ownerLastName: adData.ownerLastName,
+      ownerEmail: adData.ownerEmail,
+      ownerPhone: adData.ownerPhone,
+      sellerType: adData.sellerType || 'Prywatny',
+      
+      // Metadane
+      ownerRole: 'admin',
+      featured: adData.featured || false,
+      discount: adData.discount ? parseFloat(adData.discount) : undefined,
+      discountedPrice: adData.discountedPrice ? parseFloat(adData.discountedPrice) : undefined,
+      moderationComment: adData.moderationComment,
+      
+      // Statystyki
+      views: adData.views || 0,
+      favorites: adData.favorites || 0,
+      contactAttempts: adData.contactAttempts || 0,
+      
+      // Daty
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    await newAd.save();
+
+    return res.status(201).json({
+      success: true,
+      message: 'Ogłoszenie zostało utworzone pomyślnie.',
+      data: {
+        id: newAd._id,
+        brand: newAd.brand,
+        model: newAd.model,
+        year: newAd.year,
+        price: newAd.price,
+        status: newAd.status
+      }
+    });
+  } catch (error) {
+    console.error('Błąd podczas tworzenia ogłoszenia:', error);
+    return res.status(500).json({ 
+      message: 'Błąd serwera podczas tworzenia ogłoszenia.',
+      error: error.message 
+    });
+  }
+};
 
 /**
  * Pobiera listę ogłoszeń z możliwością filtrowania i paginacji
@@ -40,13 +243,13 @@ export const getAds = async (req, res) => {
     
     // Filtrowanie po użytkowniku / Filter by user
     if (userId) {
-      query.user = userId;
+      query.owner = userId;
     }
     
     // Wyszukiwanie po tytule lub opisie / Search by title or description
     if (search) {
       query.$or = [
-        { title: { $regex: search, $options: 'i' } },
+        { headline: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } }
       ];
     }
@@ -60,18 +263,55 @@ export const getAds = async (req, res) => {
     
     // Pobierz ogłoszenia z paginacją / Get ads with pagination
     const ads = await Ad.find(query)
-      .populate('user', 'email name lastName')
+      .populate('owner', 'email name lastName')
       .sort(sort)
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
     
+    // Mapuj dane do formatu oczekiwanego przez frontend
+    const mappedListings = ads.map(ad => ({
+      id: ad._id.toString(),
+      title: ad.headline || `${ad.brand} ${ad.model} ${ad.year}`,
+      headline: ad.headline,
+      brand: ad.brand,
+      model: ad.model,
+      year: ad.year,
+      price: ad.price,
+      mileage: ad.mileage,
+      fuelType: ad.fuelType,
+      transmission: ad.transmission,
+      status: ad.status,
+      listingType: ad.listingType,
+      category: `${ad.brand} ${ad.model}`,
+      images: ad.images || [],
+      mainImage: ad.mainImage,
+      description: ad.description,
+      user: ad.owner ? {
+        id: ad.owner._id.toString(),
+        name: ad.owner.name,
+        lastName: ad.owner.lastName,
+        email: ad.owner.email
+      } : null,
+      created_at: ad.createdAt,
+      updated_at: ad.updatedAt,
+      negotiable: ad.negotiable,
+      purchaseOptions: ad.purchaseOptions,
+      vin: ad.vin,
+      registrationNumber: ad.registrationNumber
+    }));
+    
     return res.status(200).json({
-      ads,
-      pagination: {
-        total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        pages: Math.ceil(total / limit)
+      success: true,
+      data: {
+        listings: mappedListings,
+        total: total,
+        totalPages: Math.ceil(total / limit),
+        pagination: {
+          total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          pages: Math.ceil(total / limit)
+        }
       }
     });
   } catch (error) {
@@ -89,7 +329,7 @@ export const getAdDetails = async (req, res) => {
     const { adId } = req.params;
     
     const ad = await Ad.findById(adId)
-      .populate('user', 'email name lastName phoneNumber')
+      .populate('owner', 'email name lastName phoneNumber')
       .populate('comments');
     
     if (!ad) {
@@ -122,7 +362,7 @@ export const updateAd = async (req, res) => {
     if (status !== undefined) ad.status = status;
     if (listingType !== undefined) ad.listingType = listingType;
     if (discount !== undefined) ad.discount = discount;
-    if (title !== undefined) ad.title = title;
+    if (title !== undefined) ad.headline = title;
     if (description !== undefined) ad.description = description;
     if (price !== undefined) ad.price = price;
     
@@ -239,7 +479,7 @@ export const getPendingAds = async (req, res) => {
     
     // Pobierz oczekujące ogłoszenia z paginacją / Get pending ads with pagination
     const ads = await Ad.find(query)
-      .populate('user', 'email name lastName')
+      .populate('owner', 'email name lastName')
       .sort(sort)
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
@@ -290,10 +530,10 @@ export const approveAd = async (req, res) => {
     // Powiadom użytkownika o zatwierdzeniu ogłoszenia / Notify user about ad approval
     try {
       await Notification.create({
-        user: ad.user,
+        user: ad.owner,
         type: 'ad_approved',
         title: 'Ogłoszenie zostało zatwierdzone',
-        message: `Twoje ogłoszenie "${ad.title}" zostało zatwierdzone przez moderatora i jest teraz widoczne na stronie.`,
+        message: `Twoje ogłoszenie "${ad.headline}" zostało zatwierdzone przez moderatora i jest teraz widoczne na stronie.`,
         data: {
           adId: ad._id,
           comment: ad.moderationComment
@@ -350,10 +590,10 @@ export const rejectAd = async (req, res) => {
     // Powiadom użytkownika o odrzuceniu ogłoszenia / Notify user about ad rejection
     try {
       await Notification.create({
-        user: ad.user,
+        user: ad.owner,
         type: 'ad_rejected',
         title: 'Ogłoszenie zostało odrzucone',
-        message: `Twoje ogłoszenie "${ad.title}" zostało odrzucone przez moderatora. Powód: ${reason}`,
+        message: `Twoje ogłoszenie "${ad.headline}" zostało odrzucone przez moderatora. Powód: ${reason}`,
         data: {
           adId: ad._id,
           reason: reason,
@@ -413,20 +653,20 @@ export const moderateAd = async (req, res) => {
       if (status === 'active') {
         notificationType = 'ad_approved';
         notificationTitle = 'Ogłoszenie zostało zatwierdzone';
-        notificationMessage = `Twoje ogłoszenie "${ad.title}" zostało zatwierdzone przez moderatora i jest teraz widoczne na stronie.`;
+        notificationMessage = `Twoje ogłoszenie "${ad.headline}" zostało zatwierdzone przez moderatora i jest teraz widoczne na stronie.`;
       } else if (status === 'rejected') {
         notificationType = 'ad_rejected';
         notificationTitle = 'Ogłoszenie zostało odrzucone';
-        notificationMessage = `Twoje ogłoszenie "${ad.title}" zostało odrzucone przez moderatora.`;
+        notificationMessage = `Twoje ogłoszenie "${ad.headline}" zostało odrzucone przez moderatora.`;
       } else if (status === 'needs_changes') {
         notificationType = 'ad_needs_changes';
         notificationTitle = 'Ogłoszenie wymaga zmian';
-        notificationMessage = `Twoje ogłoszenie "${ad.title}" wymaga zmian przed zatwierdzeniem.`;
+        notificationMessage = `Twoje ogłoszenie "${ad.headline}" wymaga zmian przed zatwierdzeniem.`;
       }
       
       if (notificationType) {
         await Notification.create({
-          user: ad.user,
+          user: ad.owner,
           type: notificationType,
           title: notificationTitle,
           message: notificationMessage,

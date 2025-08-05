@@ -1,4 +1,65 @@
-# Optymalizacja Marketplace
+# Marketplace Backend
+
+Backend aplikacji Marketplace - nowoczesna platforma do sprzedaży pojazdów.
+
+## 🚀 Instalacja i uruchomienie
+
+### Wymagania systemowe
+- Node.js 18+ 
+- MongoDB 5.0+
+- npm lub yarn
+
+### Krok po kroku
+
+1. **Sklonuj repozytorium**
+   ```bash
+   git clone https://github.com/Goniek94/BackendRespo.git
+   cd Marketplace-Backend
+   ```
+
+2. **Zainstaluj zależności**
+   ```bash
+   npm install
+   ```
+
+3. **Skonfiguruj zmienne środowiskowe**
+   ```bash
+   # Skopiuj plik przykładowy
+   cp .env.example .env
+   
+   # Edytuj plik .env i wypełnij wymagane wartości:
+   # - MONGODB_URI (połączenie z bazą danych)
+   # - JWT_SECRET (sekret dla tokenów JWT)
+   # - FRONTEND_URL (adres frontendu dla CORS)
+   ```
+
+4. **Uruchom aplikację**
+   ```bash
+   # Tryb development
+   npm run dev
+   
+   # Tryb production
+   npm start
+   ```
+
+5. **Sprawdź czy działa**
+   - Otwórz http://localhost:5000
+   - Powinieneś zobaczyć: `{"status":"online","message":"Backend Marketplace działa prawidłowo"}`
+
+### Dodatkowe komendy
+
+```bash
+# Generowanie bezpiecznych sekretów
+node scripts/generate-secrets.js
+
+# Testy
+npm test
+
+# Sprawdzenie stanu bazy danych
+node scripts/check-database-content.js
+```
+
+## 📋 Optymalizacje i zmiany
 
 Ten dokument zawiera informacje o wprowadzonych optymalizacjach i zmianach w projekcie Marketplace.
 

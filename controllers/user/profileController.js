@@ -1,5 +1,8 @@
 import { validationResult } from 'express-validator';
-import User from '../../models/user.js';
+import User from '../../models/user/user.js';
+import Ad from '../../models/listings/ad.js';
+import Message from '../../models/communication/message.js';
+import Notification from '../../models/communication/notification.js';
 
 /**
  * Get user profile
@@ -15,18 +18,49 @@ export const getUserProfile = async (req, res) => {
       });
     }
 
-    // Return user profile data
+    // Get fresh user data from database
+    const dbUser = await User.findById(user.userId).select('-password');
+    
+    if (!dbUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'Użytkownik nie został znaleziony'
+      });
+    }
+
+    // Check if account is still active
+    if (dbUser.status === 'suspended' || dbUser.status === 'banned') {
+      return res.status(403).json({
+        success: false,
+        message: 'Konto zostało zawieszone'
+      });
+    }
+
+    // Return complete user profile data
     const profileData = {
-      id: user._id,
-      name: user.name,
-      lastName: user.lastName,
-      email: user.email,
-      phoneNumber: user.phoneNumber,
-      role: user.role,
-      isVerified: user.isVerified,
-      createdAt: user.createdAt,
-      lastLogin: user.lastLogin,
-      dob: user.dob
+      id: dbUser._id,
+      name: dbUser.name,
+      lastName: dbUser.lastName,
+      email: dbUser.email,
+      phoneNumber: dbUser.phoneNumber,
+      dob: dbUser.dob,
+      role: dbUser.role,
+      status: dbUser.status,
+      isVerified: dbUser.isVerified,
+      isEmailVerified: dbUser.isEmailVerified,
+      isPhoneVerified: dbUser.isPhoneVerified,
+      createdAt: dbUser.createdAt,
+      lastLogin: dbUser.lastLogin,
+      registrationStep: dbUser.registrationStep,
+      // Address fields
+      street: dbUser.street,
+      city: dbUser.city,
+      postalCode: dbUser.postalCode,
+      country: dbUser.country,
+      // Preferences
+      notificationPreferences: dbUser.notificationPreferences,
+      privacySettings: dbUser.privacySettings,
+      securitySettings: dbUser.securitySettings
     };
 
     res.status(200).json({
@@ -44,6 +78,7 @@ export const getUserProfile = async (req, res) => {
   }
 };
 
+
 /**
  * Update user profile
  */
@@ -58,7 +93,7 @@ export const updateUserProfile = async (req, res) => {
       });
     }
 
-    const userId = req.user._id;
+    const userId = req.user.userId;
     const { name, lastName, phoneNumber, dob } = req.body;
 
     // Update user profile
@@ -108,6 +143,50 @@ export const updateUserProfile = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Błąd serwera podczas aktualizacji profilu'
+    });
+  }
+};
+
+/**
+ * Get recently viewed ads for user
+ */
+export const getRecentlyViewed = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    // Get user's recently viewed ads (last 10)
+    const recentlyViewedAds = await Ad.find({
+      owner: userId
+    })
+    .sort({ updatedAt: -1 })
+    .limit(10)
+    .select('id title brand model price status images mainImage mainImageIndex createdAt updatedAt');
+
+    const recentlyViewedData = {
+      success: true,
+      recentlyViewed: recentlyViewedAds.map(ad => ({
+        id: ad._id,
+        title: ad.title,
+        brand: ad.brand,
+        model: ad.model,
+        price: ad.price,
+        status: ad.status,
+        images: ad.images,
+        mainImage: ad.mainImage,
+        mainImageIndex: ad.mainImageIndex,
+        createdAt: ad.createdAt,
+        updatedAt: ad.updatedAt
+      }))
+    };
+
+    res.status(200).json(recentlyViewedData);
+
+  } catch (error) {
+    console.error('❌ Get recently viewed error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Błąd serwera podczas pobierania ostatnio oglądanych ogłoszeń',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };

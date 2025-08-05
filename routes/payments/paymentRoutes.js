@@ -2,9 +2,9 @@
 import express from 'express';
 import { Router } from 'express';
 import auth from '../../middleware/auth.js';
-import Payment from '../../models/payment.js';
-import Ad from '../../models/ad.js';
-import errorHandler from '../../middleware/errorHandler.js';
+import Payment from '../../models/payments/payment.js';
+import Ad from '../../models/listings/ad.js';
+import errorHandler from '../../middleware/errors/errorHandler.js';
 
 const router = Router();
 

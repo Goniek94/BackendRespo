@@ -1,5 +1,5 @@
-import Message from '../../models/message.js';
-import User from '../../models/user.js';
+import Message from '../../models/communication/message.js';
+import User from '../../models/user/user.js';
 import mongoose from 'mongoose';
 
 // Cache dla liczby nieprzeczytanych wiadomości

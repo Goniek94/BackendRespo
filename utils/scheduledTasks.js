@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { exec } from 'child_process';
-import Ad from '../models/ad.js';
+import Ad from '../models/listings/ad.js';
 import notificationService from '../controllers/notifications/notificationController.js';
 
 const __filename = fileURLToPath(import.meta.url);

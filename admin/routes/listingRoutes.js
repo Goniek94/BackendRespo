@@ -1,7 +1,9 @@
 import express from 'express';
 import {
   getAds,
+  getListingsStats,
   getAdDetails,
+  createAd,
   updateAd,
   deleteAd,
   setBulkDiscount,
@@ -10,27 +12,26 @@ import {
   rejectAd,
   moderateAd
 } from '../controllers/listings/adController.js';
-import { requireAdminAuth } from '../middleware/adminAuth.js';
 
 const router = express.Router();
 
 /**
  * Listing Management Routes
  * Endpoints for admin listing management
- * All routes protected by adminAuth middleware
+ * Authentication is handled by parent router
  */
 
-// Apply admin authentication to all routes
-router.use(requireAdminAuth);
+// GET /admin/listings/stats - Get listings statistics (must be before /:adId)
+router.get('/stats', getListingsStats);
+
+// GET /admin/listings/pending - Get pending listings for moderation (must be before /:adId)
+router.get('/pending', getPendingAds);
 
 // GET /admin/listings - Get all listings with filtering
 router.get('/', getAds);
 
-// GET /admin/listings/stats - Get listings statistics
-router.get('/stats', getAds); // Using same controller for now, can be specialized later
-
-// GET /admin/listings/pending - Get pending listings for moderation
-router.get('/pending', getPendingAds);
+// POST /admin/listings - Create new listing
+router.post('/', createAd);
 
 // GET /admin/listings/:adId - Get single listing details
 router.get('/:adId', getAdDetails);

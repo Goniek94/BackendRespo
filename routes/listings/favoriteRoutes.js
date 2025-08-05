@@ -1,10 +1,10 @@
 import express from 'express';
 import { Router } from 'express';
 import auth from '../../middleware/auth.js';
-import User from '../../models/user.js';
-import Ad from '../../models/ad.js';
+import User from '../../models/user/user.js';
+import Ad from '../../models/listings/ad.js';
 import mongoose from 'mongoose';
-import { notificationService } from '../../controllers/notifications/notificationController.js';
+import NotificationService from '../../services/notificationService.js';
 
 const router = Router();
 
@@ -21,7 +21,12 @@ router.get('/', auth, async (req, res) => {
     }
     
     console.log('Znaleziono ulubione:', user.favorites);
-    res.status(200).json({ favorites: user.favorites });
+    res.status(200).json({ 
+      success: true,
+      data: {
+        favorites: user.favorites 
+      }
+    });
   } catch (error) {
     console.error('Błąd podczas pobierania ulubionych:', error);
     res.status(500).json({ message: 'Wystąpił błąd serwera' });
@@ -103,16 +108,16 @@ router.post('/add/:id', auth, async (req, res) => {
         const adTitle = ad.headline || `${ad.brand} ${ad.model}`;
         console.log('Tworzenie powiadomienia dla właściciela:', ad.owner, 'tytuł:', adTitle);
         
-        // Używamy try/catch wewnątrz, aby złapać błędy z notificationService
+        // Używamy try/catch wewnątrz, aby złapać błędy z NotificationService
         try {
-          const notification = await notificationService.notifyAdAddedToFavorites(ad.owner, adTitle);
+          const notification = await NotificationService.createListingLikedNotification(ad.owner, ad, req.user.userId);
           if (notification) {
             console.log(`Utworzono powiadomienie o dodaniu do ulubionych dla użytkownika ${ad.owner}, ID powiadomienia: ${notification._id}`);
           } else {
             console.log(`Nie utworzono powiadomienia dla użytkownika ${ad.owner} (zwrócono null)`);
           }
         } catch (innerNotificationError) {
-          console.error('Błąd wewnątrz notifyAdAddedToFavorites:', innerNotificationError);
+          console.error('Błąd wewnątrz createListingLikedNotification:', innerNotificationError);
         }
       } else {
         console.log('Pomijanie powiadomienia - użytkownik dodaje własne ogłoszenie do ulubionych');
@@ -132,7 +137,14 @@ router.post('/add/:id', auth, async (req, res) => {
       // Nie przerywamy głównego procesu w przypadku błędu aktualizacji licznika
     }
     
-    res.status(200).json({ message: 'Ogłoszenie dodane do ulubionych' });
+    res.status(200).json({ 
+      success: true,
+      message: 'Ogłoszenie dodane do ulubionych',
+      data: {
+        adId,
+        action: 'added'
+      }
+    });
   } catch (error) {
     console.error('Błąd podczas dodawania do ulubionych:', error);
     res.status(500).json({ message: 'Wystąpił błąd serwera', error: error.message });
@@ -191,7 +203,14 @@ router.delete('/remove/:id', auth, async (req, res) => {
       // Nie przerywamy głównego procesu w przypadku błędu aktualizacji licznika
     }
     
-    res.status(200).json({ message: 'Ogłoszenie usunięte z ulubionych' });
+    res.status(200).json({ 
+      success: true,
+      message: 'Ogłoszenie usunięte z ulubionych',
+      data: {
+        adId,
+        action: 'removed'
+      }
+    });
   } catch (error) {
     console.error('Błąd podczas usuwania z ulubionych:', error);
     res.status(500).json({ message: 'Wystąpił błąd serwera', error: error.message });
@@ -211,7 +230,13 @@ router.get('/check/:id', auth, async (req, res) => {
     
     const isFavorite = user.favorites.includes(adId);
     
-    res.status(200).json({ isFavorite });
+    res.status(200).json({ 
+      success: true,
+      data: {
+        adId,
+        isFavorite
+      }
+    });
   } catch (error) {
     console.error('Błąd podczas sprawdzania ulubionych:', error);
     res.status(500).json({ message: 'Wystąpił błąd serwera' });

@@ -1,8 +1,9 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import auth from '../../middleware/auth.js';
+import NotificationService from '../../services/notificationService.js';
 import notificationService from '../../controllers/notifications/notificationController.js';
-import Notification from '../../models/notification.js';
+import Notification from '../../models/communication/notification.js';
 
 const router = express.Router();
 
@@ -10,6 +11,47 @@ const router = express.Router();
  * Trasy testowe do powiadomień real-time
  */
 const testRouter = express.Router();
+
+/**
+ * @route POST /api/notifications/test
+ * @desc Prosty endpoint do testowania powiadomień w czasie rzeczywistym
+ * @access Public (tylko do testów)
+ */
+testRouter.post('/', async (req, res) => {
+  try {
+    const { userId, title, message, type = 'system' } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'Brak ID użytkownika' });
+    }
+    
+    if (!message) {
+      return res.status(400).json({ error: 'Brak treści powiadomienia' });
+    }
+    
+    // Utwórz powiadomienie bezpośrednio
+    const notification = await notificationService.createNotification(
+      userId,
+      title || 'Testowe powiadomienie',
+      message,
+      type,
+      { metadata: { test: true } }
+    );
+    
+    if (!notification) {
+      return res.status(500).json({ error: 'Nie udało się utworzyć powiadomienia' });
+    }
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Powiadomienie wysłane pomyślnie',
+      notification: notification.toApiResponse ? notification.toApiResponse() : notification
+    });
+  } catch (error) {
+    console.error('Błąd podczas wysyłania powiadomienia testowego:', error);
+    return res.status(500).json({ error: error.message || 'Wystąpił błąd podczas wysyłania powiadomienia' });
+  }
+});
 
 /**
  * @route POST /api/notifications/test/send
@@ -324,7 +366,7 @@ router.get('/unread/count', auth, async (req, res) => {
     });
     
     // Dodatkowo pobierz nieprzeczytane wiadomości z modelu Message
-    const Message = (await import('../../models/message.js')).default;
+    const Message = (await import('../../models/communication/message.js')).default;
     const unreadMessages = await Message.countDocuments({
       recipient: userId,
       read: false,
@@ -431,6 +473,74 @@ router.delete('/:id', auth, async (req, res) => {
     }
     
     res.status(500).json({ message: 'Błąd serwera', error: err.message });
+  }
+});
+
+// Endpoint testowy do tworzenia powiadomień
+router.post('/test-create', auth, async (req, res) => {
+  try {
+    const { type, title, message, metadata = {} } = req.body;
+    const userId = req.user.userId;
+    
+    if (!title || !message) {
+      return res.status(400).json({
+        success: false,
+        message: 'Brak tytułu lub treści powiadomienia'
+      });
+    }
+    
+    // Utwórz powiadomienie używając notificationService
+    const notification = await notificationService.createNotification(
+      userId,
+      title,
+      message,
+      type || 'SYSTEM_NOTIFICATION',
+      { metadata }
+    );
+    
+    if (!notification) {
+      return res.status(500).json({
+        success: false,
+        message: 'Nie udało się utworzyć powiadomienia'
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Powiadomienie utworzone pomyślnie',
+      notification: {
+        id: notification._id,
+        title: notification.title,
+        message: notification.message,
+        type: notification.type,
+        metadata: notification.metadata,
+        createdAt: notification.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Error creating test notification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Błąd podczas tworzenia powiadomienia testowego'
+    });
+  }
+});
+
+// Pobierz statystyki powiadomień
+router.get('/stats', auth, async (req, res) => {
+  try {
+    const stats = await notificationService.getNotificationStats();
+    
+    res.json({
+      success: true,
+      stats
+    });
+  } catch (error) {
+    console.error('Error fetching notification stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Błąd podczas pobierania statystyk powiadomień'
+    });
   }
 });
 

@@ -1,4 +1,4 @@
-import User from '../../models/user.js';
+import User from '../../models/user/user.js';
 import AdminActivity from '../models/AdminActivity.js';
 
 /**
@@ -463,42 +463,93 @@ class UserService {
     try {
       const { timeframe = '30d' } = options;
       
-      // Calculate date range
+      // Calculate date range for change comparison
       const now = new Date();
       const daysBack = timeframe === '7d' ? 7 : timeframe === '30d' ? 30 : 90;
-      const startDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
+      const currentPeriodStart = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
+      const previousPeriodStart = new Date(currentPeriodStart.getTime() - daysBack * 24 * 60 * 60 * 1000);
 
-      // Aggregate user data
-      const analytics = await User.aggregate([
-        {
-          $facet: {
-            totalUsers: [{ $count: "count" }],
-            usersByRole: [
-              { $group: { _id: "$role", count: { $sum: 1 } } }
-            ],
-            usersByStatus: [
-              { $group: { _id: "$status", count: { $sum: 1 } } }
-            ],
-            recentUsers: [
-              { $match: { createdAt: { $gte: startDate } } },
-              { $count: "count" }
-            ],
-            verifiedUsers: [
-              { $match: { isVerified: true } },
-              { $count: "count" }
-            ]
+      // Get current period stats
+      const [currentStats, previousStats] = await Promise.all([
+        User.aggregate([
+          {
+            $facet: {
+              total: [{ $count: "count" }],
+              verified: [
+                { $match: { isVerified: true } },
+                { $count: "count" }
+              ],
+              inactive: [
+                { $match: { status: { $in: ['inactive', 'pending'] } } },
+                { $count: "count" }
+              ],
+              blocked: [
+                { $match: { status: 'blocked' } },
+                { $count: "count" }
+              ]
+            }
           }
-        }
+        ]),
+        User.aggregate([
+          {
+            $match: { createdAt: { $lt: currentPeriodStart } }
+          },
+          {
+            $facet: {
+              total: [{ $count: "count" }],
+              verified: [
+                { $match: { isVerified: true } },
+                { $count: "count" }
+              ],
+              inactive: [
+                { $match: { status: { $in: ['inactive', 'pending'] } } },
+                { $count: "count" }
+              ],
+              blocked: [
+                { $match: { status: 'blocked' } },
+                { $count: "count" }
+              ]
+            }
+          }
+        ])
       ]);
 
-      const data = analytics[0];
+      const current = currentStats[0];
+      const previous = previousStats[0];
+
+      // Calculate current values
+      const total = current.total[0]?.count || 0;
+      const verified = current.verified[0]?.count || 0;
+      const inactive = current.inactive[0]?.count || 0;
+      const blocked = current.blocked[0]?.count || 0;
+
+      // Calculate previous values for change calculation
+      const prevTotal = previous.total[0]?.count || 0;
+      const prevVerified = previous.verified[0]?.count || 0;
+      const prevInactive = previous.inactive[0]?.count || 0;
+      const prevBlocked = previous.blocked[0]?.count || 0;
+
+      // Calculate percentage changes
+      const calculateChange = (current, previous) => {
+        if (previous === 0) return current > 0 ? 100 : 0;
+        return Math.round(((current - previous) / previous) * 100);
+      };
 
       return {
-        totalUsers: data.totalUsers[0]?.count || 0,
-        recentUsers: data.recentUsers[0]?.count || 0,
-        verifiedUsers: data.verifiedUsers[0]?.count || 0,
-        usersByRole: data.usersByRole,
-        usersByStatus: data.usersByStatus,
+        total,
+        verified,
+        inactive,
+        blocked,
+        totalChange: calculateChange(total, prevTotal),
+        verifiedChange: calculateChange(verified, prevVerified),
+        inactiveChange: calculateChange(inactive, prevInactive),
+        blockedChange: calculateChange(blocked, prevBlocked),
+        // Dodatkowe dane dla kompatybilności
+        totalUsers: total,
+        verifiedUsers: verified,
+        recentUsers: total - prevTotal,
+        usersByRole: [],
+        usersByStatus: [],
         timeframe,
         generatedAt: new Date()
       };

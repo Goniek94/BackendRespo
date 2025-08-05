@@ -9,7 +9,6 @@ import commentRoutes from './listings/commentRoutes.js';
 import cepikRoutes from './external/cepikRoutes.js';
 import messagesRoutes from './communication/messagesRoutes.js';
 import favoriteRoutes from './listings/favoriteRoutes.js';
-import adminRoutes from './admin/adminRoutes.js';
 import statsRoutes from './listings/statsRoutes.js';
 import imageRoutes from './media/imageRoutes.js';
 import carBrandsRoutes from './listings/carBrandsRoutes.js';
@@ -22,7 +21,6 @@ import * as mediaRoutesModule from './media/index.js';
 import * as communicationRoutesModule from './communication/index.js';
 import * as notificationsRoutesModule from './notifications/index.js';
 import * as paymentsRoutesModule from './payments/index.js';
-import * as adminRoutesModule from './admin/index.js';
 import * as externalRoutesModule from './external/index.js';
 
 // New Enterprise Admin Panel

@@ -7,14 +7,16 @@ import mongoose from 'mongoose';
 import path from 'path';
 import helmet from 'helmet';
 import cors from 'cors';
+import compression from 'compression';
 import { apiLimiter } from './middleware/rateLimiting.js';
+import headerSizeMonitor from './middleware/headerSizeMonitor.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import fs from 'fs';
 import cookieParser from 'cookie-parser';
 import http from 'http';
 import socketService from './services/socketService.js';
-import imageProcessor from './middleware/imageProcessor.js';
+import imageProcessor from './middleware/processing/imageProcessor.js';
 
 // ✅ NOWA KONFIGURACJA - Import centralnej konfiguracji
 import config from './config/index.js';
@@ -23,8 +25,8 @@ import healthRoutes from './routes/health.js';
 
 // Import setupRoutes - centralna konfiguracja tras
 import setupRoutes from './routes/index.js';
-import User from './models/user.js';
-import Ad from './models/ad.js';
+import User from './models/user/user.js';
+import Ad from './models/listings/ad.js';
 import { initScheduledTasks } from './utils/scheduledTasks.js';
 
 // ✅ NOWA KONFIGURACJA - Użycie centralnej konfiguracji z fallbackami
@@ -45,20 +47,38 @@ const configureApp = () => {
     next();
   });
 
+  // Kompresja odpowiedzi (gzip)
+  app.use(compression());
+  
   // Podstawowa konfiguracja middleware z limitami dla zdjęć i nagłówków
   app.use(express.json({ limit: '15mb' }));
   app.use(express.urlencoded({ limit: '15mb', extended: true }));
   app.use(cookieParser());
   
+  // ✅ MIDDLEWARE DO MONITOROWANIA NAGŁÓWKÓW HTTP - ROZWIĄZUJE BŁĄD 431
+  app.use(headerSizeMonitor);
+  
   // Zwiększenie limitów nagłówków HTTP dla dużych ciasteczek/tokenów
   app.use((req, res, next) => {
     // Zwiększenie limitu nagłówków do 16KB (domyślnie 8KB)
-    req.connection.server.maxHeadersCount = 0; // Bez limitu liczby nagłówków
+    if (req.connection && req.connection.server) {
+      req.connection.server.maxHeadersCount = 0; // Bez limitu liczby nagłówków
+    }
     next();
   });
   
   // ✅ NOWA KONFIGURACJA - Użycie security headers z konfiguracji
   app.use(helmet(security.headers));
+  
+  // Dodatkowe nagłówki bezpieczeństwa
+  if (security.headers.additionalHeaders) {
+    app.use((req, res, next) => {
+      Object.entries(security.headers.additionalHeaders).forEach(([header, value]) => {
+        res.setHeader(header, value);
+      });
+      next();
+    });
+  }
   
   // Logger dla zapytań HTTP (tylko w trybie deweloperskim)
   if (isDev) {
@@ -236,7 +256,7 @@ const connectToDatabase = async () => {
  */
 const startServer = async () => {
   // Zwiększenie limitów Node.js dla nagłówków HTTP
-  process.env.NODE_OPTIONS = '--max-http-header-size=32768'; // 32KB zamiast domyślnych 8KB
+  process.env.NODE_OPTIONS = '--max-http-header-size=65536'; // 64KB zamiast domyślnych 8KB
   
   // Funkcja do znajdowania wolnego portu
   const findFreePort = (startPort) => {
@@ -279,8 +299,8 @@ const startServer = async () => {
   
   // Utworzenie serwera HTTP z zwiększonymi limitami
   const server = http.createServer({
-    // Zwiększenie limitu nagłówków HTTP
-    maxHeaderSize: 32768, // 32KB
+    // Zwiększenie limitu nagłówków HTTP - ROZWIĄZUJE BŁĄD 431
+    maxHeaderSize: 65536, // 64KB (zwiększone z 32KB)
     headersTimeout: 60000, // 60 sekund
     requestTimeout: 300000, // 5 minut
   }, app);

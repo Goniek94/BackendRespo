@@ -1,4 +1,4 @@
-import Message from '../../models/message.js';
+import Message from '../../models/communication/message.js';
 import mongoose from 'mongoose';
 
 // Oznaczanie jako przeczytane
@@ -156,6 +156,140 @@ export const unarchiveMessage = async (req, res) => {
     res.status(200).json({ message: 'Wiadomość przywrócona z archiwum' });
   } catch (error) {
     console.error('Błąd podczas przywracania wiadomości z archiwum:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+};
+
+// ===== FUNKCJE DO ZARZĄDZANIA KONWERSACJAMI =====
+
+// Oznaczanie całej konwersacji jako ważnej
+export const starConversation = async (req, res) => {
+  try {
+    const { userId: otherUserId } = req.params;
+    const currentUserId = req.user.userId;
+
+    // Konwertuj ID na ObjectId
+    const currentUserObjectId = mongoose.Types.ObjectId.isValid(currentUserId) ? 
+      new mongoose.Types.ObjectId(currentUserId) : currentUserId;
+    const otherUserObjectId = mongoose.Types.ObjectId.isValid(otherUserId) ? 
+      new mongoose.Types.ObjectId(otherUserId) : otherUserId;
+
+    // Znajdź wszystkie wiadomości w konwersacji
+    const messages = await Message.find({
+      $or: [
+        { sender: currentUserObjectId, recipient: otherUserObjectId },
+        { sender: otherUserObjectId, recipient: currentUserObjectId }
+      ],
+      deletedBy: { $ne: currentUserObjectId }
+    });
+
+    if (messages.length === 0) {
+      return res.status(404).json({ message: 'Nie znaleziono konwersacji' });
+    }
+
+    // Oznacz wszystkie wiadomości jako ważne
+    await Message.updateMany(
+      {
+        $or: [
+          { sender: currentUserObjectId, recipient: otherUserObjectId },
+          { sender: otherUserObjectId, recipient: currentUserObjectId }
+        ],
+        deletedBy: { $ne: currentUserObjectId }
+      },
+      { starred: true }
+    );
+
+    res.status(200).json({ message: 'Konwersacja oznaczona jako ważna' });
+  } catch (error) {
+    console.error('Błąd podczas oznaczania konwersacji jako ważnej:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+};
+
+// Przenoszenie całej konwersacji do archiwum
+export const archiveConversation = async (req, res) => {
+  try {
+    const { userId: otherUserId } = req.params;
+    const currentUserId = req.user.userId;
+
+    // Konwertuj ID na ObjectId
+    const currentUserObjectId = mongoose.Types.ObjectId.isValid(currentUserId) ? 
+      new mongoose.Types.ObjectId(currentUserId) : currentUserId;
+    const otherUserObjectId = mongoose.Types.ObjectId.isValid(otherUserId) ? 
+      new mongoose.Types.ObjectId(otherUserId) : otherUserId;
+
+    // Znajdź wszystkie wiadomości w konwersacji
+    const messages = await Message.find({
+      $or: [
+        { sender: currentUserObjectId, recipient: otherUserObjectId },
+        { sender: otherUserObjectId, recipient: currentUserObjectId }
+      ],
+      deletedBy: { $ne: currentUserObjectId }
+    });
+
+    if (messages.length === 0) {
+      return res.status(404).json({ message: 'Nie znaleziono konwersacji' });
+    }
+
+    // Przenieś wszystkie wiadomości do archiwum
+    await Message.updateMany(
+      {
+        $or: [
+          { sender: currentUserObjectId, recipient: otherUserObjectId },
+          { sender: otherUserObjectId, recipient: currentUserObjectId }
+        ],
+        deletedBy: { $ne: currentUserObjectId }
+      },
+      { archived: true }
+    );
+
+    res.status(200).json({ message: 'Konwersacja przeniesiona do archiwum' });
+  } catch (error) {
+    console.error('Błąd podczas przenoszenia konwersacji do archiwum:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+};
+
+// Usuwanie całej konwersacji
+export const deleteConversation = async (req, res) => {
+  try {
+    const { userId: otherUserId } = req.params;
+    const currentUserId = req.user.userId;
+
+    // Konwertuj ID na ObjectId
+    const currentUserObjectId = mongoose.Types.ObjectId.isValid(currentUserId) ? 
+      new mongoose.Types.ObjectId(currentUserId) : currentUserId;
+    const otherUserObjectId = mongoose.Types.ObjectId.isValid(otherUserId) ? 
+      new mongoose.Types.ObjectId(otherUserId) : otherUserId;
+
+    // Znajdź wszystkie wiadomości w konwersacji
+    const messages = await Message.find({
+      $or: [
+        { sender: currentUserObjectId, recipient: otherUserObjectId },
+        { sender: otherUserObjectId, recipient: currentUserObjectId }
+      ],
+      deletedBy: { $ne: currentUserObjectId }
+    });
+
+    if (messages.length === 0) {
+      return res.status(404).json({ message: 'Nie znaleziono konwersacji' });
+    }
+
+    // Dodaj użytkownika do deletedBy dla wszystkich wiadomości
+    await Message.updateMany(
+      {
+        $or: [
+          { sender: currentUserObjectId, recipient: otherUserObjectId },
+          { sender: otherUserObjectId, recipient: currentUserObjectId }
+        ],
+        deletedBy: { $ne: currentUserObjectId }
+      },
+      { $push: { deletedBy: currentUserObjectId } }
+    );
+
+    res.status(200).json({ message: 'Konwersacja usunięta' });
+  } catch (error) {
+    console.error('Błąd podczas usuwania konwersacji:', error);
     res.status(500).json({ message: 'Błąd serwera' });
   }
 };

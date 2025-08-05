@@ -1,48 +1,25 @@
-import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import User from '../../../models/user.js';
+import User from '../../../models/user/user.js';
 import AdminActivity from '../../models/AdminActivity.js';
-import { addToBlacklist } from '../../../models/TokenBlacklist.js';
-import { v4 as uuidv4 } from 'uuid';
+import { addToBlacklist } from '../../../models/security/TokenBlacklist.js';
 import logger from '../../../utils/logger.js';
-import { setAdminCookie, clearAdminCookie, getSecureCookieConfig } from '../../../config/cookieConfig.js';
+import { 
+  generateAccessToken, 
+  generateRefreshToken, 
+  setAuthCookies, 
+  clearAuthCookies 
+} from '../../../middleware/auth.js';
 
 /**
  * Admin Authentication Controller
  * Secure cookie-based authentication for admin panel
  * Features: HttpOnly cookies, session management, audit logging
+ * UPDATED: Używa tego samego systemu cookies co normalny system logowania
  * 
  * @author Senior Developer
- * @version 1.0.0
+ * @version 1.1.0
  */
 
-/**
- * Cookie configuration for admin tokens - ZASTĄPIONE BEZPIECZNĄ KONFIGURACJĄ
- * Używa centralnej konfiguracji z cookieConfig.js dla autosell.pl
- */
-const getCookieConfig = () => getSecureCookieConfig('admin');
-
-/**
- * Generate admin JWT token with session ID
- * @param {Object} user - User object
- * @returns {Object} Token and session info
- */
-const generateAdminToken = (user) => {
-  const sessionId = uuidv4();
-  const payload = {
-    id: user._id,
-    email: user.email,
-    role: user.role,
-    sessionId,
-    type: 'admin',
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
-  };
-
-  const token = jwt.sign(payload, process.env.JWT_ADMIN_SECRET || process.env.JWT_SECRET);
-  
-  return { token, sessionId };
-};
 
 /**
  * Admin login with cookie-based authentication
@@ -162,11 +139,18 @@ export const loginAdmin = async (req, res) => {
     user.lastIP = req.ip;
     await user.save();
 
-    // Generate admin token with session
-    const { token, sessionId } = generateAdminToken(user);
+    // Generate tokens using unified system - UŻYWA TEGO SAMEGO CO ZWYKLI UŻYTKOWNICY
+    const tokenPayload = {
+      userId: user._id,
+      role: user.role
+    };
+    
+    const accessToken = generateAccessToken(tokenPayload);
+    const refreshToken = generateRefreshToken(tokenPayload);
+    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    // Set secure HttpOnly cookie - UŻYWA BEZPIECZNEJ KONFIGURACJI
-    setAdminCookie(res, token);
+    // Set secure HttpOnly cookies - UŻYWA STANDARDOWYCH COOKIES
+    setAuthCookies(res, accessToken, refreshToken);
 
     // Log successful admin login
     await AdminActivity.create({
@@ -229,13 +213,15 @@ export const loginAdmin = async (req, res) => {
  */
 export const logoutAdmin = async (req, res) => {
   try {
-    const adminToken = req.cookies?.admin_token;
-    const userId = req.user?.id;
+    // Get tokens from standard cookies
+    const accessToken = req.cookies?.token;
+    const refreshToken = req.cookies?.refreshToken;
+    const userId = req.user?._id; // Używa _id z req.user
 
-    // Add admin token to blacklist if it exists
-    if (adminToken) {
+    // Add tokens to blacklist if they exist
+    if (accessToken) {
       try {
-        await addToBlacklist(adminToken, {
+        await addToBlacklist(accessToken, {
           reason: 'ADMIN_LOGOUT',
           userId: userId,
           ip: req.ip,
@@ -246,8 +232,21 @@ export const logoutAdmin = async (req, res) => {
       }
     }
 
-    // Clear admin cookie - UŻYWA BEZPIECZNEJ KONFIGURACJI
-    clearAdminCookie(res);
+    if (refreshToken) {
+      try {
+        await addToBlacklist(refreshToken, {
+          reason: 'ADMIN_LOGOUT',
+          userId: userId,
+          ip: req.ip,
+          userAgent: req.get('User-Agent')
+        });
+      } catch (blacklistError) {
+        // Continue with logout even if blacklisting fails
+      }
+    }
+
+    // Clear standard cookies - UŻYWA STANDARDOWYCH COOKIES
+    clearAuthCookies(res);
 
     // Log admin logout
     if (userId) {
@@ -300,8 +299,8 @@ export const checkAdminAuth = async (req, res) => {
       });
     }
 
-    // Get fresh user data from database
-    const dbUser = await User.findById(user.id).select('-password');
+    // Get fresh user data from database - używa userId z req.user (z middleware)
+    const dbUser = await User.findById(user.userId).select('-password');
     
     if (!dbUser) {
       return res.status(401).json({
@@ -313,8 +312,8 @@ export const checkAdminAuth = async (req, res) => {
 
     // Check if still has admin privileges
     if (!['admin', 'moderator'].includes(dbUser.role)) {
-      // Clear cookie if no longer admin - UŻYWA BEZPIECZNEJ KONFIGURACJI
-      clearAdminCookie(res);
+      // Clear cookies if no longer admin - UŻYWA STANDARDOWYCH COOKIES
+      clearAuthCookies(res);
       
       return res.status(403).json({
         success: false,
@@ -325,8 +324,8 @@ export const checkAdminAuth = async (req, res) => {
 
     // Check if account is still active
     if (dbUser.status === 'suspended' || dbUser.status === 'banned') {
-      // Clear cookie if account suspended - UŻYWA BEZPIECZNEJ KONFIGURACJI
-      clearAdminCookie(res);
+      // Clear cookies if account suspended - UŻYWA STANDARDOWYCH COOKIES
+      clearAuthCookies(res);
       
       return res.status(403).json({
         success: false,
@@ -343,7 +342,7 @@ export const checkAdminAuth = async (req, res) => {
       email: dbUser.email,
       role: dbUser.role,
       lastLogin: dbUser.lastLogin,
-      sessionId: req.sessionId
+      sessionId: req.sessionId || req.user?.sessionId
     };
 
     res.status(200).json({

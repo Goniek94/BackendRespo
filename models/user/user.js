@@ -19,11 +19,22 @@ const userSchema = new mongoose.Schema({
     required: true,
     unique: true,
     lowercase: true,
-    trim: true
+    trim: true,
+    validate: {
+      validator: function(v) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+      },
+      message: props => `${props.value} is not a valid email!`
+    }
   },
   isEmailVerified: {
     type: Boolean,
-    default: false
+    default: false  // Domyślnie email nie jest zweryfikowany
+  },
+  // Dodane pole dla kompatybilności z frontendem
+  emailVerified: {
+    type: Boolean,
+    default: false  // Domyślnie email nie jest zweryfikowany
   },
   phoneNumber: {
     type: String,
@@ -38,7 +49,12 @@ const userSchema = new mongoose.Schema({
   },
   isPhoneVerified: {
     type: Boolean,
-    default: false
+    default: true  // Zmienione na true - standardowa rejestracja oznacza weryfikację
+  },
+  // Dodane pole dla kompatybilności z frontendem
+  phoneVerified: {
+    type: Boolean,
+    default: true  // Zmienione na true - standardowa rejestracja oznacza weryfikację
   },
   password: {
     type: String,
@@ -100,6 +116,87 @@ const userSchema = new mongoose.Schema({
   isVerified: {
     type: Boolean,
     default: false
+  },
+  
+  // Email verification fields
+  emailVerificationCode: {
+    type: String
+  },
+  emailVerificationCodeExpires: {
+    type: Date
+  },
+  emailVerificationToken: {
+    type: String
+  },
+  emailVerificationTokenExpires: {
+    type: Date
+  },
+  
+  // SMS verification fields  
+  smsVerificationCode: {
+    type: String
+  },
+  smsVerificationCodeExpires: {
+    type: Date
+  },
+  
+  // Password reset fields
+  passwordResetToken: {
+    type: String
+  },
+  passwordResetTokenExpires: {
+    type: Date
+  },
+  
+  // Account security fields
+  failedLoginAttempts: {
+    type: Number,
+    default: 0
+  },
+  accountLocked: {
+    type: Boolean,
+    default: false
+  },
+  lastLogin: {
+    type: Date
+  },
+  lastActivity: {
+    type: Date
+  },
+  lastIP: {
+    type: String
+  },
+  
+  // User agreements and consents
+  termsAccepted: {
+    type: Boolean,
+    required: true,
+    default: false
+  },
+  termsAcceptedAt: {
+    type: Date
+  },
+  dataProcessingAccepted: {
+    type: Boolean,
+    required: true,
+    default: false
+  },
+  dataProcessingAcceptedAt: {
+    type: Date
+  },
+  marketingAccepted: {
+    type: Boolean,
+    default: false
+  },
+  marketingAcceptedAt: {
+    type: Date
+  },
+  
+  // Multi-step registration tracking
+  registrationStep: {
+    type: String,
+    enum: ['email_verification', 'sms_verification', 'completed'],
+    default: 'email_verification'
   },
   loginAttempts: {
     type: Number,

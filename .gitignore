@@ -23,3 +23,7 @@ logs/
 .tmp/
 temp/
 cache/
+
+# Ignorowanie folderów z plikami użytkowników
+uploads/
+backups/

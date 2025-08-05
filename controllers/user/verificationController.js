@@ -1,9 +1,157 @@
 // controllers/user/verificationController.js
-import User from '../../models/user.js';
+import User from '../../models/user/user.js';
 import jwt from 'jsonwebtoken';
 import { sendVerificationCode as sendTwilioCode, verifyCode as verifyTwilioCode } from '../../config/twilio.js';
 import { setSecureCookie } from '../../config/cookieConfig.js';
 import logger from '../../utils/logger.js';
+
+/**
+ * SYMULACJA: Wysłanie linku weryfikacyjnego email
+ */
+export const sendEmailVerificationLink = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email jest wymagany'
+      });
+    }
+
+    console.log(`🎭 SYMULACJA: Automatyczna weryfikacja email dla ${email}`);
+    
+    // Symulujemy opóźnienie
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Email zweryfikowany automatycznie (SYMULACJA)',
+      verified: true,
+      simulation: true
+    });
+
+  } catch (error) {
+    console.error('❌ Send email verification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Błąd serwera podczas wysyłania linku'
+    });
+  }
+};
+
+/**
+ * SYMULACJA: Wysłanie kodu SMS
+ */
+export const sendSMSCode = async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: 'Numer telefonu jest wymagany'
+      });
+    }
+
+    console.log(`🎭 SYMULACJA: Wysyłanie kodu SMS na ${phone}`);
+    
+    // Symulujemy opóźnienie
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Kod SMS wysłany (SYMULACJA)',
+      devCode: '123456',
+      simulation: true
+    });
+
+  } catch (error) {
+    console.error('❌ Send SMS code error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Błąd serwera podczas wysyłania kodu SMS'
+    });
+  }
+};
+
+/**
+ * SYMULACJA: Weryfikacja kodu email (zaawansowana)
+ */
+export const verifyEmailAdvanced = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email i kod są wymagane'
+      });
+    }
+
+    console.log(`🎭 SYMULACJA: Weryfikacja kodu email ${code} dla ${email}`);
+    
+    // Symulujemy opóźnienie
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    if (code === '123456') {
+      return res.status(200).json({
+        success: true,
+        message: 'Email zweryfikowany (SYMULACJA)',
+        verified: true,
+        simulation: true
+      });
+    } else {
+      throw new Error('Nieprawidłowy kod weryfikacyjny (SYMULACJA)');
+    }
+
+  } catch (error) {
+    console.error('❌ Verify email advanced error:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Błąd weryfikacji email'
+    });
+  }
+};
+
+/**
+ * SYMULACJA: Weryfikacja kodu SMS (zaawansowana)
+ */
+export const verifySMSAdvanced = async (req, res) => {
+  try {
+    const { phone, code } = req.body;
+
+    if (!phone || !code) {
+      return res.status(400).json({
+        success: false,
+        message: 'Telefon i kod są wymagane'
+      });
+    }
+
+    console.log(`🎭 SYMULACJA: Weryfikacja kodu SMS ${code} dla ${phone}`);
+    
+    // Symulujemy opóźnienie
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    if (code === '123456') {
+      return res.status(200).json({
+        success: true,
+        message: 'Telefon zweryfikowany (SYMULACJA)',
+        verified: true,
+        simulation: true
+      });
+    } else {
+      throw new Error('Nieprawidłowy kod weryfikacyjny (SYMULACJA)');
+    }
+
+  } catch (error) {
+    console.error('❌ Verify SMS advanced error:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Błąd weryfikacji SMS'
+    });
+  }
+};
 
 /**
  * Wysyła kod weryfikacyjny na telefon
@@ -45,27 +193,32 @@ export const sendVerificationCode = async (req, res) => {
       await user.save();
     }
     
-    // Generowanie 6-cyfrowego kodu
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    // ===== TRYB SYMULACJI WERYFIKACJI (MOCK/DEV MODE) =====
+    // Generate verification code - use fixed code "123456" in mock mode
+    const MOCK_MODE = process.env.NODE_ENV !== 'production';
+    const code = MOCK_MODE ? '123456' : Math.floor(100000 + Math.random() * 900000).toString();
     
     // Zapisz kod w bazie danych
     user.twoFACode = code;
     user.twoFACodeExpires = Date.now() + 10 * 60 * 1000; // 10 minut
     await user.save();
     
-    // Wysłanie kodu przez Twilio
-    const result = await sendTwilioCode(phoneNumber);
-    
-    console.log('Wynik wysyłania kodu:', result);
-    
-    // W trybie deweloperskim zwracamy kod
-    const devMode = process.env.NODE_ENV !== 'production';
+    // ===== TRYB SYMULACJI WERYFIKACJI (MOCK/DEV MODE) =====
+    // W trybie symulacji nie wysyłamy prawdziwych SMS
+    if (MOCK_MODE) {
+      console.log('MOCK MODE: Skipping real SMS sending');
+      console.log('Generated mock verification code:', code);
+    } else {
+      // Wysłanie kodu przez Twilio (PRODUCTION MODE)
+      const result = await sendTwilioCode(phoneNumber);
+      console.log('Wynik wysyłania kodu:', result);
+    }
     
     return res.status(200).json({
       success: true,
       message: 'Kod weryfikacyjny został wysłany',
       // W trybie deweloperskim zwracamy kod testowy
-      devCode: devMode ? '123456' : undefined
+      devCode: MOCK_MODE ? code : undefined
     });
   } catch (error) {
     console.error('Błąd wysyłania kodu weryfikacyjnego:', error);
@@ -110,8 +263,10 @@ export const verifyVerificationCode = async (req, res) => {
       });
     }
     
-    // W trybie deweloperskim akceptujemy uniwersalny kod
-    const isTestCode = code === '123456' || process.env.NODE_ENV === 'development';
+    // ===== TRYB SYMULACJI WERYFIKACJI (MOCK/DEV MODE) =====
+    // Uniwersalny kod testowy dla trybu deweloperskiego
+    const MOCK_MODE = process.env.NODE_ENV !== 'production';
+    const isTestCode = code === '123456' && MOCK_MODE;
     
     // Sprawdź czy kod wygasł
     const isCodeExpired = user.twoFACodeExpires && new Date(user.twoFACodeExpires) < new Date();
@@ -203,8 +358,10 @@ export const send2FACode = async (req, res) => {
   }
 
   try {
-    // Generowanie 6-cyfrowego kodu
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    // ===== TRYB SYMULACJI WERYFIKACJI (MOCK/DEV MODE) =====
+    // Generate verification code - use fixed code "123456" in mock mode
+    const MOCK_MODE = process.env.NODE_ENV !== 'production';
+    const code = MOCK_MODE ? '123456' : Math.floor(100000 + Math.random() * 900000).toString();
     console.log(`Wygenerowano kod: ${code} dla ${phone || email}`);
 
     // Znajdź użytkownika
@@ -236,29 +393,36 @@ export const send2FACode = async (req, res) => {
       });
     }
 
-    try {
-      // Wysyłanie kodu (symulacja)
-      if (phone) {
-        console.log('Próba wysłania kodu SMS...');
-        const result = await sendTwilioCode(phone);
-        console.log('Wynik wysyłania kodu:', result);
-      } else {
-        console.log('Brak numeru telefonu, kod powinien być wysłany przez email');
-        // Tutaj mogłaby być implementacja wysyłania emaila
+    // ===== TRYB SYMULACJI WERYFIKACJI (MOCK/DEV MODE) =====
+    // W trybie symulacji nie wysyłamy prawdziwych email/SMS
+    if (MOCK_MODE) {
+      console.log('MOCK MODE: Skipping real email/SMS sending');
+      console.log('Generated mock 2FA code:', code);
+    } else {
+      // Wysyłanie kodu (PRODUCTION MODE)
+      try {
+        if (phone) {
+          console.log('Próba wysłania kodu SMS...');
+          const result = await sendTwilioCode(phone);
+          console.log('Wynik wysyłania kodu:', result);
+        } else {
+          console.log('Brak numeru telefonu, kod powinien być wysłany przez email');
+          // Tutaj mogłaby być implementacja wysyłania emaila
+        }
+      } catch (sendError) {
+        console.error('Błąd wysyłania kodu:', sendError);
+        return res.status(500).json({ 
+          message: 'Błąd podczas wysyłania kodu weryfikacyjnego.' 
+        });
       }
-
-      return res.status(200).json({
-        success: true,
-        message: 'Kod weryfikacyjny został wysłany.',
-        // W środowisku deweloperskim zawsze zwracamy kod dla ułatwienia testów
-        devCode: process.env.NODE_ENV !== 'production' ? code : undefined
-      });
-    } catch (sendError) {
-      console.error('Błąd wysyłania kodu:', sendError);
-      return res.status(500).json({ 
-        message: 'Błąd podczas wysyłania kodu weryfikacyjnego.' 
-      });
     }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Kod weryfikacyjny został wysłany.',
+      // W środowisku deweloperskim zawsze zwracamy kod dla ułatwienia testów
+      devCode: MOCK_MODE ? code : undefined
+    });
   } catch (error) {
     console.error('Ogólny błąd w send2FACode:', error);
     return res.status(500).json({ 
@@ -317,8 +481,10 @@ export const verify2FACode = async (req, res) => {
     console.log('Czas wygaśnięcia kodu:', user.twoFACodeExpires);
     console.log('Kod z żądania:', code);
 
+    // ===== TRYB SYMULACJI WERYFIKACJI (MOCK/DEV MODE) =====
     // Uniwersalny kod testowy dla trybu deweloperskiego
-    const isTestCode = code === '123456';
+    const MOCK_MODE = process.env.NODE_ENV !== 'production';
+    const isTestCode = code === '123456' && MOCK_MODE;
     
     if (isTestCode) {
       console.log('Używam uniwersalnego kodu testowego 123456');
@@ -452,8 +618,10 @@ export const verifyEmailCodeAdvanced = async (req, res) => {
       });
     }
 
+    // ===== TRYB SYMULACJI WERYFIKACJI (MOCK/DEV MODE) =====
     // Uniwersalny kod testowy dla trybu deweloperskiego
-    const isTestCode = code === '123456' && process.env.NODE_ENV !== 'production';
+    const MOCK_MODE = process.env.NODE_ENV !== 'production';
+    const isTestCode = code === '123456' && MOCK_MODE;
     
     console.log('Kod zapisany w bazie:', user.emailVerificationCode);
     console.log('Kod z żądania:', code);
@@ -567,8 +735,10 @@ export const verifySMSCodeAdvanced = async (req, res) => {
       });
     }
 
+    // ===== TRYB SYMULACJI WERYFIKACJI (MOCK/DEV MODE) =====
     // Uniwersalny kod testowy dla trybu deweloperskiego
-    const isTestCode = code === '123456' && process.env.NODE_ENV !== 'production';
+    const MOCK_MODE = process.env.NODE_ENV !== 'production';
+    const isTestCode = code === '123456' && MOCK_MODE;
     
     console.log('Kod SMS zapisany w bazie:', user.smsVerificationCode);
     console.log('Kod z żądania:', code);
@@ -661,10 +831,10 @@ export const verifyEmailCode = async (req, res) => {
 
   try {
     // Uniwersalny kod testowy dla trybu deweloperskiego
-    const isTestCode = code === '123456';
+    const isTestCode = code === '123123';
     
     if (isTestCode) {
-      console.log('Używam uniwersalnego kodu testowego 123456');
+      console.log('Używam uniwersalnego kodu testowego 123123');
       
       // Znajdź użytkownika i zaktualizuj status
       const user = await User.findOne({ email });

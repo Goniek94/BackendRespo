@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { validationResult } from 'express-validator';
-import User from '../../models/user.js';
-import { addToBlacklist } from '../../models/TokenBlacklist.js';
+import User from '../../models/user/user.js';
+import { addToBlacklist } from '../../models/security/TokenBlacklist.js';
 import { 
   generateAccessToken, 
   generateRefreshToken, 
@@ -55,7 +55,9 @@ export const registerUser = async (req, res) => {
       password, 
       phone, 
       dob, 
-      termsAccepted 
+      termsAccepted,
+      emailVerified,
+      phoneVerified
     } = req.body;
 
     // Validate terms acceptance
@@ -123,11 +125,11 @@ export const registerUser = async (req, res) => {
     const saltRounds = 12;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Generate verification codes
-    const emailVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate unique verification token for email
+    const emailVerificationToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
     const smsVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Create new user with advanced verification fields
+    // Create new user with email verification required
     const newUser = new User({
       name: name.trim(),
       lastName: lastName?.trim(),
@@ -139,16 +141,20 @@ export const registerUser = async (req, res) => {
       termsAcceptedAt: new Date(),
       registrationStep: 'email_verification',
       
-      // Verification codes
-      emailVerificationCode,
-      emailVerificationCodeExpires: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
-      smsVerificationCode,
-      smsVerificationCodeExpires: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+      // Email verification token (24 hours validity)
+      emailVerificationToken: emailVerificationToken,
+      emailVerificationTokenExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
       
-      // Initial verification status
+      // SMS verification code (10 minutes validity)
+      smsVerificationCode: smsVerificationCode,
+      smsVerificationCodeExpires: new Date(Date.now() + 10 * 60 * 1000),
+      
+      // Verification status - email not verified by default
       isEmailVerified: false,
-      isPhoneVerified: false,
-      isVerified: false,
+      emailVerified: false,
+      isPhoneVerified: true, // Phone verification can be skipped for now
+      phoneVerified: true,
+      isVerified: false, // User is not fully verified until email is confirmed
       
       role: 'user',
       status: 'active',
@@ -161,35 +167,31 @@ export const registerUser = async (req, res) => {
 
     await newUser.save();
 
-    // Send email verification code
+    // Send email verification link
     try {
-      const { sendVerificationEmail } = await import('../../config/nodemailer.js');
-      await sendVerificationEmail(newUser.email, emailVerificationCode, newUser.name);
-      logger.info('Email verification code sent', {
-        userId: newUser._id,
-        email: newUser.email
-      });
+      const { sendVerificationLinkEmail } = await import('../../config/nodemailer.js');
+      const verificationLink = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/verify-email?token=${emailVerificationToken}&email=${encodeURIComponent(email)}`;
+      
+      const emailSent = await sendVerificationLinkEmail(newUser.email, verificationLink, newUser.name);
+      
+      if (emailSent) {
+        logger.info('Email verification link sent successfully', {
+          userId: newUser._id,
+          email: newUser.email,
+          tokenLength: emailVerificationToken.length
+        });
+      } else {
+        logger.error('Failed to send email verification link', {
+          userId: newUser._id,
+          email: newUser.email
+        });
+      }
     } catch (emailError) {
-      logger.error('Failed to send email verification code', {
+      logger.error('Error sending email verification link', {
         userId: newUser._id,
         email: newUser.email,
-        error: emailError.message
-      });
-    }
-
-    // Send SMS verification code
-    try {
-      const { sendVerificationCode: sendSMSCode } = await import('../../config/twilio.js');
-      await sendSMSCode(newUser.phoneNumber, smsVerificationCode);
-      logger.info('SMS verification code sent', {
-        userId: newUser._id,
-        phone: newUser.phoneNumber
-      });
-    } catch (smsError) {
-      logger.error('Failed to send SMS verification code', {
-        userId: newUser._id,
-        phone: newUser.phoneNumber,
-        error: smsError.message
+        error: emailError.message,
+        stack: emailError.stack
       });
     }
 
@@ -218,14 +220,14 @@ export const registerUser = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Rejestracja rozpoczęta. Sprawdź email i SMS, aby otrzymać kody weryfikacyjne.',
+      message: 'Rejestracja rozpoczęta pomyślnie! Sprawdź swój email, aby otrzymać link weryfikacyjny.',
       user: userData,
       nextStep: 'email_verification',
-      // In development mode, return codes for testing
-      devCodes: process.env.NODE_ENV !== 'production' ? {
-        emailCode: emailVerificationCode,
-        smsCode: smsVerificationCode
-      } : undefined
+      verificationInfo: {
+        emailSent: true,
+        emailAddress: newUser.email,
+        tokenExpires: newUser.emailVerificationTokenExpires
+      }
     });
 
   } catch (error) {
@@ -606,6 +608,208 @@ export const checkAuth = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Błąd serwera podczas sprawdzania autoryzacji'
+    });
+  }
+};
+
+/**
+ * Request password reset
+ */
+export const requestPasswordReset = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Błędy walidacji',
+        errors: errors.array()
+      });
+    }
+
+    const { email } = req.body;
+
+    if (!email || !email.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email jest wymagany'
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Podaj prawidłowy adres email'
+      });
+    }
+
+    // Find user by email
+    const user = await User.findOne({ 
+      email: email.toLowerCase().trim() 
+    });
+
+    // Always return success for security (don't reveal if email exists)
+    const successMessage = 'Jeśli podany adres email istnieje w naszej bazie, wysłaliśmy instrukcje resetowania hasła';
+
+    if (!user) {
+      logger.info('Password reset requested for non-existent email', {
+        email: email.toLowerCase().trim(),
+        ip: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: successMessage
+      });
+    }
+
+    // Generate reset token
+    const resetToken = Math.random().toString(36).substring(2, 15) + 
+                      Math.random().toString(36).substring(2, 15) + 
+                      Date.now().toString(36);
+
+    // Set reset token and expiration (1 hour)
+    user.passwordResetToken = resetToken;
+    user.passwordResetTokenExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    await user.save();
+
+    // Send password reset email
+    try {
+      const { sendPasswordResetEmail } = await import('../../config/nodemailer.js');
+      const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+      
+      const emailSent = await sendPasswordResetEmail(user.email, resetLink, user.name);
+      
+      if (emailSent) {
+        logger.info('Password reset email sent successfully', {
+          userId: user._id,
+          email: user.email,
+          ip: req.ip
+        });
+      } else {
+        logger.error('Failed to send password reset email', {
+          userId: user._id,
+          email: user.email,
+          ip: req.ip
+        });
+      }
+    } catch (emailError) {
+      logger.error('Error sending password reset email', {
+        userId: user._id,
+        email: user.email,
+        error: emailError.message,
+        ip: req.ip
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: successMessage
+    });
+
+  } catch (error) {
+    logger.error('Request password reset error', {
+      error: error.message,
+      stack: error.stack,
+      ip: req.ip,
+      userAgent: req.get('User-Agent')
+    });
+    
+    res.status(500).json({
+      success: false,
+      message: 'Błąd serwera podczas żądania resetowania hasła'
+    });
+  }
+};
+
+/**
+ * Reset password with token
+ */
+export const resetPassword = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Błędy walidacji',
+        errors: errors.array()
+      });
+    }
+
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Token i nowe hasło są wymagane'
+      });
+    }
+
+    // Validate password strength
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'Hasło musi mieć co najmniej 8 znaków'
+      });
+    }
+
+    // Find user by reset token
+    const user = await User.findOne({
+      passwordResetToken: token,
+      passwordResetTokenExpires: { $gt: new Date() }
+    });
+
+    if (!user) {
+      logger.warn('Invalid or expired password reset token used', {
+        token: token.substring(0, 10) + '...',
+        ip: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+
+      return res.status(400).json({
+        success: false,
+        message: 'Token resetowania hasła jest nieprawidłowy lub wygasł'
+      });
+    }
+
+    // Hash new password
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Update user password and clear reset token
+    user.password = hashedPassword;
+    user.passwordResetToken = undefined;
+    user.passwordResetTokenExpires = undefined;
+    user.failedLoginAttempts = 0; // Reset failed attempts
+    user.accountLocked = false; // Unlock account if locked
+    user.lockUntil = undefined;
+    await user.save();
+
+    logger.info('Password reset successful', {
+      userId: user._id,
+      email: user.email,
+      ip: req.ip,
+      userAgent: req.get('User-Agent')
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Hasło zostało pomyślnie zresetowane. Możesz się teraz zalogować.'
+    });
+
+  } catch (error) {
+    logger.error('Reset password error', {
+      error: error.message,
+      stack: error.stack,
+      ip: req.ip,
+      userAgent: req.get('User-Agent')
+    });
+    
+    res.status(500).json({
+      success: false,
+      message: 'Błąd serwera podczas resetowania hasła'
     });
   }
 };

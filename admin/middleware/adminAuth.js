@@ -4,6 +4,7 @@ import User from '../../models/user/user.js';
 import AdminActivity from '../models/AdminActivity.js';
 import { isBlacklisted } from '../../models/security/TokenBlacklist.js';
 import logger from '../../utils/logger.js';
+import { refreshUserSession } from '../../middleware/auth.js';
 
 /**
  * Professional Admin Authentication Middleware
@@ -200,8 +201,33 @@ export const requireAdminAuth = async (req, res, next) => {
       });
     }
     
-    // Validate JWT token
-    const decoded = validateJwtToken(token);
+    // Validate JWT token (with graceful refresh on expiry)
+    let decoded;
+    try {
+      decoded = validateJwtToken(token);
+    } catch (e) {
+      if (e.message === 'Token has expired' || e.name === 'TokenExpiredError') {
+        const refreshToken = req.cookies?.refreshToken;
+        if (!refreshToken) {
+          await logSecurityEvent(req, 'auth_token_expired_no_refresh');
+          const { clearAuthCookies } = await import('../../config/cookieConfig.js');
+          clearAuthCookies(res);
+          return res.status(401).json({ success: false, error: 'Session expired', code: 'SESSION_EXPIRED' });
+        }
+        try {
+          const userData = await refreshUserSession(refreshToken, req, res);
+          // Recreate a minimal decoded-like structure for downstream checks
+          decoded = { userId: userData.userId, role: userData.role, sessionId: userData.sessionId };
+          await logSecurityEvent(req, 'auth_refreshed_after_expiry', { userId: userData.userId });
+        } catch (refreshErr) {
+          const { clearAuthCookies } = await import('../../config/cookieConfig.js');
+          clearAuthCookies(res);
+          return res.status(401).json({ success: false, error: 'Session refresh failed', code: 'REFRESH_FAILED' });
+        }
+      } else {
+        throw e;
+      }
+    }
     
     // Validate session - używamy jti jako sessionId jeśli sessionId nie istnieje
     const sessionId = decoded.sessionId || decoded.jti;

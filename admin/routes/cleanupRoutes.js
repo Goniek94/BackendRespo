@@ -5,11 +5,87 @@ import logger from '../../utils/logger.js';
 const router = express.Router();
 
 /**
- * @route POST /api/admin-panel/clear-cookies
- * @desc Clear all authentication cookies to fix HTTP 431 errors
+ * @route GET /api/admin-panel/clear-cookies
+ * @desc Clear all authentication cookies to fix HTTP 431 errors (GET method)
  * @access Public (no auth required for cleanup)
  */
-router.post('/clear-cookies', (req, res) => {
+router.get('/clear-cookies', (req, res) => {
+  try {
+    logger.info('Cookie cleanup requested via GET', {
+      ip: req.ip,
+      userAgent: req.get('User-Agent'),
+      timestamp: new Date().toISOString()
+    });
+
+    // Clear all authentication cookies
+    clearAuthCookies(res);
+    
+    // Clear additional cookies that might accumulate
+    const cookiesToClear = [
+      'token',
+      'refreshToken', 
+      'adminToken',
+      'sessionId',
+      'csrfToken',
+      'remember_token',
+      'auth_session',
+      'user_session',
+      'admin_session',
+      'temp_token',
+      'backup_token',
+      'old_token'
+    ];
+
+    cookiesToClear.forEach(cookieName => {
+      res.clearCookie(cookieName, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+        path: '/',
+        domain: process.env.NODE_ENV === 'production' ? process.env.DOMAIN : undefined
+      });
+    });
+
+    // Add headers to prevent caching
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    res.status(200).json({
+      success: true,
+      message: 'All cookies cleared successfully via GET',
+      method: 'GET',
+      timestamp: new Date().toISOString(),
+      instructions: [
+        'Refresh the page',
+        'Clear browser cache if needed',
+        'Login again with fresh session'
+      ]
+    });
+
+  } catch (error) {
+    logger.error('Cookie cleanup failed via GET', {
+      error: error.message,
+      stack: error.stack,
+      ip: req.ip
+    });
+
+    res.status(500).json({
+      success: false,
+      error: 'Cookie cleanup failed',
+      method: 'GET',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * @route POST /api/admin-panel/clear-cookies
+ * @desc Clear all authentication cookies to fix HTTP 431 errors (POST method)
+ * @access Public (no auth required for cleanup)
+ */
+// Shared handler to clear cookies
+const clearCookiesHandler = (req, res) => {
   try {
     logger.info('Cookie cleanup requested', {
       ip: req.ip,
@@ -75,7 +151,13 @@ router.post('/clear-cookies', (req, res) => {
       message: error.message
     });
   }
-});
+};
+
+// POST (primary) endpoint
+router.post('/clear-cookies', clearCookiesHandler);
+
+// GET alias for convenience (read-only environments, quick manual calls)
+router.get('/clear-cookies', clearCookiesHandler);
 
 /**
  * @route POST /api/admin-panel/cleanup-session

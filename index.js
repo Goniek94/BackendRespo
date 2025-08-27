@@ -1,4 +1,4 @@
-// Załadowanie zmiennych środowiskowych - MUSI BYĆ NA SAMEJ GÓRZE
+﻿// Załadowanie zmiennych środowiskowych - MUSI BYĆ NA SAMEJ GÓRZE
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -9,7 +9,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 import compression from 'compression';
 import { apiLimiter } from './middleware/rateLimiting.js';
-import headerSizeMonitor from './middleware/headerSizeMonitor.js';
+import headerSizeMonitor, { sessionCleanup } from './middleware/headerSizeMonitor.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import fs from 'fs';
@@ -56,6 +56,7 @@ const configureApp = () => {
   app.use(cookieParser());
   
   // ✅ MIDDLEWARE DO MONITOROWANIA NAGŁÓWKÓW HTTP - ROZWIĄZUJE BŁĄD 431
+  app.use(sessionCleanup);
   app.use(headerSizeMonitor);
   
   // Zwiększenie limitów nagłówków HTTP dla dużych ciasteczek/tokenów
@@ -351,3 +352,4 @@ const startServer = async () => {
 
 // Uruchomienie serwera
 startServer();
+

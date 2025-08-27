@@ -143,6 +143,18 @@ const adValidationSchema = Joi.object({
   rentalPrice: Joi.any().allow(null),
   purchaseOption: Joi.string().allow(''),
   
+  // Nowe pola dla cesji
+  leasingCompany: Joi.string().allow(''),
+  remainingInstallments: Joi.number().integer().min(1).allow(null),
+  installmentAmount: Joi.number().min(0).allow(null),
+  cessionFee: Joi.number().min(0).allow(null),
+  
+  // Nowe pola dla zamiany
+  exchangeOffer: Joi.string().allow(''),
+  exchangeValue: Joi.number().min(0).allow(null),
+  exchangePayment: Joi.number().allow(null), // może być ujemna
+  exchangeConditions: Joi.string().allow(''),
+  
   // Dane właściciela ogłoszenia (opcjonalne w walidacji)
   ownerName: Joi.string().allow(''),
   ownerLastName: Joi.string().allow(''),

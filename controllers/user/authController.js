@@ -342,10 +342,10 @@ export const loginUser = async (req, res) => {
       // Increment failed attempts
       user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
 
-      // Lock account after 5 failed attempts
-      if (user.failedLoginAttempts >= 5) {
+      // Lock account after 4 failed attempts
+      if (user.failedLoginAttempts >= 4) {
         user.accountLocked = true;
-        user.lockUntil = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+        user.lockUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
         await user.save();
 
         logger.warn('Account locked due to failed login attempts', {
@@ -358,7 +358,9 @@ export const loginUser = async (req, res) => {
 
         return res.status(423).json({
           success: false,
-          message: 'Konto zostało zablokowane na 30 minut z powodu zbyt wielu nieudanych prób logowania.'
+          message: 'Konto zostało zablokowane na 15 minut z powodu zbyt wielu nieudanych prób logowania.',
+          isBlocked: true,
+          blockDuration: 15 * 60 * 1000
         });
       }
 
@@ -368,15 +370,18 @@ export const loginUser = async (req, res) => {
         userId: user._id,
         email: user.email,
         failedAttempts: user.failedLoginAttempts,
-        attemptsLeft: 5 - user.failedLoginAttempts,
+        attemptsLeft: 4 - user.failedLoginAttempts,
         ip: req.ip,
         userAgent: req.get('User-Agent')
       });
 
+      const attemptsLeft = 4 - user.failedLoginAttempts;
       return res.status(401).json({
         success: false,
-        message: 'Nieprawidłowy email lub hasło',
-        attemptsLeft: 5 - user.failedLoginAttempts
+        message: `Błędny login lub hasło. Pozostało ${attemptsLeft} ${attemptsLeft === 1 ? 'próba' : attemptsLeft < 4 ? 'próby' : 'prób'}.`,
+        attemptsLeft: attemptsLeft,
+        failedAttempts: user.failedLoginAttempts,
+        maxAttempts: 4
       });
     }
 

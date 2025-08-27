@@ -22,6 +22,14 @@ const router = express.Router();
 // Apply rate limiting to all admin API routes
 router.use(adminApiLimiter);
 
+// Disable caching for admin API responses (avoid stale 304/HTML caching by intermediaries)
+router.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
+
 /**
  * API versioning and health check (protected)
  */
@@ -104,6 +112,9 @@ router.use('*', (req, res) => {
     method: req.method,
     availableEndpoints: [
       'GET /admin-panel/health',
+      'POST /admin-panel/auth/login',
+      'POST /admin-panel/auth/logout',
+      'GET /admin-panel/auth/check',
       'GET /admin-panel/dashboard',
       'GET /admin-panel/dashboard/stats',
       'GET /admin-panel/users',
@@ -124,7 +135,12 @@ router.use('*', (req, res) => {
       'POST /admin-panel/listings/:id/approve',
       'POST /admin-panel/listings/:id/reject',
       'POST /admin-panel/listings/:id/moderate',
-      'POST /admin-panel/listings/bulk-discount'
+      'POST /admin-panel/listings/bulk-discount',
+      'GET /admin-panel/reports',
+      'GET /admin-panel/clear-cookies',
+      'POST /admin-panel/clear-cookies',
+      'POST /admin-panel/cleanup-session',
+      'GET /admin-panel/session-info'
     ]
   });
 });

@@ -28,7 +28,7 @@ const carBrandSchema = new mongoose.Schema({
 });
 
 // Indeksy dla wydajniejszego wyszukiwania
-carBrandSchema.index({ brand: 1 });
+// Indeks dla brand jest już utworzony przez unique: true
 carBrandSchema.index({ 'models.name': 1 });
 
 // Metody statyczne

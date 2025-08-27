@@ -214,7 +214,6 @@ const adminActivitySchema = new mongoose.Schema({
   auditMetadata: {
     correlationId: {
       type: String, // For linking related actions
-      index: true
     },
     
     batchId: {

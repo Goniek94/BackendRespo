@@ -320,6 +320,60 @@ router.patch('/:id/images', auth, async (req, res, next) => {
 }, errorHandler);
 
 /**
+ * PUT /:id/reorder-images - Change order of images
+ */
+router.put('/:id/reorder-images', auth, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { images } = req.body;
+
+    if (!images || !Array.isArray(images)) {
+      return res.status(400).json({ message: 'Images array is required' });
+    }
+
+    const ad = await Ad.findById(id);
+
+    if (!ad) {
+      return res.status(404).json({ message: 'Ad not found' });
+    }
+
+    // Check if user is owner or admin
+    if (ad.owner.toString() !== req.user.userId.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'No permission to edit this ad' });
+    }
+
+    // Validate: ensure new order is a permutation of current images
+    const originalImages = ad.images || [];
+    const isValidReorder = images.every(img => originalImages.includes(img)) && images.length === originalImages.length;
+    if (!isValidReorder) {
+      return res.status(400).json({ message: 'Invalid image order: all images must come from the original array' });
+    }
+
+    // Apply new order
+    ad.images = images;
+
+    // Ensure mainImage is valid under new order
+    if (ad.mainImage && images.length > 0) {
+      if (!images.includes(ad.mainImage)) {
+        ad.mainImage = images[0];
+      }
+    } else if (images.length > 0) {
+      ad.mainImage = images[0];
+    }
+
+    await ad.save();
+
+    res.status(200).json({
+      message: 'Image order has been updated',
+      images: ad.images,
+      mainImage: ad.mainImage
+    });
+  } catch (err) {
+    next(err);
+  }
+}, errorHandler);
+
+/**
  * PUT /:id/main-image - Set main image of ad
  */
 router.put('/:id/main-image', auth, async (req, res, next) => {
@@ -361,6 +415,33 @@ router.put('/:id', auth, async (req, res, next) => {
     if (ad.owner.toString() !== req.user.userId.toString() && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'No permission to edit this ad' });
     }
+
+    // Basic normalization of incoming payload (frontend aliases / types)
+    try {
+      // Accept title -> headline
+      if (req.body && req.body.title && !req.body.headline) {
+        req.body.headline = req.body.title;
+      }
+      // Accept opis -> description
+      if (req.body && req.body.opis && !req.body.description) {
+        req.body.description = req.body.opis;
+      }
+      // Accept purchaseOption -> purchaseOptions
+      if (req.body && req.body.purchaseOption && !req.body.purchaseOptions) {
+        req.body.purchaseOptions = req.body.purchaseOption;
+      }
+      // Normalize negotiable boolean to string values
+      if (typeof req.body?.negotiable === 'boolean') {
+        req.body.negotiable = req.body.negotiable ? 'Tak' : 'Nie';
+      }
+      // Normalize price if provided as string number with spaces/commas
+      if (typeof req.body?.price === 'string') {
+        const normalized = req.body.price.replace(/\s/g, '').replace(',', '.');
+        if (!isNaN(Number(normalized))) {
+          req.body.price = Number(normalized);
+        }
+      }
+    } catch (_) { /* noop - normalization best-effort */ }
 
     // Fields that can be updated - extended list
     const updatableFields = [

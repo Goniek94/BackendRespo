@@ -274,8 +274,14 @@ const authMiddleware = async (req, res, next) => {
       });
     }
     
-    // Extract token from HttpOnly cookie ONLY
-    const accessToken = req.cookies?.token;
+    // Extract token: prefer secure HttpOnly cookie, but also accept Authorization: Bearer
+    let accessToken = req.cookies?.token;
+    if (!accessToken) {
+      const authHeader = req.headers?.authorization || req.headers?.Authorization;
+      if (authHeader && typeof authHeader === 'string' && authHeader.toLowerCase().startsWith('bearer ')) {
+        accessToken = authHeader.slice(7).trim();
+      }
+    }
     
     if (!accessToken) {
       logger.info('Authentication failed - no token', {

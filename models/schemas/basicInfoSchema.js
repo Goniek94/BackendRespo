@@ -106,8 +106,7 @@ const basicInfoSchema = new mongoose.Schema({
   fuelType: {
     type: String,
     required: true,
-    enum: ['benzyna', 'diesel', 'elektryczny', 'hybryda', 'hybrydowy', 'benzyna+LPG', 'inne',
-           'Benzyna', 'Diesel', 'Elektryczny', 'Hybryda', 'Hybrydowy', 'Benzyna+LPG', 'Inne',
+    enum: ['Benzyna', 'Diesel', 'Elektryczny', 'Hybryda', 'Hybrydowy', 'Benzyna+LPG', 'Inne',
            'Benzyna+CNG', 'Etanol', 'Hybryda plug-in', 'Wodór', 'Benzyna+Etanol'],
     default: 'Benzyna',
     set: capitalizeFuelType
@@ -115,8 +114,7 @@ const basicInfoSchema = new mongoose.Schema({
   transmission: {
     type: String,
     required: true,
-    enum: ['manualna', 'automatyczna', 'półautomatyczna',
-           'Manualna', 'Automatyczna', 'Półautomatyczna', 'Bezstopniowa CVT',
+    enum: ['Manualna', 'Automatyczna', 'Półautomatyczna', 'Bezstopniowa CVT',
            'Automatyczna dwusprzęgłowa', 'Sekwencyjna', 'Inne'],
     default: 'Manualna',
     set: capitalizeTransmission
@@ -171,8 +169,8 @@ const basicInfoSchema = new mongoose.Schema({
   purchaseOptions: {
     type: String,
     required: true,
-    enum: ['umowa kupna-sprzedaży', 'faktura VAT', 'inne', 'Sprzedaż', 'Faktura VAT', 'Inne'],
-    default: 'umowa kupna-sprzedaży',
+    enum: ['Sprzedaż', 'Faktura VAT', 'Inne', 'Cesja leasingu', 'Zamiana'],
+    default: 'Sprzedaż',
     set: capitalizePurchaseOptions
   },
   negotiable: {

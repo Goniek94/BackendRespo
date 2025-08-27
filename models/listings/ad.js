@@ -24,7 +24,7 @@ const adSchema = new mongoose.Schema({
   
   // Metadane ogłoszenia
   ...metadataSchema.obj
-});
+}, { timestamps: true });
 
 // Dodanie metod z poszczególnych schematów
 adSchema.methods = {

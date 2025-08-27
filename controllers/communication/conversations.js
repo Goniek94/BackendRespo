@@ -4,11 +4,15 @@ import Ad from '../../models/listings/ad.js';
 import mongoose from 'mongoose';
 import notificationService from '../notifications/notificationController.js';
 
-// Pobieranie konwersacji między dwoma użytkownikami
+// Pobieranie konwersacji między dwoma użytkownikami (opcjonalnie dla konkretnego ogłoszenia)
 export const getConversation = async (req, res) => {
   try {
     const { userId } = req.params;
+    const { adId } = req.query; // Nowy parametr dla konkretnego ogłoszenia
     const currentUserId = req.user.userId;
+
+    console.log('=== getConversation START ===');
+    console.log('userId:', userId, 'adId:', adId, 'currentUserId:', currentUserId);
 
     // Konwertuj userId na ObjectId, aby zapewnić poprawne porównanie w MongoDB
     const currentUserObjectId = mongoose.Types.ObjectId.isValid(currentUserId) ? new mongoose.Types.ObjectId(currentUserId) : currentUserId;
@@ -20,17 +24,35 @@ export const getConversation = async (req, res) => {
       return res.status(404).json({ message: 'Nie znaleziono użytkownika' });
     }
 
-    // Pobierz wiadomości między użytkownikami
-    const messages = await Message.find({
+    // Przygotuj zapytanie - jeśli podano adId, filtruj według niego
+    let messageQuery = {
       $or: [
         { sender: currentUserObjectId, recipient: otherUserObjectId, deletedBy: { $ne: currentUserObjectId } },
         { sender: otherUserObjectId, recipient: currentUserObjectId, deletedBy: { $ne: currentUserObjectId } }
       ]
-    })
-    .populate('sender', 'name email')
-    .populate('recipient', 'name email')
-    .populate('relatedAd', 'headline brand model')
-    .sort({ createdAt: 1 });
+    };
+
+    // Jeśli podano konkretne ogłoszenie, filtruj tylko wiadomości dotyczące tego ogłoszenia
+    if (adId && adId !== 'no-ad') {
+      const adObjectId = mongoose.Types.ObjectId.isValid(adId) ? new mongoose.Types.ObjectId(adId) : adId;
+      messageQuery.relatedAd = adObjectId;
+      console.log('Filtrowanie według ogłoszenia:', adId);
+    } else if (adId === 'no-ad') {
+      // Jeśli adId to 'no-ad', pokaż tylko wiadomości bez powiązanego ogłoszenia
+      messageQuery.relatedAd = { $exists: false };
+      console.log('Filtrowanie wiadomości bez ogłoszenia');
+    }
+
+    console.log('Query do wiadomości:', JSON.stringify(messageQuery));
+
+    // Pobierz wiadomości między użytkownikami
+    const messages = await Message.find(messageQuery)
+      .populate('sender', 'name email')
+      .populate('recipient', 'name email')
+      .populate('relatedAd', 'headline brand model')
+      .sort({ createdAt: 1 });
+
+    console.log(`Znaleziono ${messages.length} wiadomości`);
 
     // Oznacz wszystkie wiadomości od drugiego użytkownika jako przeczytane
     const unreadMessages = messages.filter(
@@ -38,35 +60,142 @@ export const getConversation = async (req, res) => {
     );
 
     if (unreadMessages.length > 0) {
+      console.log(`Oznaczanie ${unreadMessages.length} wiadomości jako przeczytane`);
       await Message.updateMany(
         { _id: { $in: unreadMessages.map(msg => msg._id) } },
         { read: true }
       );
     }
 
-    // Grupuj wiadomości według relatedAd, jeśli istnieje
-    const conversationsByAd = {};
-    messages.forEach(msg => {
-      const adId = msg.relatedAd ? msg.relatedAd._id.toString() : 'general';
-      if (!conversationsByAd[adId]) {
-        conversationsByAd[adId] = {
-          adInfo: msg.relatedAd || null,
-          messages: []
-        };
-      }
-      conversationsByAd[adId].messages.push(msg);
-    });
-
-    res.status(200).json({
+    // Nowy format odpowiedzi - bezpośrednio wiadomości zamiast grupowania
+    const response = {
       otherUser: {
         id: otherUser._id,
         name: otherUser.name,
         email: otherUser.email
       },
-      conversations: conversationsByAd
-    });
+      messages: messages, // Bezpośrednio tablica wiadomości
+      totalMessages: messages.length,
+      hasMore: false, // Można rozszerzyć o paginację w przyszłości
+      adInfo: messages.length > 0 && messages[0].relatedAd ? messages[0].relatedAd : null
+    };
+
+    console.log('=== getConversation END ===');
+    res.status(200).json(response);
   } catch (error) {
     console.error('Błąd podczas pobierania konwersacji:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+};
+
+// Odpowiadanie w konwersacji z konkretnym użytkownikiem (opcjonalnie dla konkretnego ogłoszenia)
+export const replyToConversation = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { content, adId } = req.body; // adId jest opcjonalne
+    const senderId = req.user.userId;
+    
+    console.log('=== replyToConversation START ===');
+    console.log('userId:', userId, 'adId:', adId, 'senderId:', senderId);
+    
+    // Konwertuj senderId na ObjectId
+    const senderObjectId = mongoose.Types.ObjectId.isValid(senderId) ? new mongoose.Types.ObjectId(senderId) : senderId;
+    const recipientObjectId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
+    
+    // Sprawdź czy odbiorca istnieje
+    const recipient = await User.findById(recipientObjectId);
+    if (!recipient) {
+      return res.status(404).json({ message: 'Nie znaleziono odbiorcy' });
+    }
+    
+    // Sprawdź czy nadawca istnieje
+    const sender = await User.findById(senderObjectId);
+    if (!sender) {
+      return res.status(404).json({ message: 'Nie znaleziono nadawcy' });
+    }
+    
+    // Przetwarzanie załączników
+    const attachments = req.files ? req.files.map(file => ({
+      name: file.originalname,
+      path: file.path,
+      size: file.size,
+      mimetype: file.mimetype
+    })) : [];
+    
+    // Przygotuj dane wiadomości
+    const messageData = {
+      sender: senderObjectId,
+      recipient: recipientObjectId,
+      content,
+      attachments
+    };
+    
+    // Jeśli podano adId, dodaj powiązanie z ogłoszeniem
+    if (adId && adId !== 'no-ad') {
+      const adObjectId = mongoose.Types.ObjectId.isValid(adId) ? new mongoose.Types.ObjectId(adId) : adId;
+      
+      // Sprawdź czy ogłoszenie istnieje
+      const ad = await Ad.findById(adObjectId);
+      if (ad) {
+        messageData.relatedAd = adObjectId;
+        messageData.subject = `Wiadomość dotycząca: ${ad.headline || `${ad.brand} ${ad.model}`}`;
+      } else {
+        console.log('Nie znaleziono ogłoszenia o ID:', adId);
+        messageData.subject = 'Nowa wiadomość';
+      }
+    } else {
+      messageData.subject = 'Nowa wiadomość';
+    }
+    
+    console.log('Dane wiadomości:', messageData);
+    
+    // Utwórz nową wiadomość
+    const newMessage = new Message(messageData);
+    await newMessage.save();
+    
+    console.log('Wiadomość zapisana:', newMessage._id);
+    
+    // Tworzenie powiadomienia o nowej wiadomości
+    try {
+      const senderName = sender.name || sender.email;
+      
+      // Jeśli wiadomość dotyczy ogłoszenia, pobierz jego tytuł
+      let adTitle = null;
+      if (messageData.relatedAd) {
+        const ad = await Ad.findById(messageData.relatedAd);
+        if (ad) {
+          adTitle = ad.headline || `${ad.brand} ${ad.model}`;
+        }
+      }
+      
+      await notificationService.notifyNewMessage(
+        recipientObjectId.toString(),
+        senderName,
+        adTitle
+      );
+      
+      console.log('Powiadomienie wysłane');
+    } catch (notificationError) {
+      console.error('Błąd podczas tworzenia powiadomienia:', notificationError);
+      // Nie przerywamy głównego procesu w przypadku błędu powiadomienia
+    }
+    
+    console.log('=== replyToConversation END ===');
+    res.status(201).json({ 
+      message: 'Wiadomość wysłana',
+      data: {
+        _id: newMessage._id,
+        content: newMessage.content,
+        createdAt: newMessage.createdAt,
+        sender: {
+          _id: sender._id,
+          name: sender.name,
+          email: sender.email
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Błąd podczas wysyłania wiadomości w konwersacji:', error);
     res.status(500).json({ message: 'Błąd serwera' });
   }
 };
@@ -275,9 +404,9 @@ export const getConversationsList = async (req, res) => {
       console.log(`- Data: ${exampleMsg.createdAt}`);
     }
 
-    // Grupuj wiadomości według rozmówcy
-    console.log('Grupowanie wiadomości według rozmówcy...');
-    const conversationsByUser = {};
+    // Grupuj wiadomości według kombinacji użytkownik + ogłoszenie
+    console.log('Grupowanie wiadomości według użytkownik + ogłoszenie...');
+    const conversationsByUserAndAd = {};
     const userIdStr = userObjectId.toString();
 
     // Przetwarzanie każdej wiadomości
@@ -346,36 +475,47 @@ export const getConversationsList = async (req, res) => {
         email: typeof otherUser === 'object' ? (otherUser.email || '') : ''
       };
       
+      // Określ ID ogłoszenia (jeśli istnieje)
+      const adId = msg.relatedAd ? 
+        (typeof msg.relatedAd === 'object' ? msg.relatedAd._id.toString() : msg.relatedAd.toString()) : 
+        'no-ad';
+      
+      // Utwórz unikalny klucz konwersacji: użytkownik:ogłoszenie
+      const conversationKey = `${otherUserId}:${adId}`;
+      
       console.log(`  Rozmówca: ${otherUserObject.name} (${otherUserObject._id})`);
+      console.log(`  Ogłoszenie: ${adId === 'no-ad' ? 'brak' : adId}`);
+      console.log(`  Klucz konwersacji: ${conversationKey}`);
       
       // Dodaj lub zaktualizuj konwersację
-      if (!conversationsByUser[otherUserId]) {
+      if (!conversationsByUserAndAd[conversationKey]) {
         // Nowa konwersacja
-        conversationsByUser[otherUserId] = {
+        conversationsByUserAndAd[conversationKey] = {
           user: otherUserObject,
           lastMessage: msg,
           unreadCount: 0,
-          adInfo: msg.relatedAd || null
+          adInfo: msg.relatedAd || null,
+          conversationId: conversationKey // Dodaj ID konwersacji dla frontendu
         };
-      } else if (msg.createdAt > conversationsByUser[otherUserId].lastMessage.createdAt) {
+      } else if (msg.createdAt > conversationsByUserAndAd[conversationKey].lastMessage.createdAt) {
         // Aktualizuj tylko jeśli ta wiadomość jest nowsza
-        conversationsByUser[otherUserId].lastMessage = msg;
+        conversationsByUserAndAd[conversationKey].lastMessage = msg;
         // Zachowaj informacje o ogłoszeniu tylko jeśli są dostępne
         if (msg.relatedAd) {
-          conversationsByUser[otherUserId].adInfo = msg.relatedAd;
+          conversationsByUserAndAd[conversationKey].adInfo = msg.relatedAd;
         }
       }
       
       // Zlicz nieprzeczytane wiadomości
       if (recipientId === userIdStr && senderId === otherUserId && !msg.read) {
-        conversationsByUser[otherUserId].unreadCount += 1;
-        console.log(`  Nieprzeczytana wiadomość od ${otherUserObject.name}`);
+        conversationsByUserAndAd[conversationKey].unreadCount += 1;
+        console.log(`  Nieprzeczytana wiadomość od ${otherUserObject.name} o ogłoszeniu ${adId}`);
       }
     });
     
     // Konwertuj obiekt na tablicę i sortuj według daty ostatniej wiadomości
     console.log('Konwersja i sortowanie konwersacji...');
-    const conversations = Object.values(conversationsByUser)
+    const conversations = Object.values(conversationsByUserAndAd)
       .sort((a, b) => b.lastMessage.createdAt - a.lastMessage.createdAt);
     
     console.log(`Znaleziono ${conversations.length} konwersacji`);

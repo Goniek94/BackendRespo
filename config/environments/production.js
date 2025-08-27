@@ -83,10 +83,25 @@ export default {
     cors: {
       origin: process.env.ALLOWED_ORIGINS ? 
         process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim()) : 
-        ['https://marketplace-frontend.vercel.app', 'https://your-production-domain.com'],
+        [
+          'https://marketplace-frontend.vercel.app', 
+          'https://your-production-domain.com',
+          'http://localhost:3000',      // Dodano dla development
+          'http://localhost:3001',      // Dodano dla development
+          'http://127.0.0.1:3000',      // Dodano dla development
+          'http://127.0.0.1:3001'       // Dodano dla development
+        ],
       credentials: true,                // Pozwól na cookies
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Dodano OPTIONS
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'], // Rozszerzone nagłówki
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'], // Dodano OPTIONS i PATCH
+      allowedHeaders: [
+        'Content-Type', 
+        'Authorization', 
+        'X-Requested-With', 
+        'Accept',
+        'Origin',
+        'Cache-Control',
+        'X-File-Name'
+      ], // Rozszerzone nagłówki
       exposedHeaders: ['X-Total-Count'], // Podstawowe nagłówki
       maxAge: 3600,                     // Cache preflight na 1h
       optionsSuccessStatus: 204,        // Status dla starszych przeglądarek

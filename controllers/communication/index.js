@@ -22,7 +22,8 @@ export const {
 export const {
   getConversation,
   getConversationsList,
-  replyToMessage
+  replyToMessage,
+  replyToConversation
 } = conversations;
 
 export const {

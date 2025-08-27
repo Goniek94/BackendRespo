@@ -126,9 +126,7 @@ const technicalDetailsSchema = new mongoose.Schema({
     min: 0
   },
   drive: {
-    type: String,
-    enum: ['Przedni', 'Tylny', '4x4', 'Na cztery koła stały', 'Na cztery koła dołączany', 
-           'AWD', '4WD', 'RWD', 'FWD', 'Inne']
+    type: String
   },
   doors: {
     type: String,

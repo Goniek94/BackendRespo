@@ -192,6 +192,42 @@ const basicInfoSchema = new mongoose.Schema({
     required: true,
     enum: ['pending', 'active', 'opublikowane', 'w toku', 'archiwalne', 'archived', 'rejected', 'needs_changes', 'sold'],
     default: 'pending'
+  },
+  
+  // Pola dla cesji leasingu
+  leasingCompany: {
+    type: String,
+    trim: true
+  },
+  remainingInstallments: {
+    type: Number,
+    min: 0
+  },
+  installmentAmount: {
+    type: Number,
+    min: 0
+  },
+  cessionFee: {
+    type: Number,
+    min: 0
+  },
+  
+  // Pola dla zamiany
+  exchangeOffer: {
+    type: String,
+    trim: true
+  },
+  exchangeValue: {
+    type: Number,
+    min: 0
+  },
+  exchangePayment: {
+    type: Number,
+    min: 0
+  },
+  exchangeConditions: {
+    type: String,
+    trim: true
   }
 });
 

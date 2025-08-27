@@ -17,6 +17,7 @@ import {
   getUserSuggestions,
   getConversation,
   replyToMessage,
+  replyToConversation,
   getConversationsList,
   archiveMessage,
   unarchiveMessage,
@@ -60,92 +61,7 @@ router.use(auth);
 // ========== NOWE ENDPOINTY DLA KONWERSACJI ==========
 
 // 🔥 GŁÓWNY ENDPOINT - Odpowiadanie w konwersacji z użytkownikiem
-router.post('/conversation/:userId/reply', upload.array('attachments', 5), async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { content } = req.body;
-    const senderId = req.user.userId;
-    
-    console.log('🚀 Odpowiadanie w konwersacji:', { userId, senderId, hasContent: !!content });
-    
-    if (!content || !content.trim()) {
-      return res.status(400).json({ message: 'Treść wiadomości jest wymagana' });
-    }
-    
-    // Sprawdź czy użytkownik istnieje
-    const recipientUser = await User.findById(userId);
-    if (!recipientUser) {
-      return res.status(404).json({ message: 'Nie znaleziono użytkownika' });
-    }
-    
-    // Sprawdź czy nie wysyłasz do siebie
-    if (userId === senderId) {
-      return res.status(400).json({ message: 'Nie możesz wysłać wiadomości do samego siebie' });
-    }
-    
-    // Przetwarzanie załączników
-    const attachments = req.files ? req.files.map(file => ({
-      name: file.originalname,
-      path: file.path,
-      size: file.size,
-      mimetype: file.mimetype
-    })) : [];
-
-    // Znajdź ostatnią wiadomość w konwersacji dla tematu
-    const lastMessage = await Message.findOne({
-      $or: [
-        { sender: senderId, recipient: userId },
-        { sender: userId, recipient: senderId }
-      ]
-    }).sort({ createdAt: -1 });
-
-    // Utwórz nową wiadomość
-    const newMessage = new Message({
-      sender: senderId,
-      recipient: userId,
-      subject: lastMessage?.subject ? 
-        (lastMessage.subject.startsWith('Re:') ? lastMessage.subject : `Re: ${lastMessage.subject}`) : 
-        'Nowa wiadomość',
-      content: content.trim(),
-      attachments,
-      relatedAd: lastMessage?.relatedAd || null
-    });
-
-    await newMessage.save();
-    console.log('✅ Wiadomość zapisana:', newMessage._id);
-
-    // Powiadomienia
-    try {
-      const sender = await User.findById(senderId);
-      const senderName = sender?.name || sender?.email || 'Użytkownik';
-      
-      let adTitle = null;
-      if (newMessage.relatedAd) {
-        const ad = await Ad.findById(newMessage.relatedAd);
-        if (ad) {
-          adTitle = ad.headline || `${ad.brand} ${ad.model}`;
-        }
-      }
-      
-      await notificationService.notifyNewMessage(userId, senderName, adTitle);
-      console.log('✅ Powiadomienie wysłane');
-    } catch (notificationError) {
-      console.error('⚠️ Błąd powiadomienia:', notificationError);
-    }
-
-    res.status(201).json({ 
-      message: 'Wiadomość wysłana',
-      data: {
-        _id: newMessage._id,
-        content: newMessage.content,
-        createdAt: newMessage.createdAt
-      }
-    });
-  } catch (error) {
-    console.error('💥 Błąd podczas odpowiadania w konwersacji:', error);
-    res.status(500).json({ message: 'Błąd serwera', error: error.message });
-  }
-});
+router.post('/conversation/:userId/reply', upload.array('attachments', 5), replyToConversation);
 
 // 🔥 Oznaczanie konwersacji jako przeczytanej
 router.patch('/conversation/:userId/read', async (req, res) => {

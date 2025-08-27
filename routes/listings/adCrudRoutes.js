@@ -106,6 +106,46 @@ router.post('/add', auth, createAdLimiter, validate(adValidationSchema), async (
         'leasing': 'Inne'
       };
 
+      const driveMapping = {
+        'RWD (tylny)': 'RWD',
+        'FWD (przedni)': 'FWD',
+        'AWD (na cztery koła)': 'AWD',
+        'Na cztery koła stały': '4WD',
+        'Na cztery koła dołączany': 'AWD',
+        'Przedni': 'FWD',
+        'Tylny': 'RWD',
+        '4x4': '4WD',
+        'Napęd na przód': 'FWD',
+        'Napęd na tył': 'RWD',
+        'Napęd na cztery koła': 'AWD'
+      };
+
+      const bodyTypeMapping = {
+        'Hatchback': 'Hatchback',
+        'Sedan': 'Sedan',
+        'Kombi': 'Kombi',
+        'SUV': 'SUV',
+        'Coupe': 'Coupe',
+        'Cabrio': 'Cabrio',
+        'Kabriolet': 'Cabrio',
+        'Terenowe': 'Terenowe',
+        'Minivan': 'Minivan',
+        'Dostawcze': 'Dostawcze',
+        'Pickup': 'Pickup',
+        'Van': 'Van',
+        'Limuzyna': 'Limuzyna',
+        'Roadster': 'Roadster',
+        'Targa': 'Targa'
+      };
+
+      const conditionMapping = {
+        'nowy': 'Nowy',
+        'używany': 'Używany',
+        'uzywany': 'Używany',
+        'Nowy': 'Nowy',
+        'Używany': 'Używany'
+      };
+
       return {
         ...data,
         // Mapowanie roku produkcji
@@ -115,7 +155,13 @@ router.post('/add', auth, createAdLimiter, validate(adValidationSchema), async (
         // Mapowanie skrzyni biegów
         transmission: transmissionMapping[data.transmission] || data.transmission?.toLowerCase() || 'manualna',
         // Mapowanie opcji zakupu
-        purchaseOptions: purchaseOptionsMapping[data.purchaseOption] || data.purchaseOptions || 'Sprzedaż'
+        purchaseOptions: purchaseOptionsMapping[data.purchaseOption] || data.purchaseOptions || 'Sprzedaż',
+        // Mapowanie napędu
+        drive: driveMapping[data.drive] || data.drive || 'FWD',
+        // Mapowanie typu nadwozia
+        bodyType: bodyTypeMapping[data.bodyType] || data.bodyType,
+        // Mapowanie stanu pojazdu
+        condition: conditionMapping[data.condition] || data.condition || 'Używany'
       };
     };
 
@@ -141,18 +187,24 @@ router.post('/add', auth, createAdLimiter, validate(adValidationSchema), async (
       return res.status(404).json({ message: 'Użytkownik nie znaleziony' });
     }
 
-    // Walidacja czy tablica `images` istnieje i nie jest pusta
-    if (!images || !Array.isArray(images) || images.length === 0) {
-      return res.status(400).json({ message: 'Ogłoszenie musi zawierać przynajmniej jedno zdjęcie.' });
+    // Walidacja liczby zdjęć - minimum 5, maksimum 15
+    if (!images || !Array.isArray(images)) {
+      return res.status(400).json({ message: 'Zdjęcia są wymagane.' });
     }
-    console.log(`Otrzymano ${images.length} URL-i zdjęć z Supabase:`, images);
+    
+    if (images.length < 5) {
+      return res.status(400).json({ message: 'Ogłoszenie musi zawierać minimum 5 zdjęć.' });
+    }
+    
+    if (images.length > 15) {
+      return res.status(400).json({ message: 'Ogłoszenie może zawierać maksymalnie 15 zdjęć.' });
+    }
+    
+    console.log(`Otrzymano ${images.length} URL-i zdjęć z Supabase (wymagane: 5-15):`, images);
 
-    // Walidacja, czy `mainImage` jest jednym z URL-i w `images`
-    if (!mainImage || !images.includes(mainImage)) {
-        // Jeśli nie ma `mainImage` lub nie ma go w `images`, ustaw pierwszy obraz jako główny
-        console.log('Brak `mainImage` lub nieprawidłowy URL. Ustawiam pierwszy obraz jako główny.');
-        req.body.mainImage = images[0];
-    }
+    // Automatycznie ustaw pierwsze zdjęcie jako główne
+    req.body.mainImage = images[0];
+    console.log('Automatycznie ustawiono pierwsze zdjęcie jako główne:', images[0]);
 
     // Generowanie krótkiego opisu z nagłówka (do 120 znaków)
     const shortDescription = headline
@@ -287,25 +339,15 @@ router.get('/:id', async (req, res, next) => {
       adObj.images = [];
     } else {
       // Filtruj tylko niepuste zdjęcia
-      adObj.images = adObj.images.filter(imageUrl => imageUrl);
+      adObj.images = adObj.images.filter(imageUrl => imageUrl && imageUrl.trim() !== '');
       
       // Jeśli po filtrowaniu nie ma zdjęć, zwróć pustą tablicę
       if (adObj.images.length === 0) {
         adObj.images = [];
       }
       
-      // Przekształć ścieżki zdjęć, aby były pełnymi URL-ami
-      adObj.images = adObj.images.map(imageUrl => {
-        if (imageUrl.startsWith('http')) {
-          return imageUrl;
-        } else if (imageUrl.startsWith('/uploads/')) {
-          return `${process.env.BACKEND_URL || 'http://localhost:5000'}${imageUrl}`;
-        } else if (imageUrl.startsWith('uploads/')) {
-          return `${process.env.BACKEND_URL || 'http://localhost:5000'}/${imageUrl}`;
-        } else {
-          return `${process.env.BACKEND_URL || 'http://localhost:5000'}/uploads/${imageUrl}`;
-        }
-      });
+      // Zdjęcia z Supabase już mają pełne URL-e, nie trzeba ich przekształcać
+      // Pozostaw URL-e bez zmian - Supabase obsługuje CORS
     }
 
     console.log(`Zwracam ogłoszenie ${adObj._id} ze zdjęciami:`, adObj.images);

@@ -116,7 +116,15 @@ const adValidationSchema = Joi.object({
   countryOfOrigin: Joi.string().allow(''),
   power: Joi.any().allow(null),
   engineSize: Joi.any().allow(null),
-  drive: Joi.string().allow(''),
+  drive: Joi.string()
+    .valid('FWD (przedni)', 'RWD (tylny)', 'AWD/4x4', 
+           'Przedni', 'Tylny', 'Na cztery koła stały', 'Na cztery koła dołączany',
+           'AWD', '4WD', 'RWD', 'FWD', 'Inne')
+    .allow('')
+    .optional()
+    .messages({
+      'any.only': 'Nieprawidłowy typ napędu.'
+    }),
   doors: Joi.any().allow(null),
   weight: Joi.any().allow(null),
 
@@ -124,7 +132,12 @@ const adValidationSchema = Joi.object({
   city: Joi.string().allow(''),
 
   photos: Joi.array().items(Joi.string()).optional(),
-  images: Joi.array().items(Joi.string()).optional(),
+  images: Joi.array().items(Joi.string()).min(5).max(15).required().messages({
+    'array.min': 'Ogłoszenie musi zawierać minimum 5 zdjęć.',
+    'array.max': 'Ogłoszenie może zawierać maksymalnie 15 zdjęć.',
+    'any.required': 'Zdjęcia są wymagane.'
+  }),
+  mainImage: Joi.string().optional(),
   mainImageIndex: Joi.any().optional(),
 
   rentalPrice: Joi.any().allow(null),

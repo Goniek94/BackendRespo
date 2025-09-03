@@ -106,18 +106,15 @@ const basicInfoSchema = new mongoose.Schema({
   fuelType: {
     type: String,
     required: true,
-    enum: ['Benzyna', 'Diesel', 'Elektryczny', 'Hybryda', 'Hybrydowy', 'Benzyna+LPG', 'Inne',
-           'Benzyna+CNG', 'Etanol', 'Hybryda plug-in', 'Wodór', 'Benzyna+Etanol'],
-    default: 'Benzyna',
-    set: capitalizeFuelType
+    enum: ['BENZYNA', 'DIESEL', 'ELEKTRYCZNY', 'HYBRYDA', 'BENZYNA+LPG', 'BENZYNA+CNG', 
+           'ETANOL', 'INNE'],
+    default: 'BENZYNA'
   },
   transmission: {
     type: String,
     required: true,
-    enum: ['Manualna', 'Automatyczna', 'Półautomatyczna', 'Bezstopniowa CVT',
-           'Automatyczna dwusprzęgłowa', 'Sekwencyjna', 'Inne'],
-    default: 'Manualna',
-    set: capitalizeTransmission
+    enum: ['MANUALNA', 'AUTOMATYCZNA', 'PÓŁAUTOMATYCZNA', 'AUTOMATYCZNA CVT', 'INNE'],
+    default: 'MANUALNA'
   },
   
   // Identyfikatory pojazdu
@@ -138,6 +135,11 @@ const basicInfoSchema = new mongoose.Schema({
       },
       message: props => `${props.value} to nieprawidłowy numer rejestracyjny!`
     }
+  },
+  
+  // Data pierwszej rejestracji
+  firstRegistrationDate: {
+    type: Date
   },
   
   // Opis i zdjęcia
@@ -169,9 +171,8 @@ const basicInfoSchema = new mongoose.Schema({
   purchaseOptions: {
     type: String,
     required: true,
-    enum: ['Sprzedaż', 'Faktura VAT', 'Inne', 'Cesja leasingu', 'Zamiana'],
-    default: 'Sprzedaż',
-    set: capitalizePurchaseOptions
+    enum: ['SPRZEDAŻ', 'FAKTURA VAT', 'INNE', 'CESJA LEASINGU', 'ZAMIANA', 'NAJEM', 'LEASING'],
+    default: 'SPRZEDAŻ'
   },
   negotiable: {
     type: String,

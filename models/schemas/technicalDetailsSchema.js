@@ -57,8 +57,7 @@ const technicalDetailsSchema = new mongoose.Schema({
   // Stan pojazdu - akceptujemy różne formaty z frontendu
   condition: {
     type: String,
-    enum: ['Nowy', 'Używany', 'nowy', 'używany', 'uzywany'],
-    set: capitalizeCondition
+    enum: ['NOWY', 'UŻYWANY']
   },
   accidentStatus: {
     type: String,
@@ -99,15 +98,15 @@ const technicalDetailsSchema = new mongoose.Schema({
   // Dane techniczne
   bodyType: {
     type: String,
-    enum: ['Hatchback', 'Sedan', 'Kombi', 'SUV', 'Coupe', 'Cabrio', 'Terenowe', 'Minivan', 'Dostawcze',
-           'Pickup', 'Van', 'Limuzyna', 'Roadster', 'Targa']
+    enum: ['HATCHBACK', 'SEDAN', 'KOMBI', 'SUV', 'COUPE', 'CABRIO', 'TERENOWE', 'MINIVAN', 'DOSTAWCZE',
+           'PICKUP', 'VAN', 'LIMUZYNA', 'ROADSTER', 'TARGA']
   },
   color: {
     type: String
   },
   paintFinish: {
     type: String,
-    enum: ['Metalik', 'Perła', 'Mat', 'Połysk', 'Inne']
+    enum: ['METALIK', 'PERŁA', 'MAT', 'POŁYSK', 'INNE']
   },
   seats: {
     type: String,

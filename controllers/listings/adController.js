@@ -119,10 +119,22 @@ class AdController {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 30;
       const skip = (page - 1) * limit;
+      const { sortBy = 'createdAt', order = 'desc', sellerType } = req.query;
 
-      // Get only active ads
+      console.log('🔍 BACKEND SEARCH - Parametry sortowania:', { sortBy, order });
+      console.log('🔍 BACKEND SEARCH - Parametry filtrowania:', { sellerType });
+
+      // Build filter object - start with active ads only
       const activeFilter = { status: getActiveStatusFilter() };
+      
+      // Add seller type filter if provided
+      if (sellerType && sellerType !== 'all') {
+        activeFilter.sellerType = sellerType;
+        console.log('🔍 BACKEND SEARCH - Dodano filtr sellerType:', sellerType);
+      }
+      
       const allAds = await Ad.find(activeFilter);
+      console.log('🔍 BACKEND SEARCH - Znaleziono ogłoszeń po filtrach:', allAds.length);
       
       // Calculate match score for each ad
       const adsWithScore = allAds.map(ad => {
@@ -135,11 +147,54 @@ class AdController {
         };
       });
 
-      // Sort by featured status, then match score, then creation date
+      // Apply custom sorting based on sortBy parameter
       adsWithScore.sort((a, b) => {
+        // Always prioritize featured ads first
         if (b.is_featured !== a.is_featured) return b.is_featured - a.is_featured;
-        if (b.match_score !== a.match_score) return b.match_score - a.match_score;
-        return new Date(b.createdAt) - new Date(a.createdAt);
+        
+        // Then apply user-selected sorting
+        let comparison = 0;
+        
+        switch (sortBy) {
+          case 'price':
+            comparison = (a.price || 0) - (b.price || 0);
+            break;
+          case 'year':
+            comparison = (a.year || 0) - (b.year || 0);
+            break;
+          case 'mileage':
+            comparison = (a.mileage || 0) - (b.mileage || 0);
+            break;
+          case 'createdAt':
+          default:
+            comparison = new Date(a.createdAt) - new Date(b.createdAt);
+            break;
+        }
+        
+        // Apply sort order (desc = -1, asc = 1)
+        const sortMultiplier = order === 'desc' ? -1 : 1;
+        comparison *= sortMultiplier;
+        
+        // If values are equal, fall back to match score, then creation date
+        if (comparison === 0) {
+          if (b.match_score !== a.match_score) return b.match_score - a.match_score;
+          return new Date(b.createdAt) - new Date(a.createdAt);
+        }
+        
+        return comparison;
+      });
+
+      console.log('✅ BACKEND SEARCH - Posortowane:', {
+        total: adsWithScore.length,
+        first3: adsWithScore.slice(0, 3).map(ad => ({
+          id: ad._id,
+          brand: ad.brand,
+          model: ad.model,
+          price: ad.price,
+          year: ad.year,
+          mileage: ad.mileage,
+          sortValue: ad[sortBy] || 'N/A'
+        }))
       });
 
       // Apply pagination

@@ -20,7 +20,8 @@ export {
 export {
   getUserProfile,
   updateUserProfile,
-  getRecentlyViewed
+  getRecentlyViewed,
+  getUserDashboard
 } from './profileController.js';
 
 // Password Controller

@@ -190,3 +190,39 @@ export const getRecentlyViewed = async (req, res) => {
     });
   }
 };
+
+/**
+ * Get user dashboard with complete ad data
+ */
+export const getUserDashboard = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    // Get user's ads with complete data - NO FILTERING, return all fields
+    const userAds = await Ad.find({
+      owner: userId
+    })
+    .sort({ createdAt: -1 });
+
+    // Return complete ad objects without any field filtering
+    const dashboardData = {
+      success: true,
+      ads: userAds.map(ad => ad.toObject()), // Convert to plain objects with all fields
+      totalAds: userAds.length,
+      activeAds: userAds.filter(ad => ad.status === 'active').length,
+      pendingAds: userAds.filter(ad => ad.status === 'pending').length,
+      archivedAds: userAds.filter(ad => ad.status === 'archived').length
+    };
+
+    console.log(`✅ Dashboard data for user ${userId}: ${userAds.length} ads returned with complete data`);
+    res.status(200).json(dashboardData);
+
+  } catch (error) {
+    console.error('❌ Get user dashboard error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Błąd serwera podczas pobierania danych dashboard',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};

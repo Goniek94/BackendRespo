@@ -6,8 +6,8 @@ import mongoose from 'mongoose';
 const capitalizeSellerType = function(value) {
   if (!value) return value;
   const lowerValue = value.toLowerCase();
-  if (lowerValue === 'prywatny') return 'Prywatny';
-  if (lowerValue === 'firma') return 'Firma';
+  if (lowerValue === 'prywatny' || lowerValue === 'private') return 'Prywatny';
+  if (lowerValue === 'firma' || lowerValue === 'company') return 'Firma';
   return value;
 };
 
@@ -36,8 +36,9 @@ const ownerInfoSchema = new mongoose.Schema({
   // Typ sprzedającego (osoba prywatna / firma)
   sellerType: {
     type: String,
-    enum: ['PRYWATNY', 'FIRMA'],
-    default: 'PRYWATNY'
+    enum: ['Prywatny', 'Firma', 'prywatny', 'firma', 'private', 'company'],
+    default: 'Prywatny',
+    set: capitalizeSellerType
   }
 });
 

@@ -51,13 +51,22 @@ const capitalizeCondition = function(value) {
 };
 
 /**
+ * Helper function to capitalize body type values (first letter uppercase)
+ */
+const capitalizeBodyType = function(value) {
+  if (!value) return value;
+  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+};
+
+/**
  * Schemat danych technicznych pojazdu
  */
 const technicalDetailsSchema = new mongoose.Schema({
   // Stan pojazdu - akceptujemy różne formaty z frontendu
   condition: {
     type: String,
-    enum: ['NOWY', 'UŻYWANY']
+    enum: ['Nowy', 'Używany'],
+    set: capitalizeCondition
   },
   accidentStatus: {
     type: String,
@@ -98,8 +107,9 @@ const technicalDetailsSchema = new mongoose.Schema({
   // Dane techniczne
   bodyType: {
     type: String,
-    enum: ['HATCHBACK', 'SEDAN', 'KOMBI', 'SUV', 'COUPE', 'CABRIO', 'TERENOWE', 'MINIVAN', 'DOSTAWCZE',
-           'PICKUP', 'VAN', 'LIMUZYNA', 'ROADSTER', 'TARGA']
+    enum: ['Hatchback', 'Sedan', 'Kombi', 'Suv', 'Coupe', 'Cabrio', 'Terenowe', 'Minivan', 'Dostawcze',
+           'Pickup', 'Van', 'Limuzyna', 'Roadster', 'Targa'],
+    set: capitalizeBodyType
   },
   color: {
     type: String

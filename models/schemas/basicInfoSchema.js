@@ -20,6 +20,10 @@ const capitalizePurchaseOptions = function(value) {
   if (lowerValue === 'sprzedaż' || lowerValue === 'sprzedaz') return 'Sprzedaż';
   if (lowerValue === 'faktura vat') return 'Faktura VAT';
   if (lowerValue === 'inne') return 'Inne';
+  if (lowerValue === 'cesja leasingu') return 'Cesja leasingu';
+  if (lowerValue === 'zamiana') return 'Zamiana';
+  if (lowerValue === 'najem') return 'Najem';
+  if (lowerValue === 'leasing') return 'Leasing';
   return value;
 };
 
@@ -60,6 +64,14 @@ const capitalizeTransmission = function(value) {
 };
 
 /**
+ * Helper function to capitalize model names (all uppercase)
+ */
+const capitalizeModel = function(value) {
+  if (!value) return value;
+  return value.toUpperCase();
+};
+
+/**
  * Schemat podstawowych informacji o pojeździe
  */
 const basicInfoSchema = new mongoose.Schema({
@@ -72,7 +84,8 @@ const basicInfoSchema = new mongoose.Schema({
   model: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
+    set: capitalizeModel
   },
   generation: {
     type: String,
@@ -106,15 +119,17 @@ const basicInfoSchema = new mongoose.Schema({
   fuelType: {
     type: String,
     required: true,
-    enum: ['BENZYNA', 'DIESEL', 'ELEKTRYCZNY', 'HYBRYDA', 'BENZYNA+LPG', 'BENZYNA+CNG', 
-           'ETANOL', 'INNE'],
-    default: 'BENZYNA'
+    enum: ['Benzyna', 'Diesel', 'Elektryczny', 'Hybryda', 'Benzyna+LPG', 'Benzyna+CNG', 
+           'Etanol', 'Inne'],
+    default: 'Benzyna',
+    set: capitalizeFuelType
   },
   transmission: {
     type: String,
     required: true,
-    enum: ['MANUALNA', 'AUTOMATYCZNA', 'PÓŁAUTOMATYCZNA', 'AUTOMATYCZNA CVT', 'INNE'],
-    default: 'MANUALNA'
+    enum: ['Manualna', 'Automatyczna', 'Półautomatyczna', 'Automatyczna CVT', 'Inne'],
+    default: 'Manualna',
+    set: capitalizeTransmission
   },
   
   // Identyfikatory pojazdu
@@ -171,8 +186,9 @@ const basicInfoSchema = new mongoose.Schema({
   purchaseOptions: {
     type: String,
     required: true,
-    enum: ['SPRZEDAŻ', 'FAKTURA VAT', 'INNE', 'CESJA LEASINGU', 'ZAMIANA', 'NAJEM', 'LEASING'],
-    default: 'SPRZEDAŻ'
+    enum: ['Sprzedaż', 'Faktura VAT', 'Inne', 'Cesja leasingu', 'Zamiana', 'Najem', 'Leasing'],
+    default: 'Sprzedaż',
+    set: capitalizePurchaseOptions
   },
   negotiable: {
     type: String,

@@ -39,7 +39,7 @@ class SocketService {
         origin: [
           'http://localhost:3000',
           'http://localhost:3001',
-          process.env.FRONTEND_URL || 'http://localhost:3001'
+          process.env.FRONTEND_URL || 'http://localhost:3000'
         ],
         methods: ['GET', 'POST'],
         credentials: true

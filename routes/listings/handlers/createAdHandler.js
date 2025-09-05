@@ -8,7 +8,7 @@ import auth from '../../../middleware/auth.js';
 import validate from '../../../middleware/validation/validate.js';
 import adValidationSchema from '../../../validationSchemas/adValidation.js';
 import errorHandler from '../../../middleware/errors/errorHandler.js';
-import { notificationService } from '../../../controllers/notifications/notificationController.js';
+import notificationManager from '../../../services/notificationManager.js';
 
 /**
  * Funkcja do kapitalizacji tekstu (pierwsza litera duża, reszta mała)
@@ -24,6 +24,87 @@ const capitalizeText = (text) => {
 const toUpperCase = (text) => {
   if (!text || typeof text !== 'string') return text;
   return text.toUpperCase();
+};
+
+/**
+ * Mapowanie marek na kraje pochodzenia
+ */
+const brandToCountryMapping = {
+  // Niemieckie marki
+  'AUDI': 'Niemcy',
+  'BMW': 'Niemcy',
+  'MERCEDES-BENZ': 'Niemcy',
+  'MERCEDES': 'Niemcy',
+  'VOLKSWAGEN': 'Niemcy',
+  'PORSCHE': 'Niemcy',
+  'OPEL': 'Niemcy',
+  'SMART': 'Niemcy',
+  
+  // Francuskie marki
+  'PEUGEOT': 'Francja',
+  'CITROEN': 'Francja',
+  'RENAULT': 'Francja',
+  'DACIA': 'Francja',
+  
+  // Włoskie marki
+  'FIAT': 'Włochy',
+  'ALFA ROMEO': 'Włochy',
+  'LANCIA': 'Włochy',
+  'FERRARI': 'Włochy',
+  'LAMBORGHINI': 'Włochy',
+  'MASERATI': 'Włochy',
+  
+  // Hiszpańskie marki
+  'SEAT': 'Hiszpania',
+  'CUPRA': 'Hiszpania',
+  
+  // Czeskie marki
+  'SKODA': 'Czechy',
+  
+  // Szwedzkie marki
+  'VOLVO': 'Szwecja',
+  'SAAB': 'Szwecja',
+  
+  // Brytyjskie marki
+  'ASTON MARTIN': 'Wielka Brytania',
+  'BENTLEY': 'Wielka Brytania',
+  'JAGUAR': 'Wielka Brytania',
+  'LAND ROVER': 'Wielka Brytania',
+  'LOTUS': 'Wielka Brytania',
+  'MINI': 'Wielka Brytania',
+  'ROLLS-ROYCE': 'Wielka Brytania',
+  
+  // Amerykańskie marki
+  'FORD': 'USA',
+  'CHEVROLET': 'USA',
+  'CADILLAC': 'USA',
+  'CHRYSLER': 'USA',
+  'DODGE': 'USA',
+  'JEEP': 'USA',
+  'TESLA': 'USA',
+  
+  // Japońskie marki
+  'TOYOTA': 'Japonia',
+  'HONDA': 'Japonia',
+  'NISSAN': 'Japonia',
+  'MAZDA': 'Japonia',
+  'SUBARU': 'Japonia',
+  'MITSUBISHI': 'Japonia',
+  'SUZUKI': 'Japonia',
+  'LEXUS': 'Japonia',
+  'ACURA': 'Japonia',
+  'INFINITI': 'Japonia',
+  
+  // Koreańskie marki
+  'HYUNDAI': 'Korea Południowa',
+  'KIA': 'Korea Południowa',
+  'GENESIS': 'Korea Południowa',
+  'DAEWOO': 'Korea Południowa',
+  
+  // Polskie marki
+  'FSO': 'Polska',
+  'POLONEZ': 'Polska',
+  'SYRENA': 'Polska'
 };
 
 /**
@@ -100,44 +181,44 @@ export const mapFormDataToBackend = (data) => {
   };
 
   const bodyTypeMapping = {
-    'Hatchback': 'HATCHBACK',
-    'hatchback': 'HATCHBACK',
-    'Sedan': 'SEDAN',
-    'sedan': 'SEDAN',
-    'Kombi': 'KOMBI',
-    'kombi': 'KOMBI',
-    'SUV': 'SUV',
-    'suv': 'SUV',
-    'Coupe': 'COUPE',
-    'coupe': 'COUPE',
-    'Cabrio': 'CABRIO',
-    'cabrio': 'CABRIO',
-    'Kabriolet': 'CABRIO',
-    'kabriolet': 'CABRIO',
-    'Terenowe': 'TERENOWE',
-    'terenowe': 'TERENOWE',
-    'Minivan': 'MINIVAN',
-    'minivan': 'MINIVAN',
-    'Dostawcze': 'DOSTAWCZE',
-    'dostawcze': 'DOSTAWCZE',
-    'Pickup': 'PICKUP',
-    'pickup': 'PICKUP',
-    'Van': 'VAN',
-    'van': 'VAN',
-    'Limuzyna': 'LIMUZYNA',
-    'limuzyna': 'LIMUZYNA',
-    'Roadster': 'ROADSTER',
-    'roadster': 'ROADSTER',
-    'Targa': 'TARGA',
-    'targa': 'TARGA'
+    'Hatchback': 'Hatchback',
+    'hatchback': 'Hatchback',
+    'Sedan': 'Sedan',
+    'sedan': 'Sedan',
+    'Kombi': 'Kombi',
+    'kombi': 'Kombi',
+    'SUV': 'Suv',
+    'suv': 'Suv',
+    'Coupe': 'Coupe',
+    'coupe': 'Coupe',
+    'Cabrio': 'Cabrio',
+    'cabrio': 'Cabrio',
+    'Kabriolet': 'Cabrio',
+    'kabriolet': 'Cabrio',
+    'Terenowe': 'Terenowe',
+    'terenowe': 'Terenowe',
+    'Minivan': 'Minivan',
+    'minivan': 'Minivan',
+    'Dostawcze': 'Dostawcze',
+    'dostawcze': 'Dostawcze',
+    'Pickup': 'Pickup',
+    'pickup': 'Pickup',
+    'Van': 'Van',
+    'van': 'Van',
+    'Limuzyna': 'Limuzyna',
+    'limuzyna': 'Limuzyna',
+    'Roadster': 'Roadster',
+    'roadster': 'Roadster',
+    'Targa': 'Targa',
+    'targa': 'Targa'
   };
 
   const conditionMapping = {
-    'nowy': 'NOWY',
-    'Nowy': 'NOWY',
-    'używany': 'UŻYWANY',
-    'Używany': 'UŻYWANY',
-    'uzywany': 'UŻYWANY'
+    'nowy': 'Nowy',
+    'Nowy': 'Nowy',
+    'używany': 'Używany',
+    'Używany': 'Używany',
+    'uzywany': 'Używany'
   };
 
   const sellerTypeMapping = {
@@ -182,12 +263,12 @@ export const mapFormDataToBackend = (data) => {
     sellerType: sellerTypeMapping[data.sellerType] || toUpperCase(data.sellerType) || 'PRYWATNY',
     // Mapowanie napędu - DUŻE LITERY
     drive: driveMapping[data.drive] || toUpperCase(data.drive) || 'FWD',
-    // Mapowanie typu nadwozia - DUŻE LITERY
-    bodyType: bodyTypeMapping[data.bodyType] || toUpperCase(data.bodyType),
-    // Mapowanie stanu pojazdu - DUŻE LITERY
-    condition: conditionMapping[data.condition] || toUpperCase(data.condition) || 'UŻYWANY',
-    // DODANE: Mapowanie kraju pochodzenia - pierwsza litera wielka
-    countryOfOrigin: data.countryOfOrigin || data.country || 'Polska',
+    // Mapowanie typu nadwozia - pierwsza litera wielka
+    bodyType: bodyTypeMapping[data.bodyType] || capitalizeText(data.bodyType),
+    // Mapowanie stanu pojazdu - pierwsza litera wielka
+    condition: conditionMapping[data.condition] || capitalizeText(data.condition) || 'Używany',
+    // DODANE: Automatyczne mapowanie kraju pochodzenia na podstawie marki
+    countryOfOrigin: data.countryOfOrigin || data.country || brandToCountryMapping[toUpperCase(data.brand)] || 'Inne',
     // NAPRAWIONE: Kolor - DUŻE LITERY
     color: toUpperCase(data.color),
     // NAPRAWIONE: Wykończenie lakieru - DUŻE LITERY
@@ -369,7 +450,13 @@ export const createAd = [
     // Tworzenie powiadomienia o dodaniu ogłoszenia
     try {
       const adTitle = headline || `${brand} ${model}`;
-      await notificationService.notifyAdCreated(req.user.userId, adTitle);
+      await notificationManager.createNotification(req.user.userId, {
+        title: "Ogłoszenie opublikowane!",
+        message: `Twoje ogłoszenie "${adTitle}" zostało pomyślnie opublikowane!`,
+        type: 'listing_added',
+        link: `/ads/${ad._id}`,
+        metadata: { adId: ad._id }
+      });
       console.log(`Utworzono powiadomienie o dodaniu ogłoszenia dla użytkownika ${req.user.userId}`);
     } catch (notificationError) {
       console.error('Błąd podczas tworzenia powiadomienia:', notificationError);

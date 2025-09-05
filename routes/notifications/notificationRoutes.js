@@ -1,7 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import auth from '../../middleware/auth.js';
-import NotificationService from '../../services/notificationService.js';
+import notificationManager from '../../services/notificationManager.js';
 import notificationService from '../../controllers/notifications/notificationController.js';
 import Notification from '../../models/communication/notification.js';
 
@@ -489,8 +489,8 @@ router.post('/test-create', auth, async (req, res) => {
       });
     }
     
-    // Utwórz powiadomienie używając notificationService
-    const notification = await notificationService.createNotification(
+    // Utwórz powiadomienie używając notificationManager
+    const notification = await notificationManager.createNotification(
       userId,
       title,
       message,

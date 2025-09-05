@@ -16,6 +16,7 @@ import fs from 'fs';
 import cookieParser from 'cookie-parser';
 import http from 'http';
 import socketService from './services/socketService.js';
+import notificationManager from './services/notificationManager.js';
 import imageProcessor from './middleware/processing/imageProcessor.js';
 
 // ✅ NOWA KONFIGURACJA - Import centralnej konfiguracji
@@ -312,6 +313,9 @@ const startServer = async () => {
   // Inicjalizacja Socket.IO
   socketService.initialize(server);
   
+  // Inicjalizacja NotificationManager
+  notificationManager.initialize();
+  
   // Konfiguracja katalogów na pliki
   configureUploads(app);
   
@@ -352,4 +356,3 @@ const startServer = async () => {
 
 // Uruchomienie serwera
 startServer();
-

@@ -1,5 +1,12 @@
 import express from 'express';
-import { getDashboardStats } from '../controllers/dashboard/dashboardController.js';
+import { 
+  getDashboardStats, 
+  getDetailedUserStats, 
+  getDetailedListingStats, 
+  getDetailedMessageStats,
+  getSystemHealth,
+  getActivityTimeline
+} from '../controllers/dashboard/dashboardController.js';
 import { cleanupOldActivity, getCleanupStats, scheduleCleanup } from '../controllers/dashboard/activityCleanupController.js';
 
 const router = express.Router();
@@ -15,6 +22,22 @@ router.get('/', getDashboardStats);
 
 // GET /admin/dashboard/stats - Get dashboard statistics (alias)
 router.get('/stats', getDashboardStats);
+
+// Detailed statistics endpoints
+// GET /admin/dashboard/users/stats - Get detailed user statistics
+router.get('/users/stats', getDetailedUserStats);
+
+// GET /admin/dashboard/listings/stats - Get detailed listing statistics
+router.get('/listings/stats', getDetailedListingStats);
+
+// GET /admin/dashboard/messages/stats - Get detailed message statistics
+router.get('/messages/stats', getDetailedMessageStats);
+
+// GET /admin/dashboard/system/health - Get system health information
+router.get('/system/health', getSystemHealth);
+
+// GET /admin/dashboard/activity/timeline - Get activity timeline
+router.get('/activity/timeline', getActivityTimeline);
 
 // Activity cleanup routes
 // POST /admin/dashboard/cleanup - Manual cleanup of old activity

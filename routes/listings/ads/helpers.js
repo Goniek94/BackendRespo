@@ -172,7 +172,9 @@ export const mapFormDataToBackend = (data) => {
     // Map transmission
     transmission: transmissionMapping[data.transmission] || data.transmission?.toLowerCase() || 'manualna',
     // Map purchase options
-    purchaseOptions: purchaseOptionsMapping[data.purchaseOption] || data.purchaseOptions || 'Sprzedaż'
+    purchaseOptions: purchaseOptionsMapping[data.purchaseOption] || data.purchaseOptions || 'Sprzedaż',
+    // Map country of origin
+    countryOfOrigin: data.countryOfOrigin || data.country || ''
   };
 };
 

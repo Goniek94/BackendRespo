@@ -25,8 +25,11 @@ const toUpperCase = (text) => {
  */
 const purchaseOptionsMapping = {
   'sprzedaz': 'Sprzedaż',
-  'faktura': 'Faktura VAT', 
+  'Sprzedaż': 'Sprzedaż',
+  'faktura': 'Faktura VAT',
+  'Faktura VAT': 'Faktura VAT', 
   'inne': 'Inne',
+  'Inne': 'Inne',
   'najem': 'Inne',
   'leasing': 'Inne',
   'Cesja': 'Cesja leasingu',
@@ -106,27 +109,53 @@ export const updateAd = [
         return res.status(403).json({ message: 'Brak uprawnień do edycji tego ogłoszenia' });
       }
 
-      // UPROSZCZONE pola do edycji - tylko te które rzeczywiście potrzebujemy
-      const editableFields = ['description', 'price', 'city', 'voivodeship', 'color', 'mileage', 'condition', 'sellerType'];
+      // TYLKO PODSTAWOWE pola do edycji - zgodnie z wymaganiami użytkownika
+      const editableFields = [
+        'headline',       // nagłówek
+        'description',    // opis
+        'price',          // cena
+        'city',           // miasto
+        'voivodeship',    // województwo
+        'condition',      // stan
+        'mileage',        // przebieg
+        'countryOfOrigin' // kraj produkcji
+      ];
       
       console.log('=== AKTUALIZACJA PÓL ===');
       editableFields.forEach(field => {
         if (req.body[field] !== undefined) {
           const oldValue = ad[field];
+          let newValue = req.body[field];
           
-          // Specjalne mapowanie dla sellerType
-          if (field === 'sellerType') {
-            const mappedValue = sellerTypeMapping[req.body[field]] || req.body[field];
-            ad[field] = mappedValue;
-            console.log(`${field}: "${oldValue}" -> "${mappedValue}" (z mapowania: "${req.body[field]}")`);
+          // Proste mapowanie dla pól numerycznych
+          if (['mileage', 'price'].includes(field)) {
+            newValue = parseInt(req.body[field]) || 0;
+            console.log(`${field}: "${oldValue}" -> ${newValue} (konwersja na liczbę)`);
           } else {
-            ad[field] = req.body[field];
-            console.log(`${field}: "${oldValue}" -> "${req.body[field]}"`);
+            console.log(`${field}: "${oldValue}" -> "${newValue}"`);
           }
+          
+          ad[field] = newValue;
         }
       });
 
-      // Obsługa zdjęć - UPROSZCZONA
+      // Obsługa kolejności zdjęć - jeśli przesłano nową kolejność
+      if (req.body.imageOrder) {
+        try {
+          const imageOrder = typeof req.body.imageOrder === 'string' 
+            ? JSON.parse(req.body.imageOrder) 
+            : req.body.imageOrder;
+          
+          if (Array.isArray(imageOrder) && imageOrder.length > 0) {
+            console.log('Aktualizacja kolejności zdjęć:', imageOrder);
+            ad.images = imageOrder;
+          }
+        } catch (error) {
+          console.error('Błąd parsowania kolejności zdjęć:', error);
+        }
+      }
+
+      // Obsługa nowych zdjęć
       if (req.files && req.files.length > 0) {
         console.log(`Dodawanie ${req.files.length} nowych zdjęć`);
         const newImageUrls = req.files.map(file => `/${file.path.replace(/\\/g, '/')}`);
@@ -134,26 +163,24 @@ export const updateAd = [
       }
 
       // Walidacja zdjęć - minimum 5, maksimum 15
-      if (ad.images && ad.images.length < 5) {
+      const totalImages = (ad.images ? ad.images.length : 0) + (req.files ? req.files.length : 0);
+      
+      if (totalImages < 5) {
         return res.status(400).json({ 
-          message: `Ogłoszenie musi zawierać minimum 5 zdjęć. Obecnie masz ${ad.images.length}.` 
+          message: `Ogłoszenie musi zawierać minimum 5 zdjęć. Obecnie masz ${totalImages}.` 
         });
       }
       
-      if (ad.images && ad.images.length > 15) {
+      if (totalImages > 15) {
         return res.status(400).json({ 
-          message: `Ogłoszenie może zawierać maksymalnie 15 zdjęć. Obecnie masz ${ad.images.length}.` 
+          message: `Ogłoszenie może zawierać maksymalnie 15 zdjęć. Obecnie masz ${totalImages}.` 
         });
       }
 
-      // Ustaw główne zdjęcie
-      if (req.body.mainImageIndex !== undefined && ad.images && ad.images.length > 0) {
-        const index = parseInt(req.body.mainImageIndex);
-        if (index >= 0 && index < ad.images.length) {
-          ad.mainImage = ad.images[index];
-        }
-      } else if (!ad.mainImage && ad.images && ad.images.length > 0) {
+      // Ustaw główne zdjęcie - zawsze pierwsze zdjęcie
+      if (ad.images && ad.images.length > 0) {
         ad.mainImage = ad.images[0];
+        console.log('Główne zdjęcie ustawione na:', ad.mainImage);
       }
 
       // Automatyczne generowanie shortDescription

@@ -16,7 +16,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import developmentConfig from './environments/development.js';
+import developmentConfig from './environments/development-minimal.js';
 import stagingConfig from './environments/staging.js';
 import productionConfig from './environments/production.js';
 

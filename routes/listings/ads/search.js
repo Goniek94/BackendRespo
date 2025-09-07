@@ -102,13 +102,18 @@ router.get('/', async (req, res, next) => {
     
     const skip = (parseInt(page) - 1) * parseInt(limit);
     
-    // Create sort object
+    // Create sort object with proper validation
     const sortOptions = {};
+    
+    // Validate and set sort parameters
+    const validSortFields = ['createdAt', 'price', 'year', 'mileage'];
+    const validSortBy = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    const validOrder = ['asc', 'desc'].includes(order) ? order : 'desc';
+    
+    sortOptions[validSortBy] = validOrder === 'desc' ? -1 : 1;
     
     // If showing only featured ads, use simple sorting
     if (filter.listingType === 'wyróżnione') {
-      sortOptions[sortBy] = order === 'desc' ? -1 : 1;
-      
       const ads = await Ad.find(filter)
         .sort(sortOptions)
         .skip(skip)
@@ -150,7 +155,7 @@ router.get('/', async (req, res, next) => {
       { 
         $sort: { 
           featuredPriority: 1,  // Featured first
-          [sortBy]: order === 'desc' ? -1 : 1  // Then by selected sort
+          [validSortBy]: validOrder === 'desc' ? -1 : 1  // Then by selected sort
         } 
       },
       { $skip: skip },
@@ -223,7 +228,15 @@ router.get('/search', async (req, res, next) => {
       order = req.query.order;
     }
 
-    console.log('Search request:', { query: req.query, page, limit, sortBy, order });
+    console.log('🔍 Search request:', { 
+      query: req.query, 
+      page, 
+      limit, 
+      sortBy, 
+      order,
+      originalSortBy: req.query.sortBy,
+      originalOrder: req.query.order
+    });
 
     // Check if user applied any filters (excluding pagination and sorting params)
     const hasFilters = Object.keys(req.query).some(key => 
@@ -344,6 +357,11 @@ async function getHierarchicalResults(query, sortBy, order) {
  * Funkcja do losowego sortowania bez filtrów
  */
 async function getRandomizedResults(sortBy, order) {
+  // Validate sort parameters
+  const validSortFields = ['createdAt', 'price', 'year', 'mileage'];
+  const validSortBy = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
+  const validOrder = ['asc', 'desc'].includes(order) ? order : 'desc';
+  
   // Wyróżnione - losowa kolejność (ograniczone do 20)
   const featured = await Ad.aggregate([
     { 
@@ -357,7 +375,7 @@ async function getRandomizedResults(sortBy, order) {
   
   // Zwykłe - według wybranego sortowania
   const sortOptions = {};
-  sortOptions[sortBy] = order === 'desc' ? -1 : 1;
+  sortOptions[validSortBy] = validOrder === 'desc' ? -1 : 1;
   
   const regular = await Ad.find({
     $or: [
@@ -390,6 +408,11 @@ async function getRandomizedResults(sortBy, order) {
  * Sortowanie w ramach kategorii
  */
 function sortWithinCategories(results, sortBy, order) {
+  // Validate sort parameters
+  const validSortFields = ['createdAt', 'price', 'year', 'mileage'];
+  const validSortBy = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
+  const validOrder = ['asc', 'desc'].includes(order) ? order : 'desc';
+  
   const categories = ['featured-exact', 'featured-partial', 'regular-exact', 'regular-partial'];
   const sortedResults = [];
   
@@ -397,19 +420,35 @@ function sortWithinCategories(results, sortBy, order) {
     const categoryAds = results.filter(ad => ad.category === category);
     
     categoryAds.sort((a, b) => {
-      switch (sortBy) {
+      let comparison = 0;
+      
+      switch (validSortBy) {
         case 'price':
-          return order === 'asc' ? a.price - b.price : b.price - a.price;
+          const priceA = parseFloat(a.price) || 0;
+          const priceB = parseFloat(b.price) || 0;
+          comparison = priceA - priceB;
+          break;
         case 'year':
-          return order === 'asc' ? a.year - b.year : b.year - a.year;
+          const yearA = parseInt(a.year) || 0;
+          const yearB = parseInt(b.year) || 0;
+          comparison = yearA - yearB;
+          break;
         case 'mileage':
-          return order === 'asc' ? a.mileage - b.mileage : b.mileage - a.mileage;
+          const mileageA = parseInt(a.mileage) || 0;
+          const mileageB = parseInt(b.mileage) || 0;
+          comparison = mileageA - mileageB;
+          break;
         case 'createdAt':
         default:
-          const dateA = new Date(a.createdAt);
-          const dateB = new Date(b.createdAt);
-          return order === 'asc' ? dateA - dateB : dateB - dateA;
+          // Poprawiona obsługa dat
+          const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+          const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+          comparison = dateA.getTime() - dateB.getTime();
+          break;
       }
+      
+      // Zastosuj kierunek sortowania
+      return validOrder === 'asc' ? comparison : -comparison;
     });
     
     sortedResults.push(...categoryAds);

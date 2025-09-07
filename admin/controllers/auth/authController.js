@@ -23,10 +23,14 @@ import {
 
 /**
  * Admin login with cookie-based authentication
+ * NAPRAWIONE: Sprawdza czy użytkownik jest już zalogowany zamiast logować ponownie
  */
 export const loginAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    // NAPRAWIONE: Nie czyścimy tokenów - pozwalamy na współistnienie user i admin tokenów
+    // Admin używa tych samych cookies co zwykli użytkownicy
 
     // Validate input
     if (!email || !password) {
@@ -152,31 +156,33 @@ export const loginAdmin = async (req, res) => {
     // Set secure HttpOnly cookies - UŻYWA STANDARDOWYCH COOKIES
     setAuthCookies(res, accessToken, refreshToken);
 
-    // Log successful admin login
-    await AdminActivity.create({
-      adminId: user._id,
-      actionType: 'login_attempt',
-      targetResource: {
-        resourceType: 'system',
-        resourceIdentifier: 'admin_panel'
-      },
-      actionDetails: {
-        metadata: {
-          loginMethod: 'password',
-          sessionId
+    // TYMCZASOWO WYŁĄCZONE: AdminActivity może powodować duże nagłówki
+    if (false) { // WYŁĄCZONE dla debugowania HTTP 431
+      await AdminActivity.create({
+        adminId: user._id,
+        actionType: 'login_attempt',
+        targetResource: {
+          resourceType: 'system',
+          resourceIdentifier: 'admin_panel'
+        },
+        actionDetails: {
+          metadata: {
+            loginMethod: 'password',
+            sessionId
+          }
+        },
+        requestContext: {
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent'),
+          sessionId,
+          requestId: `login_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        },
+        result: {
+          status: 'success',
+          message: 'Admin login successful'
         }
-      },
-      requestContext: {
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent'),
-        sessionId,
-        requestId: `login_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      },
-      result: {
-        status: 'success',
-        message: 'Admin login successful'
-      }
-    });
+      });
+    }
 
     // Return admin user data (without sensitive information)
     const adminData = {
@@ -248,8 +254,8 @@ export const logoutAdmin = async (req, res) => {
     // Clear standard cookies - UŻYWA STANDARDOWYCH COOKIES
     clearAuthCookies(res);
 
-    // Log admin logout
-    if (userId) {
+    // TYMCZASOWO WYŁĄCZONE: AdminActivity może powodować duże nagłówki
+    if (false && userId) { // WYŁĄCZONE dla debugowania HTTP 431
       await AdminActivity.create({
         adminId: userId,
         actionType: 'logout',

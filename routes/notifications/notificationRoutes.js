@@ -2,7 +2,6 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import auth from '../../middleware/auth.js';
 import notificationManager from '../../services/notificationManager.js';
-import notificationService from '../../controllers/notifications/notificationController.js';
 import Notification from '../../models/communication/notification.js';
 
 const router = express.Router();
@@ -30,7 +29,7 @@ testRouter.post('/', async (req, res) => {
     }
     
     // Utwórz powiadomienie bezpośrednio
-    const notification = await notificationService.createNotification(
+    const notification = await notificationManager.createNotification(
       userId,
       title || 'Testowe powiadomienie',
       message,
@@ -74,7 +73,7 @@ testRouter.post('/send', async (req, res) => {
     
     switch (type) {
       case 'new_message':
-        notification = await notificationService.notifyNewMessage(
+        notification = await notificationManager.notifyNewMessage(
           userId,
           data.senderName || 'Użytkownik',
           data.adTitle || 'Ogłoszenie',
@@ -83,7 +82,7 @@ testRouter.post('/send', async (req, res) => {
         break;
         
       case 'listing_liked':
-        notification = await notificationService.notifyAdAddedToFavorites(
+        notification = await notificationManager.notifyAdAddedToFavorites(
           userId,
           data.adTitle || 'Ogłoszenie',
           data.adId || null
@@ -91,7 +90,7 @@ testRouter.post('/send', async (req, res) => {
         break;
         
       case 'payment_completed':
-        notification = await notificationService.notifyPaymentStatusChange(
+        notification = await notificationManager.notifyPaymentStatusChange(
           userId,
           'completed',
           data.adTitle || 'Ogłoszenie',
@@ -100,7 +99,7 @@ testRouter.post('/send', async (req, res) => {
         break;
         
       case 'listing_added':
-        notification = await notificationService.notifyAdCreated(
+        notification = await notificationManager.notifyAdCreated(
           userId,
           data.adTitle || 'Ogłoszenie',
           data.adId || null
@@ -108,7 +107,7 @@ testRouter.post('/send', async (req, res) => {
         break;
         
       case 'listing_expiring':
-        notification = await notificationService.notifyAdExpiringSoon(
+        notification = await notificationManager.notifyAdExpiringSoon(
           userId,
           data.adTitle || 'Ogłoszenie',
           data.daysLeft || 3,
@@ -117,7 +116,7 @@ testRouter.post('/send', async (req, res) => {
         break;
         
       case 'listing_expired':
-        notification = await notificationService.notifyAdExpired(
+        notification = await notificationManager.notifyAdExpired(
           userId,
           data.adTitle || 'Ogłoszenie',
           data.adId || null
@@ -125,7 +124,7 @@ testRouter.post('/send', async (req, res) => {
         break;
         
       case 'listing_viewed':
-        notification = await notificationService.notifyAdViewed(
+        notification = await notificationManager.notifyAdViewed(
           userId,
           data.adTitle || 'Ogłoszenie',
           data.viewCount || null,
@@ -134,7 +133,7 @@ testRouter.post('/send', async (req, res) => {
         break;
         
       case 'comment_reply':
-        notification = await notificationService.notifyCommentReply(
+        notification = await notificationManager.notifyCommentReply(
           userId,
           data.adTitle || 'Ogłoszenie',
           data.adId || null,
@@ -143,7 +142,7 @@ testRouter.post('/send', async (req, res) => {
         break;
         
       case 'payment_failed':
-        notification = await notificationService.notifyPaymentFailed(
+        notification = await notificationManager.notifyPaymentFailed(
           userId,
           data.reason || null,
           data.metadata || {}
@@ -151,7 +150,7 @@ testRouter.post('/send', async (req, res) => {
         break;
         
       case 'payment_refunded':
-        notification = await notificationService.notifyPaymentRefunded(
+        notification = await notificationManager.notifyPaymentRefunded(
           userId,
           data.amount || null,
           data.metadata || {}
@@ -159,7 +158,7 @@ testRouter.post('/send', async (req, res) => {
         break;
         
       case 'account_activity':
-        notification = await notificationService.notifyAccountActivity(
+        notification = await notificationManager.notifyAccountActivity(
           userId,
           data.activity || 'Nieznana aktywność',
           data.metadata || {}
@@ -167,7 +166,7 @@ testRouter.post('/send', async (req, res) => {
         break;
         
       case 'profile_viewed':
-        notification = await notificationService.notifyProfileViewed(
+        notification = await notificationManager.notifyProfileViewed(
           userId,
           data.viewerName || null,
           data.metadata || {}
@@ -175,7 +174,7 @@ testRouter.post('/send', async (req, res) => {
         break;
         
       case 'maintenance_notification':
-        notification = await notificationService.notifyMaintenance(
+        notification = await notificationManager.notifyMaintenance(
           userId,
           data.message || 'Planowana konserwacja systemu',
           data.scheduledTime || null,
@@ -201,26 +200,6 @@ testRouter.post('/send', async (req, res) => {
   }
 });
 
-/**
- * @route POST /api/notifications/test/token
- * @desc Generuje token JWT do testów
- * @access Public (tylko do testów)
- */
-testRouter.post('/token', (req, res) => {
-  const { userId } = req.body;
-  
-  if (!userId) {
-    return res.status(400).json({ error: 'Brak ID użytkownika' });
-  }
-  
-  const token = jwt.sign(
-    { userId },
-    process.env.JWT_SECRET || 'default_secret',
-    { expiresIn: '1h' }
-  );
-  
-  return res.status(200).json({ token });
-});
 
 /**
  * @route GET /api/notifications/test
@@ -310,7 +289,7 @@ router.get('/unread', auth, async (req, res) => {
   try {
     const { limit = 10 } = req.query;
     
-    const notifications = await notificationService.getUnreadNotifications(req.user.userId, parseInt(limit));
+    const notifications = await notificationManager.getUnreadNotifications(req.user.userId, parseInt(limit));
     
     // Konwersja do formatu API
     const formattedNotifications = notifications.map(notification => 
@@ -339,11 +318,11 @@ router.get('/unread', auth, async (req, res) => {
 });
 
 /**
- * @route GET /api/notifications/unread/count
+ * @route GET /api/notifications/unread-count
  * @desc Zliczanie nieprzeczytanych powiadomień z podziałem na typy
  * @access Private
  */
-router.get('/unread/count', auth, async (req, res) => {
+router.get('/unread-count', auth, async (req, res) => {
   try {
     const userId = req.user.userId;
     
@@ -401,7 +380,7 @@ router.get('/unread/count', auth, async (req, res) => {
  */
 router.patch('/:id/read', auth, async (req, res) => {
   try {
-    const notification = await notificationService.markAsRead(req.params.id, req.user.userId);
+    const notification = await notificationManager.markAsRead(req.params.id, req.user.userId);
     
     res.status(200).json({
       message: 'Powiadomienie oznaczone jako przeczytane',
@@ -431,13 +410,13 @@ router.patch('/:id/read', auth, async (req, res) => {
 });
 
 /**
- * @route PATCH /api/notifications/read-all
+ * @route PATCH /api/notifications/mark-all-read
  * @desc Oznaczanie wszystkich powiadomień jako przeczytane
  * @access Private
  */
-router.patch('/read-all', auth, async (req, res) => {
+router.patch('/mark-all-read', auth, async (req, res) => {
   try {
-    const result = await notificationService.markAllAsRead(req.user.userId);
+    const result = await notificationManager.markAllAsRead(req.user.userId);
     
     res.status(200).json({
       message: 'Wszystkie powiadomienia oznaczone jako przeczytane',
@@ -456,7 +435,7 @@ router.patch('/read-all', auth, async (req, res) => {
  */
 router.delete('/:id', auth, async (req, res) => {
   try {
-    await notificationService.deleteNotification(req.params.id, req.user.userId);
+    await notificationManager.deleteNotification(req.params.id, req.user.userId);
     
     res.status(200).json({
       message: 'Powiadomienie usunięte'
@@ -529,7 +508,7 @@ router.post('/test-create', auth, async (req, res) => {
 // Pobierz statystyki powiadomień
 router.get('/stats', auth, async (req, res) => {
   try {
-    const stats = await notificationService.getNotificationStats();
+    const stats = await notificationManager.getNotificationStats();
     
     res.json({
       success: true,

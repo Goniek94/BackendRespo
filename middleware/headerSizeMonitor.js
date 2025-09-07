@@ -14,14 +14,14 @@
 import logger from '../utils/logger.js';
 import { clearAuthCookies } from '../config/cookieConfig.js';
 
-// Konfiguracja limitów (w bajtach) – łagodniejsze w dev/staging
+// Konfiguracja limitów (w bajtach) – ULTRA AGRESYWNE dla HTTP 431 fix
 const isProd = process.env.NODE_ENV === 'production';
 const LIMITS = {
-  TOTAL_HEADERS: isProd ? 32768 : 65536, // 32KB prod, 64KB dev/staging (zgodne z server.maxHeaderSize)
-  SINGLE_HEADER: 8192,                   // 8KB – pojedynczy nagłówek
-  COOKIES_TOTAL: isProd ? 4096 : 8192,   // 4KB prod, 8KB dev/staging
-  SINGLE_COOKIE: isProd ? 2048 : 4096,   // 2KB prod, 4KB dev/staging
-  WARNING_THRESHOLD: isProd ? 24576 : 49152 // 75% limitu
+  TOTAL_HEADERS: isProd ? 16384 : 32768, // 16KB prod, 32KB dev (ZMNIEJSZONE)
+  SINGLE_HEADER: 4096,                   // 4KB – pojedynczy nagłówek (ZMNIEJSZONE)
+  COOKIES_TOTAL: isProd ? 2048 : 4096,   // 2KB prod, 4KB dev (ZMNIEJSZONE)
+  SINGLE_COOKIE: isProd ? 1024 : 2048,   // 1KB prod, 2KB dev (ZMNIEJSZONE)
+  WARNING_THRESHOLD: isProd ? 12288 : 24576 // 75% limitu (ZMNIEJSZONE)
 };
 
 // Oblicz rozmiar nagłówków HTTP w bajtach
@@ -234,4 +234,3 @@ const analyzeHeaders = (req) => {
 
 export default headerSizeMonitor;
 export { sessionCleanup, analyzeHeaders, LIMITS };
-

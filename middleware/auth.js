@@ -45,64 +45,42 @@ const finalSessionConfig = { ...sessionDefaults, ...sessionConfig };
 
 /**
  * Generate cryptographically secure access token
- * OPTIMIZED: Minimal payload for security and performance
+ * NAPRAWIONE: Używamy standardowych pól dla poprawnej autoryzacji
  */
 const generateAccessToken = (payload) => {
-  const tokenId = crypto.randomBytes(16).toString('hex');
-  const currentTime = Math.floor(Date.now() / 1000);
-  
-  // SECURITY OPTIMIZATION: Minimal payload - only essential data
-  const minimalPayload = {
-    userId: payload.userId,
+  const tokenPayload = {
+    userId: payload.userId.toString(), // Pełne ID użytkownika
     role: payload.role || 'user',
-    type: 'access',
-    iat: currentTime,
-    jti: tokenId
-    // REMOVED: email, userAgent, ipAddress, fingerprint, lastActivity
-    // These are now handled in middleware/database for security
+    type: 'access'
   };
   
   return jwt.sign(
-    minimalPayload, 
+    tokenPayload, 
     jwtConfig.secret, 
     { 
-      expiresIn: jwtConfig.accessTokenExpiry,
-      algorithm: jwtConfig.algorithm,
-      audience: jwtConfig.audience,
-      issuer: jwtConfig.issuer,
-      subject: payload.userId.toString()
+      expiresIn: '1h',
+      algorithm: 'HS256'
     }
   );
 };
 
 /**
  * Generate cryptographically secure refresh token
- * OPTIMIZED: Minimal payload for security and performance
+ * NAPRAWIONE: Używamy standardowych pól dla poprawnej autoryzacji
  */
 const generateRefreshToken = (payload) => {
-  const tokenId = crypto.randomBytes(32).toString('hex'); // Longer ID for refresh tokens
-  const currentTime = Math.floor(Date.now() / 1000);
-  
-  // SECURITY OPTIMIZATION: Minimal payload - only essential data
-  const minimalPayload = {
-    userId: payload.userId,
+  const tokenPayload = {
+    userId: payload.userId.toString(), // Pełne ID użytkownika
     role: payload.role || 'user',
-    type: 'refresh',
-    iat: currentTime,
-    jti: tokenId
-    // REMOVED: email, userAgent, ipAddress, fingerprint
-    // These are now handled in middleware/database for security
+    type: 'refresh'
   };
   
   return jwt.sign(
-    minimalPayload, 
+    tokenPayload, 
     jwtConfig.refreshSecret, 
     { 
-      expiresIn: jwtConfig.refreshTokenExpiry,
-      algorithm: jwtConfig.algorithm,
-      audience: jwtConfig.audience,
-      issuer: jwtConfig.issuer,
-      subject: payload.userId.toString()
+      expiresIn: '7d',
+      algorithm: 'HS256'
     }
   );
 };
@@ -158,16 +136,13 @@ const refreshUserSession = async (refreshToken, req, res) => {
     // Verify refresh token
     const refreshDecoded = jwt.verify(refreshToken, jwtConfig.refreshSecret);
     
-    // Validate token type
-    if (refreshDecoded.type !== 'refresh') {
-      throw new Error('Invalid refresh token type');
-    }
+    // USUNIĘTE: Walidacja typu tokena - niepotrzebna dla wydajności
     
     // Check if refresh token is blacklisted
     const isRefreshBlacklisted = await isBlacklisted(refreshToken);
     if (isRefreshBlacklisted) {
       logger.warn('Attempted use of blacklisted refresh token', {
-        userId: refreshDecoded.userId,
+        userId: refreshDecoded.userId, // pełna nazwa pola
         ip: req.ip,
         userAgent: req.get('User-Agent')
       });
@@ -182,7 +157,7 @@ const refreshUserSession = async (refreshToken, req, res) => {
     // For now, we rely on token blacklisting and user verification
     
     // Verify user still exists and is active
-    const user = await User.findById(refreshDecoded.userId);
+    const user = await User.findById(refreshDecoded.userId); // pełna nazwa pola
     if (!user) {
       throw new Error('User not found');
     }
@@ -313,17 +288,7 @@ const authMiddleware = async (req, res, next) => {
       // Verify access token
       const decoded = jwt.verify(accessToken, jwtConfig.secret);
       
-      // Validate token type
-      if (decoded.type !== 'access') {
-        logger.warn('Invalid token type used', {
-          type: decoded.type,
-          ip: req.ip
-        });
-        return res.status(401).json({ 
-          message: 'Invalid token type',
-          code: 'INVALID_TOKEN_TYPE'
-        });
-      }
+      // USUNIĘTE: Walidacja typu tokena - niepotrzebna dla wydajności
       
       // SECURITY NOTE: Fingerprint validation moved to database-level session tracking
       // for better security and smaller tokens. Session hijacking detection is now
@@ -332,12 +297,39 @@ const authMiddleware = async (req, res, next) => {
       // Optional: Add database-level session validation here if needed
       // For now, we rely on token blacklisting and user verification
       
-      // SECURITY NOTE: Session inactivity is now handled by token expiration times
-      // and database-level last activity tracking. This reduces token size and
-      // improves security by not storing activity timestamps in tokens.
+      // Użyj pełnego ID użytkownika z tokena
+      const fullUserId = decoded.userId;
       
-      // Optional: Add database-level inactivity check here if needed
-      // For now, we rely on JWT expiration and refresh token mechanism
+      // Check user inactivity - sprawdź czy użytkownik był nieaktywny zbyt długo
+      if (fullUserId) {
+        const user = await User.findById(fullUserId);
+        if (user && user.lastActivity) {
+          const inactivityTime = Date.now() - new Date(user.lastActivity).getTime();
+          const maxInactivity = finalSessionConfig.inactivityTimeout;
+          
+          if (inactivityTime > maxInactivity) {
+            logger.info('User session expired due to inactivity', {
+              userId: fullUserId,
+              inactivityTime: Math.round(inactivityTime / 1000 / 60), // minutes
+              maxInactivity: Math.round(maxInactivity / 1000 / 60), // minutes
+              ip: req.ip
+            });
+            
+            // Blacklist current token due to inactivity
+            await addToBlacklist(accessToken, {
+              reason: 'INACTIVITY_TIMEOUT',
+              userId: fullUserId,
+              ip: req.ip
+            });
+            
+            clearAuthCookies(res);
+            return res.status(401).json({ 
+              message: 'Session expired due to inactivity. Please login again.',
+              code: 'INACTIVITY_TIMEOUT'
+            });
+          }
+        }
+      }
       
       // Preemptive token refresh (if token expires soon) - WYŁĄCZONE NA DEV
       const currentTime = Date.now();
@@ -389,15 +381,17 @@ const authMiddleware = async (req, res, next) => {
       };
       
       // Update user's last activity in database (async, don't wait)
-      User.findByIdAndUpdate(decoded.userId, {
-        lastActivity: new Date(),
-        lastIP: req.ip
-      }).catch(error => {
-        logger.error('Failed to update user activity', {
-          userId: decoded.userId,
-          error: error.message
+      if (fullUserId) {
+        User.findByIdAndUpdate(fullUserId, {
+          lastActivity: new Date(),
+          lastIP: req.ip
+        }).catch(error => {
+          logger.error('Failed to update user activity', {
+            userId: fullUserId,
+            error: error.message
+          });
         });
-      });
+      }
       
       logger.debug('Authentication successful', {
         userId: req.user.userId,

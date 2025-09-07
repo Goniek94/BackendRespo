@@ -16,7 +16,9 @@ export const {
   toggleStar,
   deleteMessage,
   archiveMessage,
-  unarchiveMessage
+  unarchiveMessage,
+  unsendMessage,
+  editMessage
 } = messageFlags;
 
 export const {

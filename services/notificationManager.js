@@ -31,42 +31,53 @@ class NotificationManager {
       return;
     }
 
-    // Nasłuchuj na połączenia użytkowników przez Socket.IO
-    if (socketService && socketService.io) {
-      // Integracja z socketService - nasłuchuj na nowe połączenia
-      const originalHandleConnection = socketService.handleConnection;
-      if (originalHandleConnection) {
-        socketService.handleConnection = function(socket) {
-          // Wywołaj oryginalną metodę
-          originalHandleConnection.call(this, socket);
-          
-          // Dodaj obsługę powiadomień offline
-          const userId = socket.user?.userId;
-          if (userId) {
-            notificationManager.handleUserOnline(userId);
-            notificationManager.activeUsers.add(userId);
-            
-            // Obsługa rozłączenia
-            socket.on('disconnect', () => {
-              notificationManager.activeUsers.delete(userId);
-            });
-
-            // Obsługa potwierdzenia dostarczenia
-            socket.on('notification_delivered', (data) => {
-              notificationManager.handleDeliveryConfirmation(userId, data.notificationId);
-            });
-
-            // Obsługa preferencji użytkownika
-            socket.on('update_notification_preferences', (preferences) => {
-              notificationManager.updateUserPreferences(userId, preferences);
-            });
-          }
-        };
-      }
-    }
+    // Integracja z socketService przez event-based komunikację
+    this.setupSocketServiceIntegration();
 
     this.initialized = true;
     logger.info('[NotificationManager] Serwis zainicjalizowany pomyślnie');
+  }
+
+  /**
+   * Konfiguruje integrację z socketService
+   */
+  setupSocketServiceIntegration() {
+    if (!socketService || !socketService.io) {
+      logger.warn('[NotificationManager] SocketService nie jest dostępny');
+      return;
+    }
+
+    // Nasłuchuj na zdarzenia z socketService
+    socketService.io.on('connection', (socket) => {
+      const userId = socket.user?.userId;
+      if (!userId) return;
+
+      logger.info(`[NotificationManager] Użytkownik ${userId} połączył się`);
+      
+      // Dodaj do aktywnych użytkowników
+      this.activeUsers.add(userId);
+      
+      // Obsłuż powiadomienia offline
+      this.handleUserOnline(userId);
+
+      // Obsługa rozłączenia
+      socket.on('disconnect', () => {
+        logger.info(`[NotificationManager] Użytkownik ${userId} rozłączył się`);
+        this.activeUsers.delete(userId);
+      });
+
+      // Obsługa potwierdzenia dostarczenia
+      socket.on('notification_delivered', (data) => {
+        this.handleDeliveryConfirmation(userId, data.notificationId);
+      });
+
+      // Obsługa preferencji użytkownika
+      socket.on('update_notification_preferences', (preferences) => {
+        this.updateUserPreferences(userId, preferences);
+      });
+    });
+
+    logger.info('[NotificationManager] Integracja z socketService skonfigurowana');
   }
 
   /**
@@ -304,8 +315,15 @@ class NotificationManager {
   }
 
   generateNotificationHash(userId, type, message) {
-    const crypto = require('crypto');
-    return crypto.createHash('md5').update(`${userId}:${type}:${message}`).digest('hex');
+    // Prosty hash bez crypto dla kompatybilności ES6
+    const str = `${userId}:${type}:${message}`;
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash).toString(16);
   }
 
   isDuplicate(hash) {

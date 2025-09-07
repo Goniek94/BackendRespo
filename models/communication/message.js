@@ -18,8 +18,12 @@ const messageSchema = new mongoose.Schema({
   },
   content: {
     type: String,
-    required: true,
-    trim: true
+    required: function() {
+      // Content jest wymagane tylko jeśli nie ma załączników
+      return !this.attachments || this.attachments.length === 0;
+    },
+    trim: true,
+    default: ''
   },
   attachments: [{
     name: String,
@@ -57,6 +61,14 @@ const messageSchema = new mongoose.Schema({
     default: false
   },
   editedAt: {
+    type: Date,
+    default: null
+  },
+  unsent: {
+    type: Boolean,
+    default: false
+  },
+  unsentAt: {
     type: Date,
     default: null
   },

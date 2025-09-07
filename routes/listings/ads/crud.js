@@ -112,7 +112,7 @@ router.post('/add', auth, createAdLimiter, validate(adValidationSchema), async (
       registrationNumber, headline, description, purchaseOptions, listingType, condition,
       accidentStatus, damageStatus, tuning, imported, registeredInPL, firstOwner, disabledAdapted,
       bodyType, color, lastOfficialMileage, power, engineSize, drive, doors, weight,
-      voivodeship, city, rentalPrice, status, sellerType, images, mainImage // Receive URL array and main image
+      voivodeship, city, rentalPrice, status, sellerType, countryOfOrigin, images, mainImage // Receive URL array and main image
     } = mappedData;
 
     console.log('Data after mapping:', {
@@ -189,6 +189,9 @@ router.post('/add', auth, createAdLimiter, validate(adValidationSchema), async (
       // Location
       voivodeship,
       city,
+      
+      // Country of origin
+      countryOfOrigin,
       
       // Rental
       rentalPrice: rentalPrice ? parseFloat(rentalPrice) : undefined,
@@ -400,142 +403,13 @@ router.put('/:id/main-image', auth, async (req, res, next) => {
   }
 }, errorHandler);
 
+// Import nowego handlera aktualizacji
+import { updateAd } from '../handlers/updateAdHandler.js';
+
 /**
- * PUT /:id - Update ad
+ * PUT /:id - Update ad (używa nowego handlera)
  */
-router.put('/:id', auth, async (req, res, next) => {
-  try {
-    const ad = await Ad.findById(req.params.id);
-
-    if (!ad) {
-      return res.status(404).json({ message: 'Ad not found' });
-    }
-
-    // Check if user is owner or admin
-    if (ad.owner.toString() !== req.user.userId.toString() && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'No permission to edit this ad' });
-    }
-
-    // Basic normalization of incoming payload (frontend aliases / types)
-    try {
-      // Accept title -> headline
-      if (req.body && req.body.title && !req.body.headline) {
-        req.body.headline = req.body.title;
-      }
-      // Accept opis -> description
-      if (req.body && req.body.opis && !req.body.description) {
-        req.body.description = req.body.opis;
-      }
-      // Accept purchaseOption -> purchaseOptions
-      if (req.body && req.body.purchaseOption && !req.body.purchaseOptions) {
-        req.body.purchaseOptions = req.body.purchaseOption;
-      }
-      // Normalize negotiable boolean to string values
-      if (typeof req.body?.negotiable === 'boolean') {
-        req.body.negotiable = req.body.negotiable ? 'Tak' : 'Nie';
-      }
-      // Normalize price if provided as string number with spaces/commas
-      if (typeof req.body?.price === 'string') {
-        const normalized = req.body.price.replace(/\s/g, '').replace(',', '.');
-        if (!isNaN(Number(normalized))) {
-          req.body.price = Number(normalized);
-        }
-      }
-    } catch (_) { /* noop - normalization best-effort */ }
-
-    // Fields that can be updated - extended list
-    const updatableFields = [
-      // Basic information
-      'description', 'price', 'city', 'voivodeship', 'color',
-      'headline', 'mainImage', 'images', 'mileage', 'negotiable',
-      
-      // Technical data
-      'condition', 'accidentStatus', 'damageStatus', 'tuning', 
-      'imported', 'registeredInPL', 'firstOwner', 'disabledAdapted',
-      'bodyType', 'lastOfficialMileage', 'power', 'engineSize', 
-      'drive', 'doors', 'weight', 'rentalPrice', 'countryOfOrigin',
-      
-      // Identifiers (only for admins)
-      ...(req.user.role === 'admin' ? ['vin', 'registrationNumber'] : []),
-      
-      // Purchase options
-      'purchaseOptions'
-    ];
-
-    console.log('=== AKTUALIZACJA OGŁOSZENIA ===');
-    console.log('ID ogłoszenia:', req.params.id);
-    console.log('Użytkownik:', req.user.userId);
-    console.log('Dane otrzymane z frontendu:', JSON.stringify(req.body, null, 2));
-    console.log('Dozwolone pola do aktualizacji:', updatableFields);
-
-    // Loguj pola przed aktualizacją
-    console.log('=== POLA PRZED AKTUALIZACJĄ ===');
-    updatableFields.forEach(field => {
-      if (req.body.hasOwnProperty(field)) {
-        console.log(`${field}: "${ad[field]}" (obecne w request)`);
-      }
-    });
-
-    // Aktualizuj tylko dozwolone pola - używaj hasOwnProperty i sprawdzaj undefined
-    updatableFields.forEach(field => {
-      if (req.body.hasOwnProperty(field) && req.body[field] !== undefined && req.body[field] !== null) {
-        const oldValue = ad[field];
-        const newValue = req.body[field];
-        console.log(`Aktualizuję pole ${field}: "${oldValue}" -> "${newValue}"`);
-        ad[field] = newValue;
-      } else if (req.body.hasOwnProperty(field)) {
-        console.log(`Pomijam pole ${field} - wartość undefined/null:`, req.body[field]);
-      }
-    });
-
-    // Special handling for mainImageIndex - convert to mainImage
-    if (req.body.mainImageIndex !== undefined && ad.images && ad.images.length > 0) {
-      const index = parseInt(req.body.mainImageIndex);
-      if (index >= 0 && index < ad.images.length) {
-        ad.mainImage = ad.images[index];
-        console.log(`Set main image to index ${index}: ${ad.mainImage}`);
-      }
-    }
-
-    // Automatic generation of shortDescription from headline or description
-    if (req.body.description || req.body.headline) {
-      const sourceText = req.body.headline || ad.headline || req.body.description || ad.description;
-      ad.shortDescription = sourceText ? sourceText.substring(0, 120) : '';
-      console.log('Generated shortDescription:', ad.shortDescription);
-    }
-
-    // Loguj pola po aktualizacji
-    console.log('=== POLA PO AKTUALIZACJI ===');
-    updatableFields.forEach(field => {
-      if (req.body.hasOwnProperty(field)) {
-        console.log(`${field}: "${ad[field]}" (po aktualizacji)`);
-      }
-    });
-
-    // Save changes
-    console.log('Zapisuję zmiany do bazy danych...');
-    const savedAd = await ad.save();
-    console.log('Ogłoszenie zapisane pomyślnie w bazie danych');
-    
-    // Sprawdź czy zmiany rzeczywiście zostały zapisane
-    const verifyAd = await Ad.findById(req.params.id);
-    console.log('=== WERYFIKACJA PO ZAPISIE ===');
-    updatableFields.forEach(field => {
-      if (req.body.hasOwnProperty(field)) {
-        console.log(`${field}: "${verifyAd[field]}" (z bazy po zapisie)`);
-      }
-    });
-
-    res.status(200).json({ 
-      message: 'Ogłoszenie zostało zaktualizowane', 
-      ad: savedAd,
-      updatedFields: Object.keys(req.body).filter(key => updatableFields.includes(key))
-    });
-  } catch (err) {
-    console.error('Error updating ad:', err);
-    next(err);
-  }
-}, errorHandler);
+router.put('/:id', updateAd);
 
 /**
  * DELETE /:id/images/:index - Remove image from ad

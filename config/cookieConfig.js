@@ -37,12 +37,12 @@ const TOKEN_EXPIRY = {
     admin_refresh: 7 * 24 * 60 * 60 * 1000 // 7 dni dla admin refresh
   },
   
-  // Development: dłuższe czasy dla wygody
+  // Development: 60 minut jak wymagane
   development: {
-    access: 24 * 60 * 60 * 1000,      // 24 godziny
-    refresh: 24 * 60 * 60 * 1000,     // 24 godziny
-    admin_access: 24 * 60 * 60 * 1000, // 24 godziny dla admin access
-    admin_refresh: 24 * 60 * 60 * 1000 // 24 godziny dla admin refresh
+    access: 60 * 60 * 1000,           // 60 minut (zgodne z JWT)
+    refresh: 60 * 60 * 1000,          // 1 godzina (zgodne z JWT)
+    admin_access: 60 * 60 * 1000,     // 60 minut dla admin access
+    admin_refresh: 60 * 60 * 1000     // 1 godzina dla admin refresh
   }
 };
 
@@ -119,25 +119,29 @@ export const clearSecureCookie = (res, name) => {
 };
 
 /**
- * Ustawienie pary tokenów (access + refresh)
+ * Ustawienie pary tokenów (access + refresh) - SKRÓCONE NAZWY
  * 
  * @param {object} res - Express response object
  * @param {string} accessToken - Access token
  * @param {string} refreshToken - Refresh token
  */
 export const setAuthCookies = (res, accessToken, refreshToken) => {
-  setSecureCookie(res, 'token', accessToken, 'access');
-  setSecureCookie(res, 'refreshToken', refreshToken, 'refresh');
+  setSecureCookie(res, 'token', accessToken, 'access'); // Pełna nazwa dla czytelności
+  setSecureCookie(res, 'refreshToken', refreshToken, 'refresh'); // Pełna nazwa dla czytelności
 };
 
 /**
- * Czyszczenie pary tokenów (access + refresh)
+ * Czyszczenie pary tokenów (access + refresh) - SKRÓCONE NAZWY
  * 
  * @param {object} res - Express response object
  */
 export const clearAuthCookies = (res) => {
   clearSecureCookie(res, 'token');
   clearSecureCookie(res, 'refreshToken');
+  
+  // Wyczyść też skrócone nazwy dla kompatybilności wstecznej
+  clearSecureCookie(res, 'at');
+  clearSecureCookie(res, 'rt');
 };
 
 /**

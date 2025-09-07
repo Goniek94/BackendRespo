@@ -22,11 +22,10 @@ const router = express.Router();
 // Apply rate limiting to all admin API routes
 router.use(adminApiLimiter);
 
-// Disable caching for admin API responses (avoid stale 304/HTML caching by intermediaries)
+// USUNIĘTE: Cache headers powodowały HTTP 431 - za duże nagłówki
+// Minimalne cache control tylko gdy potrzebne
 router.use((req, res, next) => {
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
+  res.setHeader('Cache-Control', 'no-cache');
   next();
 });
 

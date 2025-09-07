@@ -1,0 +1,3712 @@
+{
+  "timestamp": "2025-09-07T21:39:40.118Z",
+  "summary": {
+    "totalTests": 20,
+    "failedTests": 20,
+    "http431Errors": 0
+  },
+  "scenarios": [
+    "Bez cookies",
+    "Tylko podstawowe auth cookies",
+    "Duplikaty tokenów (PROBLEM)",
+    "Tylko analytics cookies"
+  ],
+  "results": [
+    {
+      "endpoint": "/api/admin/auth/check",
+      "scenario": "Bez cookies",
+      "status": 404,
+      "statusText": "Not Found",
+      "requestHeaders": {
+        "totalSize": 0,
+        "headers": [],
+        "cookieAnalysis": null
+      },
+      "responseSize": 65,
+      "success": false,
+      "error": "Not Found"
+    },
+    {
+      "endpoint": "/api/admin/users",
+      "scenario": "Bez cookies",
+      "status": 404,
+      "statusText": "Not Found",
+      "requestHeaders": {
+        "totalSize": 0,
+        "headers": [],
+        "cookieAnalysis": null
+      },
+      "responseSize": 60,
+      "success": false,
+      "error": "Not Found"
+    },
+    {
+      "endpoint": "/api/admin/dashboard",
+      "scenario": "Bez cookies",
+      "status": 404,
+      "statusText": "Not Found",
+      "requestHeaders": {
+        "totalSize": 0,
+        "headers": [],
+        "cookieAnalysis": null
+      },
+      "responseSize": 64,
+      "success": false,
+      "error": "Not Found"
+    },
+    {
+      "endpoint": "/api/notifications",
+      "scenario": "Bez cookies",
+      "status": 401,
+      "statusText": "Unauthorized",
+      "requestHeaders": {
+        "totalSize": 0,
+        "headers": [],
+        "cookieAnalysis": null
+      },
+      "responseSize": 55,
+      "success": false,
+      "error": "Unauthorized"
+    },
+    {
+      "endpoint": "/api/admin/stats",
+      "scenario": "Bez cookies",
+      "status": 404,
+      "statusText": "Not Found",
+      "requestHeaders": {
+        "totalSize": 0,
+        "headers": [],
+        "cookieAnalysis": null
+      },
+      "responseSize": 60,
+      "success": false,
+      "error": "Not Found"
+    },
+    {
+      "endpoint": "/api/admin/auth/check",
+      "scenario": "Tylko podstawowe auth cookies",
+      "status": 404,
+      "statusText": "Not Found",
+      "requestHeaders": {
+        "totalSize": 529,
+        "headers": [
+          {
+            "name": "Cookie",
+            "value": "token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token; refreshToken=eyJhbGciOiJIUzI1NiIsInR5cCI6Ikp...",
+            "size": 127,
+            "percentage": "24.0"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.12...",
+            "size": 127,
+            "percentage": "24.0"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json, text/plain, */*",
+            "size": 41,
+            "percentage": "7.8"
+          },
+          {
+            "name": "Accept-Language",
+            "value": "pl-PL,pl;q=0.9,en;q=0.8",
+            "size": 40,
+            "percentage": "7.6"
+          },
+          {
+            "name": "Accept-Encoding",
+            "value": "gzip, deflate, br",
+            "size": 34,
+            "percentage": "6.4"
+          },
+          {
+            "name": "Upgrade-Insecure-Requests",
+            "value": "1",
+            "size": 28,
+            "percentage": "5.3"
+          },
+          {
+            "name": "Sec-Fetch-Dest",
+            "value": "document",
+            "size": 24,
+            "percentage": "4.5"
+          },
+          {
+            "name": "Sec-Fetch-Mode",
+            "value": "navigate",
+            "size": 24,
+            "percentage": "4.5"
+          },
+          {
+            "name": "Cache-Control",
+            "value": "max-age=0",
+            "size": 24,
+            "percentage": "4.5"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "size": 22,
+            "percentage": "4.2"
+          },
+          {
+            "name": "Sec-Fetch-Site",
+            "value": "none",
+            "size": 20,
+            "percentage": "3.8"
+          },
+          {
+            "name": "Sec-Fetch-User",
+            "value": "?1",
+            "size": 18,
+            "percentage": "3.4"
+          }
+        ],
+        "cookieAnalysis": {
+          "totalSize": 119,
+          "count": 2,
+          "cookies": [
+            {
+              "name": "refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.refresh",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.refresh",
+              "size": 63,
+              "percentage": "52.9"
+            },
+            {
+              "name": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token",
+              "size": 54,
+              "percentage": "45.4"
+            }
+          ],
+          "duplicates": [],
+          "categories": {
+            "auth": [
+              {
+                "name": "token",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token",
+                "size": 54,
+                "percentage": "45.4"
+              },
+              {
+                "name": "refreshToken",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.refresh",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.refresh",
+                "size": 63,
+                "percentage": "52.9"
+              }
+            ],
+            "analytics": [],
+            "session": [],
+            "preferences": [],
+            "other": []
+          }
+        }
+      },
+      "responseSize": 65,
+      "success": false,
+      "error": "Not Found"
+    },
+    {
+      "endpoint": "/api/admin/users",
+      "scenario": "Tylko podstawowe auth cookies",
+      "status": 404,
+      "statusText": "Not Found",
+      "requestHeaders": {
+        "totalSize": 529,
+        "headers": [
+          {
+            "name": "Cookie",
+            "value": "token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token; refreshToken=eyJhbGciOiJIUzI1NiIsInR5cCI6Ikp...",
+            "size": 127,
+            "percentage": "24.0"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.12...",
+            "size": 127,
+            "percentage": "24.0"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json, text/plain, */*",
+            "size": 41,
+            "percentage": "7.8"
+          },
+          {
+            "name": "Accept-Language",
+            "value": "pl-PL,pl;q=0.9,en;q=0.8",
+            "size": 40,
+            "percentage": "7.6"
+          },
+          {
+            "name": "Accept-Encoding",
+            "value": "gzip, deflate, br",
+            "size": 34,
+            "percentage": "6.4"
+          },
+          {
+            "name": "Upgrade-Insecure-Requests",
+            "value": "1",
+            "size": 28,
+            "percentage": "5.3"
+          },
+          {
+            "name": "Sec-Fetch-Dest",
+            "value": "document",
+            "size": 24,
+            "percentage": "4.5"
+          },
+          {
+            "name": "Sec-Fetch-Mode",
+            "value": "navigate",
+            "size": 24,
+            "percentage": "4.5"
+          },
+          {
+            "name": "Cache-Control",
+            "value": "max-age=0",
+            "size": 24,
+            "percentage": "4.5"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "size": 22,
+            "percentage": "4.2"
+          },
+          {
+            "name": "Sec-Fetch-Site",
+            "value": "none",
+            "size": 20,
+            "percentage": "3.8"
+          },
+          {
+            "name": "Sec-Fetch-User",
+            "value": "?1",
+            "size": 18,
+            "percentage": "3.4"
+          }
+        ],
+        "cookieAnalysis": {
+          "totalSize": 119,
+          "count": 2,
+          "cookies": [
+            {
+              "name": "refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.refresh",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.refresh",
+              "size": 63,
+              "percentage": "52.9"
+            },
+            {
+              "name": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token",
+              "size": 54,
+              "percentage": "45.4"
+            }
+          ],
+          "duplicates": [],
+          "categories": {
+            "auth": [
+              {
+                "name": "token",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token",
+                "size": 54,
+                "percentage": "45.4"
+              },
+              {
+                "name": "refreshToken",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.refresh",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.refresh",
+                "size": 63,
+                "percentage": "52.9"
+              }
+            ],
+            "analytics": [],
+            "session": [],
+            "preferences": [],
+            "other": []
+          }
+        }
+      },
+      "responseSize": 60,
+      "success": false,
+      "error": "Not Found"
+    },
+    {
+      "endpoint": "/api/admin/dashboard",
+      "scenario": "Tylko podstawowe auth cookies",
+      "status": 404,
+      "statusText": "Not Found",
+      "requestHeaders": {
+        "totalSize": 529,
+        "headers": [
+          {
+            "name": "Cookie",
+            "value": "token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token; refreshToken=eyJhbGciOiJIUzI1NiIsInR5cCI6Ikp...",
+            "size": 127,
+            "percentage": "24.0"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.12...",
+            "size": 127,
+            "percentage": "24.0"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json, text/plain, */*",
+            "size": 41,
+            "percentage": "7.8"
+          },
+          {
+            "name": "Accept-Language",
+            "value": "pl-PL,pl;q=0.9,en;q=0.8",
+            "size": 40,
+            "percentage": "7.6"
+          },
+          {
+            "name": "Accept-Encoding",
+            "value": "gzip, deflate, br",
+            "size": 34,
+            "percentage": "6.4"
+          },
+          {
+            "name": "Upgrade-Insecure-Requests",
+            "value": "1",
+            "size": 28,
+            "percentage": "5.3"
+          },
+          {
+            "name": "Sec-Fetch-Dest",
+            "value": "document",
+            "size": 24,
+            "percentage": "4.5"
+          },
+          {
+            "name": "Sec-Fetch-Mode",
+            "value": "navigate",
+            "size": 24,
+            "percentage": "4.5"
+          },
+          {
+            "name": "Cache-Control",
+            "value": "max-age=0",
+            "size": 24,
+            "percentage": "4.5"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "size": 22,
+            "percentage": "4.2"
+          },
+          {
+            "name": "Sec-Fetch-Site",
+            "value": "none",
+            "size": 20,
+            "percentage": "3.8"
+          },
+          {
+            "name": "Sec-Fetch-User",
+            "value": "?1",
+            "size": 18,
+            "percentage": "3.4"
+          }
+        ],
+        "cookieAnalysis": {
+          "totalSize": 119,
+          "count": 2,
+          "cookies": [
+            {
+              "name": "refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.refresh",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.refresh",
+              "size": 63,
+              "percentage": "52.9"
+            },
+            {
+              "name": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token",
+              "size": 54,
+              "percentage": "45.4"
+            }
+          ],
+          "duplicates": [],
+          "categories": {
+            "auth": [
+              {
+                "name": "token",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token",
+                "size": 54,
+                "percentage": "45.4"
+              },
+              {
+                "name": "refreshToken",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.refresh",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.refresh",
+                "size": 63,
+                "percentage": "52.9"
+              }
+            ],
+            "analytics": [],
+            "session": [],
+            "preferences": [],
+            "other": []
+          }
+        }
+      },
+      "responseSize": 64,
+      "success": false,
+      "error": "Not Found"
+    },
+    {
+      "endpoint": "/api/notifications",
+      "scenario": "Tylko podstawowe auth cookies",
+      "status": 401,
+      "statusText": "Unauthorized",
+      "requestHeaders": {
+        "totalSize": 529,
+        "headers": [
+          {
+            "name": "Cookie",
+            "value": "token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token; refreshToken=eyJhbGciOiJIUzI1NiIsInR5cCI6Ikp...",
+            "size": 127,
+            "percentage": "24.0"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.12...",
+            "size": 127,
+            "percentage": "24.0"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json, text/plain, */*",
+            "size": 41,
+            "percentage": "7.8"
+          },
+          {
+            "name": "Accept-Language",
+            "value": "pl-PL,pl;q=0.9,en;q=0.8",
+            "size": 40,
+            "percentage": "7.6"
+          },
+          {
+            "name": "Accept-Encoding",
+            "value": "gzip, deflate, br",
+            "size": 34,
+            "percentage": "6.4"
+          },
+          {
+            "name": "Upgrade-Insecure-Requests",
+            "value": "1",
+            "size": 28,
+            "percentage": "5.3"
+          },
+          {
+            "name": "Sec-Fetch-Dest",
+            "value": "document",
+            "size": 24,
+            "percentage": "4.5"
+          },
+          {
+            "name": "Sec-Fetch-Mode",
+            "value": "navigate",
+            "size": 24,
+            "percentage": "4.5"
+          },
+          {
+            "name": "Cache-Control",
+            "value": "max-age=0",
+            "size": 24,
+            "percentage": "4.5"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "size": 22,
+            "percentage": "4.2"
+          },
+          {
+            "name": "Sec-Fetch-Site",
+            "value": "none",
+            "size": 20,
+            "percentage": "3.8"
+          },
+          {
+            "name": "Sec-Fetch-User",
+            "value": "?1",
+            "size": 18,
+            "percentage": "3.4"
+          }
+        ],
+        "cookieAnalysis": {
+          "totalSize": 119,
+          "count": 2,
+          "cookies": [
+            {
+              "name": "refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.refresh",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.refresh",
+              "size": 63,
+              "percentage": "52.9"
+            },
+            {
+              "name": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token",
+              "size": 54,
+              "percentage": "45.4"
+            }
+          ],
+          "duplicates": [],
+          "categories": {
+            "auth": [
+              {
+                "name": "token",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token",
+                "size": 54,
+                "percentage": "45.4"
+              },
+              {
+                "name": "refreshToken",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.refresh",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.refresh",
+                "size": 63,
+                "percentage": "52.9"
+              }
+            ],
+            "analytics": [],
+            "session": [],
+            "preferences": [],
+            "other": []
+          }
+        }
+      },
+      "responseSize": 50,
+      "success": false,
+      "error": "Unauthorized"
+    },
+    {
+      "endpoint": "/api/admin/stats",
+      "scenario": "Tylko podstawowe auth cookies",
+      "status": 404,
+      "statusText": "Not Found",
+      "requestHeaders": {
+        "totalSize": 529,
+        "headers": [
+          {
+            "name": "Cookie",
+            "value": "token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token; refreshToken=eyJhbGciOiJIUzI1NiIsInR5cCI6Ikp...",
+            "size": 127,
+            "percentage": "24.0"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.12...",
+            "size": 127,
+            "percentage": "24.0"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json, text/plain, */*",
+            "size": 41,
+            "percentage": "7.8"
+          },
+          {
+            "name": "Accept-Language",
+            "value": "pl-PL,pl;q=0.9,en;q=0.8",
+            "size": 40,
+            "percentage": "7.6"
+          },
+          {
+            "name": "Accept-Encoding",
+            "value": "gzip, deflate, br",
+            "size": 34,
+            "percentage": "6.4"
+          },
+          {
+            "name": "Upgrade-Insecure-Requests",
+            "value": "1",
+            "size": 28,
+            "percentage": "5.3"
+          },
+          {
+            "name": "Sec-Fetch-Dest",
+            "value": "document",
+            "size": 24,
+            "percentage": "4.5"
+          },
+          {
+            "name": "Sec-Fetch-Mode",
+            "value": "navigate",
+            "size": 24,
+            "percentage": "4.5"
+          },
+          {
+            "name": "Cache-Control",
+            "value": "max-age=0",
+            "size": 24,
+            "percentage": "4.5"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "size": 22,
+            "percentage": "4.2"
+          },
+          {
+            "name": "Sec-Fetch-Site",
+            "value": "none",
+            "size": 20,
+            "percentage": "3.8"
+          },
+          {
+            "name": "Sec-Fetch-User",
+            "value": "?1",
+            "size": 18,
+            "percentage": "3.4"
+          }
+        ],
+        "cookieAnalysis": {
+          "totalSize": 119,
+          "count": 2,
+          "cookies": [
+            {
+              "name": "refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.refresh",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.refresh",
+              "size": 63,
+              "percentage": "52.9"
+            },
+            {
+              "name": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token",
+              "size": 54,
+              "percentage": "45.4"
+            }
+          ],
+          "duplicates": [],
+          "categories": {
+            "auth": [
+              {
+                "name": "token",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.token",
+                "size": 54,
+                "percentage": "45.4"
+              },
+              {
+                "name": "refreshToken",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.refresh",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.basic.refresh",
+                "size": 63,
+                "percentage": "52.9"
+              }
+            ],
+            "analytics": [],
+            "session": [],
+            "preferences": [],
+            "other": []
+          }
+        }
+      },
+      "responseSize": 60,
+      "success": false,
+      "error": "Not Found"
+    },
+    {
+      "endpoint": "/api/admin/auth/check",
+      "scenario": "Duplikaty tokenów (PROBLEM)",
+      "status": 404,
+      "statusText": "Not Found",
+      "requestHeaders": {
+        "totalSize": 1729,
+        "headers": [
+          {
+            "name": "Cookie",
+            "value": "token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiO...",
+            "size": 1327,
+            "percentage": "76.7"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.12...",
+            "size": 127,
+            "percentage": "7.3"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json, text/plain, */*",
+            "size": 41,
+            "percentage": "2.4"
+          },
+          {
+            "name": "Accept-Language",
+            "value": "pl-PL,pl;q=0.9,en;q=0.8",
+            "size": 40,
+            "percentage": "2.3"
+          },
+          {
+            "name": "Accept-Encoding",
+            "value": "gzip, deflate, br",
+            "size": 34,
+            "percentage": "2.0"
+          },
+          {
+            "name": "Upgrade-Insecure-Requests",
+            "value": "1",
+            "size": 28,
+            "percentage": "1.6"
+          },
+          {
+            "name": "Sec-Fetch-Dest",
+            "value": "document",
+            "size": 24,
+            "percentage": "1.4"
+          },
+          {
+            "name": "Sec-Fetch-Mode",
+            "value": "navigate",
+            "size": 24,
+            "percentage": "1.4"
+          },
+          {
+            "name": "Cache-Control",
+            "value": "max-age=0",
+            "size": 24,
+            "percentage": "1.4"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "size": 22,
+            "percentage": "1.3"
+          },
+          {
+            "name": "Sec-Fetch-Site",
+            "value": "none",
+            "size": 20,
+            "percentage": "1.2"
+          },
+          {
+            "name": "Sec-Fetch-User",
+            "value": "?1",
+            "size": 18,
+            "percentage": "1.0"
+          }
+        ],
+        "cookieAnalysis": {
+          "totalSize": 1319,
+          "count": 22,
+          "cookies": [
+            {
+              "name": "admin_refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1ODM1MTY4fQ.signature",
+              "size": 180,
+              "percentage": "13.6"
+            },
+            {
+              "name": "admin_token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1NzUyMzY4fQ.signature",
+              "size": 173,
+              "percentage": "13.1"
+            },
+            {
+              "name": "refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU4MzUxNjh9.signature",
+              "size": 172,
+              "percentage": "13.0"
+            },
+            {
+              "name": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU3NTIzNjh9.signature",
+              "size": 165,
+              "percentage": "12.5"
+            },
+            {
+              "name": "analytics_session",
+              "value": "analytics_1234567890abcdef1234567890abcdef12345678...",
+              "fullValue": "analytics_1234567890abcdef1234567890abcdef1234567890",
+              "size": 70,
+              "percentage": "5.3"
+            },
+            {
+              "name": "user_preferences",
+              "value": "{\"theme\":\"dark\",\"lang\":\"pl\",\"notifications\":true}",
+              "fullValue": "{\"theme\":\"dark\",\"lang\":\"pl\",\"notifications\":true}",
+              "size": 66,
+              "percentage": "5.0"
+            },
+            {
+              "name": "_fbc",
+              "value": "fb.1.1234567890123.AbCdEfGhIjKlMnOpQrStUvWxYz",
+              "fullValue": "fb.1.1234567890123.AbCdEfGhIjKlMnOpQrStUvWxYz",
+              "size": 50,
+              "percentage": "3.8"
+            },
+            {
+              "name": "sessionId",
+              "value": "sess_1234567890abcdef1234567890abcdef",
+              "fullValue": "sess_1234567890abcdef1234567890abcdef",
+              "size": 47,
+              "percentage": "3.6"
+            },
+            {
+              "name": "csrfToken",
+              "value": "csrf_abcdef1234567890abcdef1234567890",
+              "fullValue": "csrf_abcdef1234567890abcdef1234567890",
+              "size": 47,
+              "percentage": "3.6"
+            },
+            {
+              "name": "recent_searches",
+              "value": "[\"bmw\",\"audi\",\"mercedes\"]",
+              "fullValue": "[\"bmw\",\"audi\",\"mercedes\"]",
+              "size": 41,
+              "percentage": "3.1"
+            },
+            {
+              "name": "dev_user_id",
+              "value": "66df0fa2312270d0bb7d6a1",
+              "fullValue": "66df0fa2312270d0bb7d6a1",
+              "size": 35,
+              "percentage": "2.7"
+            },
+            {
+              "name": "_fbp",
+              "value": "fb.1.1234567890123.1234567890",
+              "fullValue": "fb.1.1234567890123.1234567890",
+              "size": 34,
+              "percentage": "2.6"
+            },
+            {
+              "name": "_gid",
+              "value": "GA1.1.987654321.0987654321",
+              "fullValue": "GA1.1.987654321.0987654321",
+              "size": 31,
+              "percentage": "2.4"
+            },
+            {
+              "name": "_ga",
+              "value": "GA1.1.123456789.1234567890",
+              "fullValue": "GA1.1.123456789.1234567890",
+              "size": 30,
+              "percentage": "2.3"
+            },
+            {
+              "name": "_gat_gtag_UA_123456789_1",
+              "value": "1",
+              "fullValue": "1",
+              "size": 26,
+              "percentage": "2.0"
+            },
+            {
+              "name": "last_page",
+              "value": "/admin/dashboard",
+              "fullValue": "/admin/dashboard",
+              "size": 26,
+              "percentage": "2.0"
+            },
+            {
+              "name": "timezone",
+              "value": "Europe/Warsaw",
+              "fullValue": "Europe/Warsaw",
+              "size": 22,
+              "percentage": "1.7"
+            },
+            {
+              "name": "debug_mode",
+              "value": "true",
+              "fullValue": "true",
+              "size": 15,
+              "percentage": "1.1"
+            },
+            {
+              "name": "remember_me",
+              "value": "1",
+              "fullValue": "1",
+              "size": 13,
+              "percentage": "1.0"
+            },
+            {
+              "name": "cart_items",
+              "value": "[]",
+              "fullValue": "[]",
+              "size": 13,
+              "percentage": "1.0"
+            },
+            {
+              "name": "language",
+              "value": "pl",
+              "fullValue": "pl",
+              "size": 11,
+              "percentage": "0.8"
+            },
+            {
+              "name": "theme",
+              "value": "dark",
+              "fullValue": "dark",
+              "size": 10,
+              "percentage": "0.8"
+            }
+          ],
+          "duplicates": [
+            {
+              "name": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU3NTIzNjh9.signature",
+              "size": 165,
+              "percentage": "12.5"
+            },
+            {
+              "name": "refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU4MzUxNjh9.signature",
+              "size": 172,
+              "percentage": "13.0"
+            },
+            {
+              "name": "admin_token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1NzUyMzY4fQ.signature",
+              "size": 173,
+              "percentage": "13.1"
+            },
+            {
+              "name": "admin_refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1ODM1MTY4fQ.signature",
+              "size": 180,
+              "percentage": "13.6"
+            },
+            {
+              "name": "csrfToken",
+              "value": "csrf_abcdef1234567890abcdef1234567890",
+              "fullValue": "csrf_abcdef1234567890abcdef1234567890",
+              "size": 47,
+              "percentage": "3.6"
+            }
+          ],
+          "categories": {
+            "auth": [
+              {
+                "name": "token",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU3NTIzNjh9.signature",
+                "size": 165,
+                "percentage": "12.5"
+              },
+              {
+                "name": "refreshToken",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU4MzUxNjh9.signature",
+                "size": 172,
+                "percentage": "13.0"
+              },
+              {
+                "name": "admin_token",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1NzUyMzY4fQ.signature",
+                "size": 173,
+                "percentage": "13.1"
+              },
+              {
+                "name": "admin_refreshToken",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1ODM1MTY4fQ.signature",
+                "size": 180,
+                "percentage": "13.6"
+              },
+              {
+                "name": "csrfToken",
+                "value": "csrf_abcdef1234567890abcdef1234567890",
+                "fullValue": "csrf_abcdef1234567890abcdef1234567890",
+                "size": 47,
+                "percentage": "3.6"
+              }
+            ],
+            "analytics": [
+              {
+                "name": "_ga",
+                "value": "GA1.1.123456789.1234567890",
+                "fullValue": "GA1.1.123456789.1234567890",
+                "size": 30,
+                "percentage": "2.3"
+              },
+              {
+                "name": "_gat_gtag_UA_123456789_1",
+                "value": "1",
+                "fullValue": "1",
+                "size": 26,
+                "percentage": "2.0"
+              },
+              {
+                "name": "_fbp",
+                "value": "fb.1.1234567890123.1234567890",
+                "fullValue": "fb.1.1234567890123.1234567890",
+                "size": 34,
+                "percentage": "2.6"
+              },
+              {
+                "name": "_fbc",
+                "value": "fb.1.1234567890123.AbCdEfGhIjKlMnOpQrStUvWxYz",
+                "fullValue": "fb.1.1234567890123.AbCdEfGhIjKlMnOpQrStUvWxYz",
+                "size": 50,
+                "percentage": "3.8"
+              },
+              {
+                "name": "analytics_session",
+                "value": "analytics_1234567890abcdef1234567890abcdef12345678...",
+                "fullValue": "analytics_1234567890abcdef1234567890abcdef1234567890",
+                "size": 70,
+                "percentage": "5.3"
+              }
+            ],
+            "session": [
+              {
+                "name": "sessionId",
+                "value": "sess_1234567890abcdef1234567890abcdef",
+                "fullValue": "sess_1234567890abcdef1234567890abcdef",
+                "size": 47,
+                "percentage": "3.6"
+              }
+            ],
+            "preferences": [
+              {
+                "name": "theme",
+                "value": "dark",
+                "fullValue": "dark",
+                "size": 10,
+                "percentage": "0.8"
+              },
+              {
+                "name": "language",
+                "value": "pl",
+                "fullValue": "pl",
+                "size": 11,
+                "percentage": "0.8"
+              },
+              {
+                "name": "user_preferences",
+                "value": "{\"theme\":\"dark\",\"lang\":\"pl\",\"notifications\":true}",
+                "fullValue": "{\"theme\":\"dark\",\"lang\":\"pl\",\"notifications\":true}",
+                "size": 66,
+                "percentage": "5.0"
+              }
+            ],
+            "other": [
+              {
+                "name": "_gid",
+                "value": "GA1.1.987654321.0987654321",
+                "fullValue": "GA1.1.987654321.0987654321",
+                "size": 31,
+                "percentage": "2.4"
+              },
+              {
+                "name": "debug_mode",
+                "value": "true",
+                "fullValue": "true",
+                "size": 15,
+                "percentage": "1.1"
+              },
+              {
+                "name": "dev_user_id",
+                "value": "66df0fa2312270d0bb7d6a1",
+                "fullValue": "66df0fa2312270d0bb7d6a1",
+                "size": 35,
+                "percentage": "2.7"
+              },
+              {
+                "name": "last_page",
+                "value": "/admin/dashboard",
+                "fullValue": "/admin/dashboard",
+                "size": 26,
+                "percentage": "2.0"
+              },
+              {
+                "name": "timezone",
+                "value": "Europe/Warsaw",
+                "fullValue": "Europe/Warsaw",
+                "size": 22,
+                "percentage": "1.7"
+              },
+              {
+                "name": "remember_me",
+                "value": "1",
+                "fullValue": "1",
+                "size": 13,
+                "percentage": "1.0"
+              },
+              {
+                "name": "cart_items",
+                "value": "[]",
+                "fullValue": "[]",
+                "size": 13,
+                "percentage": "1.0"
+              },
+              {
+                "name": "recent_searches",
+                "value": "[\"bmw\",\"audi\",\"mercedes\"]",
+                "fullValue": "[\"bmw\",\"audi\",\"mercedes\"]",
+                "size": 41,
+                "percentage": "3.1"
+              }
+            ]
+          }
+        }
+      },
+      "responseSize": 65,
+      "success": false,
+      "error": "Not Found"
+    },
+    {
+      "endpoint": "/api/admin/users",
+      "scenario": "Duplikaty tokenów (PROBLEM)",
+      "status": 404,
+      "statusText": "Not Found",
+      "requestHeaders": {
+        "totalSize": 1729,
+        "headers": [
+          {
+            "name": "Cookie",
+            "value": "token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiO...",
+            "size": 1327,
+            "percentage": "76.7"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.12...",
+            "size": 127,
+            "percentage": "7.3"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json, text/plain, */*",
+            "size": 41,
+            "percentage": "2.4"
+          },
+          {
+            "name": "Accept-Language",
+            "value": "pl-PL,pl;q=0.9,en;q=0.8",
+            "size": 40,
+            "percentage": "2.3"
+          },
+          {
+            "name": "Accept-Encoding",
+            "value": "gzip, deflate, br",
+            "size": 34,
+            "percentage": "2.0"
+          },
+          {
+            "name": "Upgrade-Insecure-Requests",
+            "value": "1",
+            "size": 28,
+            "percentage": "1.6"
+          },
+          {
+            "name": "Sec-Fetch-Dest",
+            "value": "document",
+            "size": 24,
+            "percentage": "1.4"
+          },
+          {
+            "name": "Sec-Fetch-Mode",
+            "value": "navigate",
+            "size": 24,
+            "percentage": "1.4"
+          },
+          {
+            "name": "Cache-Control",
+            "value": "max-age=0",
+            "size": 24,
+            "percentage": "1.4"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "size": 22,
+            "percentage": "1.3"
+          },
+          {
+            "name": "Sec-Fetch-Site",
+            "value": "none",
+            "size": 20,
+            "percentage": "1.2"
+          },
+          {
+            "name": "Sec-Fetch-User",
+            "value": "?1",
+            "size": 18,
+            "percentage": "1.0"
+          }
+        ],
+        "cookieAnalysis": {
+          "totalSize": 1319,
+          "count": 22,
+          "cookies": [
+            {
+              "name": "admin_refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1ODM1MTY4fQ.signature",
+              "size": 180,
+              "percentage": "13.6"
+            },
+            {
+              "name": "admin_token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1NzUyMzY4fQ.signature",
+              "size": 173,
+              "percentage": "13.1"
+            },
+            {
+              "name": "refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU4MzUxNjh9.signature",
+              "size": 172,
+              "percentage": "13.0"
+            },
+            {
+              "name": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU3NTIzNjh9.signature",
+              "size": 165,
+              "percentage": "12.5"
+            },
+            {
+              "name": "analytics_session",
+              "value": "analytics_1234567890abcdef1234567890abcdef12345678...",
+              "fullValue": "analytics_1234567890abcdef1234567890abcdef1234567890",
+              "size": 70,
+              "percentage": "5.3"
+            },
+            {
+              "name": "user_preferences",
+              "value": "{\"theme\":\"dark\",\"lang\":\"pl\",\"notifications\":true}",
+              "fullValue": "{\"theme\":\"dark\",\"lang\":\"pl\",\"notifications\":true}",
+              "size": 66,
+              "percentage": "5.0"
+            },
+            {
+              "name": "_fbc",
+              "value": "fb.1.1234567890123.AbCdEfGhIjKlMnOpQrStUvWxYz",
+              "fullValue": "fb.1.1234567890123.AbCdEfGhIjKlMnOpQrStUvWxYz",
+              "size": 50,
+              "percentage": "3.8"
+            },
+            {
+              "name": "sessionId",
+              "value": "sess_1234567890abcdef1234567890abcdef",
+              "fullValue": "sess_1234567890abcdef1234567890abcdef",
+              "size": 47,
+              "percentage": "3.6"
+            },
+            {
+              "name": "csrfToken",
+              "value": "csrf_abcdef1234567890abcdef1234567890",
+              "fullValue": "csrf_abcdef1234567890abcdef1234567890",
+              "size": 47,
+              "percentage": "3.6"
+            },
+            {
+              "name": "recent_searches",
+              "value": "[\"bmw\",\"audi\",\"mercedes\"]",
+              "fullValue": "[\"bmw\",\"audi\",\"mercedes\"]",
+              "size": 41,
+              "percentage": "3.1"
+            },
+            {
+              "name": "dev_user_id",
+              "value": "66df0fa2312270d0bb7d6a1",
+              "fullValue": "66df0fa2312270d0bb7d6a1",
+              "size": 35,
+              "percentage": "2.7"
+            },
+            {
+              "name": "_fbp",
+              "value": "fb.1.1234567890123.1234567890",
+              "fullValue": "fb.1.1234567890123.1234567890",
+              "size": 34,
+              "percentage": "2.6"
+            },
+            {
+              "name": "_gid",
+              "value": "GA1.1.987654321.0987654321",
+              "fullValue": "GA1.1.987654321.0987654321",
+              "size": 31,
+              "percentage": "2.4"
+            },
+            {
+              "name": "_ga",
+              "value": "GA1.1.123456789.1234567890",
+              "fullValue": "GA1.1.123456789.1234567890",
+              "size": 30,
+              "percentage": "2.3"
+            },
+            {
+              "name": "_gat_gtag_UA_123456789_1",
+              "value": "1",
+              "fullValue": "1",
+              "size": 26,
+              "percentage": "2.0"
+            },
+            {
+              "name": "last_page",
+              "value": "/admin/dashboard",
+              "fullValue": "/admin/dashboard",
+              "size": 26,
+              "percentage": "2.0"
+            },
+            {
+              "name": "timezone",
+              "value": "Europe/Warsaw",
+              "fullValue": "Europe/Warsaw",
+              "size": 22,
+              "percentage": "1.7"
+            },
+            {
+              "name": "debug_mode",
+              "value": "true",
+              "fullValue": "true",
+              "size": 15,
+              "percentage": "1.1"
+            },
+            {
+              "name": "remember_me",
+              "value": "1",
+              "fullValue": "1",
+              "size": 13,
+              "percentage": "1.0"
+            },
+            {
+              "name": "cart_items",
+              "value": "[]",
+              "fullValue": "[]",
+              "size": 13,
+              "percentage": "1.0"
+            },
+            {
+              "name": "language",
+              "value": "pl",
+              "fullValue": "pl",
+              "size": 11,
+              "percentage": "0.8"
+            },
+            {
+              "name": "theme",
+              "value": "dark",
+              "fullValue": "dark",
+              "size": 10,
+              "percentage": "0.8"
+            }
+          ],
+          "duplicates": [
+            {
+              "name": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU3NTIzNjh9.signature",
+              "size": 165,
+              "percentage": "12.5"
+            },
+            {
+              "name": "refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU4MzUxNjh9.signature",
+              "size": 172,
+              "percentage": "13.0"
+            },
+            {
+              "name": "admin_token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1NzUyMzY4fQ.signature",
+              "size": 173,
+              "percentage": "13.1"
+            },
+            {
+              "name": "admin_refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1ODM1MTY4fQ.signature",
+              "size": 180,
+              "percentage": "13.6"
+            },
+            {
+              "name": "csrfToken",
+              "value": "csrf_abcdef1234567890abcdef1234567890",
+              "fullValue": "csrf_abcdef1234567890abcdef1234567890",
+              "size": 47,
+              "percentage": "3.6"
+            }
+          ],
+          "categories": {
+            "auth": [
+              {
+                "name": "token",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU3NTIzNjh9.signature",
+                "size": 165,
+                "percentage": "12.5"
+              },
+              {
+                "name": "refreshToken",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU4MzUxNjh9.signature",
+                "size": 172,
+                "percentage": "13.0"
+              },
+              {
+                "name": "admin_token",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1NzUyMzY4fQ.signature",
+                "size": 173,
+                "percentage": "13.1"
+              },
+              {
+                "name": "admin_refreshToken",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1ODM1MTY4fQ.signature",
+                "size": 180,
+                "percentage": "13.6"
+              },
+              {
+                "name": "csrfToken",
+                "value": "csrf_abcdef1234567890abcdef1234567890",
+                "fullValue": "csrf_abcdef1234567890abcdef1234567890",
+                "size": 47,
+                "percentage": "3.6"
+              }
+            ],
+            "analytics": [
+              {
+                "name": "_ga",
+                "value": "GA1.1.123456789.1234567890",
+                "fullValue": "GA1.1.123456789.1234567890",
+                "size": 30,
+                "percentage": "2.3"
+              },
+              {
+                "name": "_gat_gtag_UA_123456789_1",
+                "value": "1",
+                "fullValue": "1",
+                "size": 26,
+                "percentage": "2.0"
+              },
+              {
+                "name": "_fbp",
+                "value": "fb.1.1234567890123.1234567890",
+                "fullValue": "fb.1.1234567890123.1234567890",
+                "size": 34,
+                "percentage": "2.6"
+              },
+              {
+                "name": "_fbc",
+                "value": "fb.1.1234567890123.AbCdEfGhIjKlMnOpQrStUvWxYz",
+                "fullValue": "fb.1.1234567890123.AbCdEfGhIjKlMnOpQrStUvWxYz",
+                "size": 50,
+                "percentage": "3.8"
+              },
+              {
+                "name": "analytics_session",
+                "value": "analytics_1234567890abcdef1234567890abcdef12345678...",
+                "fullValue": "analytics_1234567890abcdef1234567890abcdef1234567890",
+                "size": 70,
+                "percentage": "5.3"
+              }
+            ],
+            "session": [
+              {
+                "name": "sessionId",
+                "value": "sess_1234567890abcdef1234567890abcdef",
+                "fullValue": "sess_1234567890abcdef1234567890abcdef",
+                "size": 47,
+                "percentage": "3.6"
+              }
+            ],
+            "preferences": [
+              {
+                "name": "theme",
+                "value": "dark",
+                "fullValue": "dark",
+                "size": 10,
+                "percentage": "0.8"
+              },
+              {
+                "name": "language",
+                "value": "pl",
+                "fullValue": "pl",
+                "size": 11,
+                "percentage": "0.8"
+              },
+              {
+                "name": "user_preferences",
+                "value": "{\"theme\":\"dark\",\"lang\":\"pl\",\"notifications\":true}",
+                "fullValue": "{\"theme\":\"dark\",\"lang\":\"pl\",\"notifications\":true}",
+                "size": 66,
+                "percentage": "5.0"
+              }
+            ],
+            "other": [
+              {
+                "name": "_gid",
+                "value": "GA1.1.987654321.0987654321",
+                "fullValue": "GA1.1.987654321.0987654321",
+                "size": 31,
+                "percentage": "2.4"
+              },
+              {
+                "name": "debug_mode",
+                "value": "true",
+                "fullValue": "true",
+                "size": 15,
+                "percentage": "1.1"
+              },
+              {
+                "name": "dev_user_id",
+                "value": "66df0fa2312270d0bb7d6a1",
+                "fullValue": "66df0fa2312270d0bb7d6a1",
+                "size": 35,
+                "percentage": "2.7"
+              },
+              {
+                "name": "last_page",
+                "value": "/admin/dashboard",
+                "fullValue": "/admin/dashboard",
+                "size": 26,
+                "percentage": "2.0"
+              },
+              {
+                "name": "timezone",
+                "value": "Europe/Warsaw",
+                "fullValue": "Europe/Warsaw",
+                "size": 22,
+                "percentage": "1.7"
+              },
+              {
+                "name": "remember_me",
+                "value": "1",
+                "fullValue": "1",
+                "size": 13,
+                "percentage": "1.0"
+              },
+              {
+                "name": "cart_items",
+                "value": "[]",
+                "fullValue": "[]",
+                "size": 13,
+                "percentage": "1.0"
+              },
+              {
+                "name": "recent_searches",
+                "value": "[\"bmw\",\"audi\",\"mercedes\"]",
+                "fullValue": "[\"bmw\",\"audi\",\"mercedes\"]",
+                "size": 41,
+                "percentage": "3.1"
+              }
+            ]
+          }
+        }
+      },
+      "responseSize": 60,
+      "success": false,
+      "error": "Not Found"
+    },
+    {
+      "endpoint": "/api/admin/dashboard",
+      "scenario": "Duplikaty tokenów (PROBLEM)",
+      "status": 404,
+      "statusText": "Not Found",
+      "requestHeaders": {
+        "totalSize": 1729,
+        "headers": [
+          {
+            "name": "Cookie",
+            "value": "token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiO...",
+            "size": 1327,
+            "percentage": "76.7"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.12...",
+            "size": 127,
+            "percentage": "7.3"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json, text/plain, */*",
+            "size": 41,
+            "percentage": "2.4"
+          },
+          {
+            "name": "Accept-Language",
+            "value": "pl-PL,pl;q=0.9,en;q=0.8",
+            "size": 40,
+            "percentage": "2.3"
+          },
+          {
+            "name": "Accept-Encoding",
+            "value": "gzip, deflate, br",
+            "size": 34,
+            "percentage": "2.0"
+          },
+          {
+            "name": "Upgrade-Insecure-Requests",
+            "value": "1",
+            "size": 28,
+            "percentage": "1.6"
+          },
+          {
+            "name": "Sec-Fetch-Dest",
+            "value": "document",
+            "size": 24,
+            "percentage": "1.4"
+          },
+          {
+            "name": "Sec-Fetch-Mode",
+            "value": "navigate",
+            "size": 24,
+            "percentage": "1.4"
+          },
+          {
+            "name": "Cache-Control",
+            "value": "max-age=0",
+            "size": 24,
+            "percentage": "1.4"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "size": 22,
+            "percentage": "1.3"
+          },
+          {
+            "name": "Sec-Fetch-Site",
+            "value": "none",
+            "size": 20,
+            "percentage": "1.2"
+          },
+          {
+            "name": "Sec-Fetch-User",
+            "value": "?1",
+            "size": 18,
+            "percentage": "1.0"
+          }
+        ],
+        "cookieAnalysis": {
+          "totalSize": 1319,
+          "count": 22,
+          "cookies": [
+            {
+              "name": "admin_refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1ODM1MTY4fQ.signature",
+              "size": 180,
+              "percentage": "13.6"
+            },
+            {
+              "name": "admin_token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1NzUyMzY4fQ.signature",
+              "size": 173,
+              "percentage": "13.1"
+            },
+            {
+              "name": "refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU4MzUxNjh9.signature",
+              "size": 172,
+              "percentage": "13.0"
+            },
+            {
+              "name": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU3NTIzNjh9.signature",
+              "size": 165,
+              "percentage": "12.5"
+            },
+            {
+              "name": "analytics_session",
+              "value": "analytics_1234567890abcdef1234567890abcdef12345678...",
+              "fullValue": "analytics_1234567890abcdef1234567890abcdef1234567890",
+              "size": 70,
+              "percentage": "5.3"
+            },
+            {
+              "name": "user_preferences",
+              "value": "{\"theme\":\"dark\",\"lang\":\"pl\",\"notifications\":true}",
+              "fullValue": "{\"theme\":\"dark\",\"lang\":\"pl\",\"notifications\":true}",
+              "size": 66,
+              "percentage": "5.0"
+            },
+            {
+              "name": "_fbc",
+              "value": "fb.1.1234567890123.AbCdEfGhIjKlMnOpQrStUvWxYz",
+              "fullValue": "fb.1.1234567890123.AbCdEfGhIjKlMnOpQrStUvWxYz",
+              "size": 50,
+              "percentage": "3.8"
+            },
+            {
+              "name": "sessionId",
+              "value": "sess_1234567890abcdef1234567890abcdef",
+              "fullValue": "sess_1234567890abcdef1234567890abcdef",
+              "size": 47,
+              "percentage": "3.6"
+            },
+            {
+              "name": "csrfToken",
+              "value": "csrf_abcdef1234567890abcdef1234567890",
+              "fullValue": "csrf_abcdef1234567890abcdef1234567890",
+              "size": 47,
+              "percentage": "3.6"
+            },
+            {
+              "name": "recent_searches",
+              "value": "[\"bmw\",\"audi\",\"mercedes\"]",
+              "fullValue": "[\"bmw\",\"audi\",\"mercedes\"]",
+              "size": 41,
+              "percentage": "3.1"
+            },
+            {
+              "name": "dev_user_id",
+              "value": "66df0fa2312270d0bb7d6a1",
+              "fullValue": "66df0fa2312270d0bb7d6a1",
+              "size": 35,
+              "percentage": "2.7"
+            },
+            {
+              "name": "_fbp",
+              "value": "fb.1.1234567890123.1234567890",
+              "fullValue": "fb.1.1234567890123.1234567890",
+              "size": 34,
+              "percentage": "2.6"
+            },
+            {
+              "name": "_gid",
+              "value": "GA1.1.987654321.0987654321",
+              "fullValue": "GA1.1.987654321.0987654321",
+              "size": 31,
+              "percentage": "2.4"
+            },
+            {
+              "name": "_ga",
+              "value": "GA1.1.123456789.1234567890",
+              "fullValue": "GA1.1.123456789.1234567890",
+              "size": 30,
+              "percentage": "2.3"
+            },
+            {
+              "name": "_gat_gtag_UA_123456789_1",
+              "value": "1",
+              "fullValue": "1",
+              "size": 26,
+              "percentage": "2.0"
+            },
+            {
+              "name": "last_page",
+              "value": "/admin/dashboard",
+              "fullValue": "/admin/dashboard",
+              "size": 26,
+              "percentage": "2.0"
+            },
+            {
+              "name": "timezone",
+              "value": "Europe/Warsaw",
+              "fullValue": "Europe/Warsaw",
+              "size": 22,
+              "percentage": "1.7"
+            },
+            {
+              "name": "debug_mode",
+              "value": "true",
+              "fullValue": "true",
+              "size": 15,
+              "percentage": "1.1"
+            },
+            {
+              "name": "remember_me",
+              "value": "1",
+              "fullValue": "1",
+              "size": 13,
+              "percentage": "1.0"
+            },
+            {
+              "name": "cart_items",
+              "value": "[]",
+              "fullValue": "[]",
+              "size": 13,
+              "percentage": "1.0"
+            },
+            {
+              "name": "language",
+              "value": "pl",
+              "fullValue": "pl",
+              "size": 11,
+              "percentage": "0.8"
+            },
+            {
+              "name": "theme",
+              "value": "dark",
+              "fullValue": "dark",
+              "size": 10,
+              "percentage": "0.8"
+            }
+          ],
+          "duplicates": [
+            {
+              "name": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU3NTIzNjh9.signature",
+              "size": 165,
+              "percentage": "12.5"
+            },
+            {
+              "name": "refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU4MzUxNjh9.signature",
+              "size": 172,
+              "percentage": "13.0"
+            },
+            {
+              "name": "admin_token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1NzUyMzY4fQ.signature",
+              "size": 173,
+              "percentage": "13.1"
+            },
+            {
+              "name": "admin_refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1ODM1MTY4fQ.signature",
+              "size": 180,
+              "percentage": "13.6"
+            },
+            {
+              "name": "csrfToken",
+              "value": "csrf_abcdef1234567890abcdef1234567890",
+              "fullValue": "csrf_abcdef1234567890abcdef1234567890",
+              "size": 47,
+              "percentage": "3.6"
+            }
+          ],
+          "categories": {
+            "auth": [
+              {
+                "name": "token",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU3NTIzNjh9.signature",
+                "size": 165,
+                "percentage": "12.5"
+              },
+              {
+                "name": "refreshToken",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU4MzUxNjh9.signature",
+                "size": 172,
+                "percentage": "13.0"
+              },
+              {
+                "name": "admin_token",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1NzUyMzY4fQ.signature",
+                "size": 173,
+                "percentage": "13.1"
+              },
+              {
+                "name": "admin_refreshToken",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1ODM1MTY4fQ.signature",
+                "size": 180,
+                "percentage": "13.6"
+              },
+              {
+                "name": "csrfToken",
+                "value": "csrf_abcdef1234567890abcdef1234567890",
+                "fullValue": "csrf_abcdef1234567890abcdef1234567890",
+                "size": 47,
+                "percentage": "3.6"
+              }
+            ],
+            "analytics": [
+              {
+                "name": "_ga",
+                "value": "GA1.1.123456789.1234567890",
+                "fullValue": "GA1.1.123456789.1234567890",
+                "size": 30,
+                "percentage": "2.3"
+              },
+              {
+                "name": "_gat_gtag_UA_123456789_1",
+                "value": "1",
+                "fullValue": "1",
+                "size": 26,
+                "percentage": "2.0"
+              },
+              {
+                "name": "_fbp",
+                "value": "fb.1.1234567890123.1234567890",
+                "fullValue": "fb.1.1234567890123.1234567890",
+                "size": 34,
+                "percentage": "2.6"
+              },
+              {
+                "name": "_fbc",
+                "value": "fb.1.1234567890123.AbCdEfGhIjKlMnOpQrStUvWxYz",
+                "fullValue": "fb.1.1234567890123.AbCdEfGhIjKlMnOpQrStUvWxYz",
+                "size": 50,
+                "percentage": "3.8"
+              },
+              {
+                "name": "analytics_session",
+                "value": "analytics_1234567890abcdef1234567890abcdef12345678...",
+                "fullValue": "analytics_1234567890abcdef1234567890abcdef1234567890",
+                "size": 70,
+                "percentage": "5.3"
+              }
+            ],
+            "session": [
+              {
+                "name": "sessionId",
+                "value": "sess_1234567890abcdef1234567890abcdef",
+                "fullValue": "sess_1234567890abcdef1234567890abcdef",
+                "size": 47,
+                "percentage": "3.6"
+              }
+            ],
+            "preferences": [
+              {
+                "name": "theme",
+                "value": "dark",
+                "fullValue": "dark",
+                "size": 10,
+                "percentage": "0.8"
+              },
+              {
+                "name": "language",
+                "value": "pl",
+                "fullValue": "pl",
+                "size": 11,
+                "percentage": "0.8"
+              },
+              {
+                "name": "user_preferences",
+                "value": "{\"theme\":\"dark\",\"lang\":\"pl\",\"notifications\":true}",
+                "fullValue": "{\"theme\":\"dark\",\"lang\":\"pl\",\"notifications\":true}",
+                "size": 66,
+                "percentage": "5.0"
+              }
+            ],
+            "other": [
+              {
+                "name": "_gid",
+                "value": "GA1.1.987654321.0987654321",
+                "fullValue": "GA1.1.987654321.0987654321",
+                "size": 31,
+                "percentage": "2.4"
+              },
+              {
+                "name": "debug_mode",
+                "value": "true",
+                "fullValue": "true",
+                "size": 15,
+                "percentage": "1.1"
+              },
+              {
+                "name": "dev_user_id",
+                "value": "66df0fa2312270d0bb7d6a1",
+                "fullValue": "66df0fa2312270d0bb7d6a1",
+                "size": 35,
+                "percentage": "2.7"
+              },
+              {
+                "name": "last_page",
+                "value": "/admin/dashboard",
+                "fullValue": "/admin/dashboard",
+                "size": 26,
+                "percentage": "2.0"
+              },
+              {
+                "name": "timezone",
+                "value": "Europe/Warsaw",
+                "fullValue": "Europe/Warsaw",
+                "size": 22,
+                "percentage": "1.7"
+              },
+              {
+                "name": "remember_me",
+                "value": "1",
+                "fullValue": "1",
+                "size": 13,
+                "percentage": "1.0"
+              },
+              {
+                "name": "cart_items",
+                "value": "[]",
+                "fullValue": "[]",
+                "size": 13,
+                "percentage": "1.0"
+              },
+              {
+                "name": "recent_searches",
+                "value": "[\"bmw\",\"audi\",\"mercedes\"]",
+                "fullValue": "[\"bmw\",\"audi\",\"mercedes\"]",
+                "size": 41,
+                "percentage": "3.1"
+              }
+            ]
+          }
+        }
+      },
+      "responseSize": 64,
+      "success": false,
+      "error": "Not Found"
+    },
+    {
+      "endpoint": "/api/notifications",
+      "scenario": "Duplikaty tokenów (PROBLEM)",
+      "status": 401,
+      "statusText": "Unauthorized",
+      "requestHeaders": {
+        "totalSize": 1729,
+        "headers": [
+          {
+            "name": "Cookie",
+            "value": "token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiO...",
+            "size": 1327,
+            "percentage": "76.7"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.12...",
+            "size": 127,
+            "percentage": "7.3"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json, text/plain, */*",
+            "size": 41,
+            "percentage": "2.4"
+          },
+          {
+            "name": "Accept-Language",
+            "value": "pl-PL,pl;q=0.9,en;q=0.8",
+            "size": 40,
+            "percentage": "2.3"
+          },
+          {
+            "name": "Accept-Encoding",
+            "value": "gzip, deflate, br",
+            "size": 34,
+            "percentage": "2.0"
+          },
+          {
+            "name": "Upgrade-Insecure-Requests",
+            "value": "1",
+            "size": 28,
+            "percentage": "1.6"
+          },
+          {
+            "name": "Sec-Fetch-Dest",
+            "value": "document",
+            "size": 24,
+            "percentage": "1.4"
+          },
+          {
+            "name": "Sec-Fetch-Mode",
+            "value": "navigate",
+            "size": 24,
+            "percentage": "1.4"
+          },
+          {
+            "name": "Cache-Control",
+            "value": "max-age=0",
+            "size": 24,
+            "percentage": "1.4"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "size": 22,
+            "percentage": "1.3"
+          },
+          {
+            "name": "Sec-Fetch-Site",
+            "value": "none",
+            "size": 20,
+            "percentage": "1.2"
+          },
+          {
+            "name": "Sec-Fetch-User",
+            "value": "?1",
+            "size": 18,
+            "percentage": "1.0"
+          }
+        ],
+        "cookieAnalysis": {
+          "totalSize": 1319,
+          "count": 22,
+          "cookies": [
+            {
+              "name": "admin_refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1ODM1MTY4fQ.signature",
+              "size": 180,
+              "percentage": "13.6"
+            },
+            {
+              "name": "admin_token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1NzUyMzY4fQ.signature",
+              "size": 173,
+              "percentage": "13.1"
+            },
+            {
+              "name": "refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU4MzUxNjh9.signature",
+              "size": 172,
+              "percentage": "13.0"
+            },
+            {
+              "name": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU3NTIzNjh9.signature",
+              "size": 165,
+              "percentage": "12.5"
+            },
+            {
+              "name": "analytics_session",
+              "value": "analytics_1234567890abcdef1234567890abcdef12345678...",
+              "fullValue": "analytics_1234567890abcdef1234567890abcdef1234567890",
+              "size": 70,
+              "percentage": "5.3"
+            },
+            {
+              "name": "user_preferences",
+              "value": "{\"theme\":\"dark\",\"lang\":\"pl\",\"notifications\":true}",
+              "fullValue": "{\"theme\":\"dark\",\"lang\":\"pl\",\"notifications\":true}",
+              "size": 66,
+              "percentage": "5.0"
+            },
+            {
+              "name": "_fbc",
+              "value": "fb.1.1234567890123.AbCdEfGhIjKlMnOpQrStUvWxYz",
+              "fullValue": "fb.1.1234567890123.AbCdEfGhIjKlMnOpQrStUvWxYz",
+              "size": 50,
+              "percentage": "3.8"
+            },
+            {
+              "name": "sessionId",
+              "value": "sess_1234567890abcdef1234567890abcdef",
+              "fullValue": "sess_1234567890abcdef1234567890abcdef",
+              "size": 47,
+              "percentage": "3.6"
+            },
+            {
+              "name": "csrfToken",
+              "value": "csrf_abcdef1234567890abcdef1234567890",
+              "fullValue": "csrf_abcdef1234567890abcdef1234567890",
+              "size": 47,
+              "percentage": "3.6"
+            },
+            {
+              "name": "recent_searches",
+              "value": "[\"bmw\",\"audi\",\"mercedes\"]",
+              "fullValue": "[\"bmw\",\"audi\",\"mercedes\"]",
+              "size": 41,
+              "percentage": "3.1"
+            },
+            {
+              "name": "dev_user_id",
+              "value": "66df0fa2312270d0bb7d6a1",
+              "fullValue": "66df0fa2312270d0bb7d6a1",
+              "size": 35,
+              "percentage": "2.7"
+            },
+            {
+              "name": "_fbp",
+              "value": "fb.1.1234567890123.1234567890",
+              "fullValue": "fb.1.1234567890123.1234567890",
+              "size": 34,
+              "percentage": "2.6"
+            },
+            {
+              "name": "_gid",
+              "value": "GA1.1.987654321.0987654321",
+              "fullValue": "GA1.1.987654321.0987654321",
+              "size": 31,
+              "percentage": "2.4"
+            },
+            {
+              "name": "_ga",
+              "value": "GA1.1.123456789.1234567890",
+              "fullValue": "GA1.1.123456789.1234567890",
+              "size": 30,
+              "percentage": "2.3"
+            },
+            {
+              "name": "_gat_gtag_UA_123456789_1",
+              "value": "1",
+              "fullValue": "1",
+              "size": 26,
+              "percentage": "2.0"
+            },
+            {
+              "name": "last_page",
+              "value": "/admin/dashboard",
+              "fullValue": "/admin/dashboard",
+              "size": 26,
+              "percentage": "2.0"
+            },
+            {
+              "name": "timezone",
+              "value": "Europe/Warsaw",
+              "fullValue": "Europe/Warsaw",
+              "size": 22,
+              "percentage": "1.7"
+            },
+            {
+              "name": "debug_mode",
+              "value": "true",
+              "fullValue": "true",
+              "size": 15,
+              "percentage": "1.1"
+            },
+            {
+              "name": "remember_me",
+              "value": "1",
+              "fullValue": "1",
+              "size": 13,
+              "percentage": "1.0"
+            },
+            {
+              "name": "cart_items",
+              "value": "[]",
+              "fullValue": "[]",
+              "size": 13,
+              "percentage": "1.0"
+            },
+            {
+              "name": "language",
+              "value": "pl",
+              "fullValue": "pl",
+              "size": 11,
+              "percentage": "0.8"
+            },
+            {
+              "name": "theme",
+              "value": "dark",
+              "fullValue": "dark",
+              "size": 10,
+              "percentage": "0.8"
+            }
+          ],
+          "duplicates": [
+            {
+              "name": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU3NTIzNjh9.signature",
+              "size": 165,
+              "percentage": "12.5"
+            },
+            {
+              "name": "refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU4MzUxNjh9.signature",
+              "size": 172,
+              "percentage": "13.0"
+            },
+            {
+              "name": "admin_token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1NzUyMzY4fQ.signature",
+              "size": 173,
+              "percentage": "13.1"
+            },
+            {
+              "name": "admin_refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1ODM1MTY4fQ.signature",
+              "size": 180,
+              "percentage": "13.6"
+            },
+            {
+              "name": "csrfToken",
+              "value": "csrf_abcdef1234567890abcdef1234567890",
+              "fullValue": "csrf_abcdef1234567890abcdef1234567890",
+              "size": 47,
+              "percentage": "3.6"
+            }
+          ],
+          "categories": {
+            "auth": [
+              {
+                "name": "token",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU3NTIzNjh9.signature",
+                "size": 165,
+                "percentage": "12.5"
+              },
+              {
+                "name": "refreshToken",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU4MzUxNjh9.signature",
+                "size": 172,
+                "percentage": "13.0"
+              },
+              {
+                "name": "admin_token",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1NzUyMzY4fQ.signature",
+                "size": 173,
+                "percentage": "13.1"
+              },
+              {
+                "name": "admin_refreshToken",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1ODM1MTY4fQ.signature",
+                "size": 180,
+                "percentage": "13.6"
+              },
+              {
+                "name": "csrfToken",
+                "value": "csrf_abcdef1234567890abcdef1234567890",
+                "fullValue": "csrf_abcdef1234567890abcdef1234567890",
+                "size": 47,
+                "percentage": "3.6"
+              }
+            ],
+            "analytics": [
+              {
+                "name": "_ga",
+                "value": "GA1.1.123456789.1234567890",
+                "fullValue": "GA1.1.123456789.1234567890",
+                "size": 30,
+                "percentage": "2.3"
+              },
+              {
+                "name": "_gat_gtag_UA_123456789_1",
+                "value": "1",
+                "fullValue": "1",
+                "size": 26,
+                "percentage": "2.0"
+              },
+              {
+                "name": "_fbp",
+                "value": "fb.1.1234567890123.1234567890",
+                "fullValue": "fb.1.1234567890123.1234567890",
+                "size": 34,
+                "percentage": "2.6"
+              },
+              {
+                "name": "_fbc",
+                "value": "fb.1.1234567890123.AbCdEfGhIjKlMnOpQrStUvWxYz",
+                "fullValue": "fb.1.1234567890123.AbCdEfGhIjKlMnOpQrStUvWxYz",
+                "size": 50,
+                "percentage": "3.8"
+              },
+              {
+                "name": "analytics_session",
+                "value": "analytics_1234567890abcdef1234567890abcdef12345678...",
+                "fullValue": "analytics_1234567890abcdef1234567890abcdef1234567890",
+                "size": 70,
+                "percentage": "5.3"
+              }
+            ],
+            "session": [
+              {
+                "name": "sessionId",
+                "value": "sess_1234567890abcdef1234567890abcdef",
+                "fullValue": "sess_1234567890abcdef1234567890abcdef",
+                "size": 47,
+                "percentage": "3.6"
+              }
+            ],
+            "preferences": [
+              {
+                "name": "theme",
+                "value": "dark",
+                "fullValue": "dark",
+                "size": 10,
+                "percentage": "0.8"
+              },
+              {
+                "name": "language",
+                "value": "pl",
+                "fullValue": "pl",
+                "size": 11,
+                "percentage": "0.8"
+              },
+              {
+                "name": "user_preferences",
+                "value": "{\"theme\":\"dark\",\"lang\":\"pl\",\"notifications\":true}",
+                "fullValue": "{\"theme\":\"dark\",\"lang\":\"pl\",\"notifications\":true}",
+                "size": 66,
+                "percentage": "5.0"
+              }
+            ],
+            "other": [
+              {
+                "name": "_gid",
+                "value": "GA1.1.987654321.0987654321",
+                "fullValue": "GA1.1.987654321.0987654321",
+                "size": 31,
+                "percentage": "2.4"
+              },
+              {
+                "name": "debug_mode",
+                "value": "true",
+                "fullValue": "true",
+                "size": 15,
+                "percentage": "1.1"
+              },
+              {
+                "name": "dev_user_id",
+                "value": "66df0fa2312270d0bb7d6a1",
+                "fullValue": "66df0fa2312270d0bb7d6a1",
+                "size": 35,
+                "percentage": "2.7"
+              },
+              {
+                "name": "last_page",
+                "value": "/admin/dashboard",
+                "fullValue": "/admin/dashboard",
+                "size": 26,
+                "percentage": "2.0"
+              },
+              {
+                "name": "timezone",
+                "value": "Europe/Warsaw",
+                "fullValue": "Europe/Warsaw",
+                "size": 22,
+                "percentage": "1.7"
+              },
+              {
+                "name": "remember_me",
+                "value": "1",
+                "fullValue": "1",
+                "size": 13,
+                "percentage": "1.0"
+              },
+              {
+                "name": "cart_items",
+                "value": "[]",
+                "fullValue": "[]",
+                "size": 13,
+                "percentage": "1.0"
+              },
+              {
+                "name": "recent_searches",
+                "value": "[\"bmw\",\"audi\",\"mercedes\"]",
+                "fullValue": "[\"bmw\",\"audi\",\"mercedes\"]",
+                "size": 41,
+                "percentage": "3.1"
+              }
+            ]
+          }
+        }
+      },
+      "responseSize": 50,
+      "success": false,
+      "error": "Unauthorized"
+    },
+    {
+      "endpoint": "/api/admin/stats",
+      "scenario": "Duplikaty tokenów (PROBLEM)",
+      "status": 404,
+      "statusText": "Not Found",
+      "requestHeaders": {
+        "totalSize": 1729,
+        "headers": [
+          {
+            "name": "Cookie",
+            "value": "token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiO...",
+            "size": 1327,
+            "percentage": "76.7"
+          },
+          {
+            "name": "User-Agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.12...",
+            "size": 127,
+            "percentage": "7.3"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json, text/plain, */*",
+            "size": 41,
+            "percentage": "2.4"
+          },
+          {
+            "name": "Accept-Language",
+            "value": "pl-PL,pl;q=0.9,en;q=0.8",
+            "size": 40,
+            "percentage": "2.3"
+          },
+          {
+            "name": "Accept-Encoding",
+            "value": "gzip, deflate, br",
+            "size": 34,
+            "percentage": "2.0"
+          },
+          {
+            "name": "Upgrade-Insecure-Requests",
+            "value": "1",
+            "size": 28,
+            "percentage": "1.6"
+          },
+          {
+            "name": "Sec-Fetch-Dest",
+            "value": "document",
+            "size": 24,
+            "percentage": "1.4"
+          },
+          {
+            "name": "Sec-Fetch-Mode",
+            "value": "navigate",
+            "size": 24,
+            "percentage": "1.4"
+          },
+          {
+            "name": "Cache-Control",
+            "value": "max-age=0",
+            "size": 24,
+            "percentage": "1.4"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "size": 22,
+            "percentage": "1.3"
+          },
+          {
+            "name": "Sec-Fetch-Site",
+            "value": "none",
+            "size": 20,
+            "percentage": "1.2"
+          },
+          {
+            "name": "Sec-Fetch-User",
+            "value": "?1",
+            "size": 18,
+            "percentage": "1.0"
+          }
+        ],
+        "cookieAnalysis": {
+          "totalSize": 1319,
+          "count": 22,
+          "cookies": [
+            {
+              "name": "admin_refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1ODM1MTY4fQ.signature",
+              "size": 180,
+              "percentage": "13.6"
+            },
+            {
+              "name": "admin_token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1NzUyMzY4fQ.signature",
+              "size": 173,
+              "percentage": "13.1"
+            },
+            {
+              "name": "refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU4MzUxNjh9.signature",
+              "size": 172,
+              "percentage": "13.0"
+            },
+            {
+              "name": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU3NTIzNjh9.signature",
+              "size": 165,
+              "percentage": "12.5"
+            },
+            {
+              "name": "analytics_session",
+              "value": "analytics_1234567890abcdef1234567890abcdef12345678...",
+              "fullValue": "analytics_1234567890abcdef1234567890abcdef1234567890",
+              "size": 70,
+              "percentage": "5.3"
+            },
+            {
+              "name": "user_preferences",
+              "value": "{\"theme\":\"dark\",\"lang\":\"pl\",\"notifications\":true}",
+              "fullValue": "{\"theme\":\"dark\",\"lang\":\"pl\",\"notifications\":true}",
+              "size": 66,
+              "percentage": "5.0"
+            },
+            {
+              "name": "_fbc",
+              "value": "fb.1.1234567890123.AbCdEfGhIjKlMnOpQrStUvWxYz",
+              "fullValue": "fb.1.1234567890123.AbCdEfGhIjKlMnOpQrStUvWxYz",
+              "size": 50,
+              "percentage": "3.8"
+            },
+            {
+              "name": "sessionId",
+              "value": "sess_1234567890abcdef1234567890abcdef",
+              "fullValue": "sess_1234567890abcdef1234567890abcdef",
+              "size": 47,
+              "percentage": "3.6"
+            },
+            {
+              "name": "csrfToken",
+              "value": "csrf_abcdef1234567890abcdef1234567890",
+              "fullValue": "csrf_abcdef1234567890abcdef1234567890",
+              "size": 47,
+              "percentage": "3.6"
+            },
+            {
+              "name": "recent_searches",
+              "value": "[\"bmw\",\"audi\",\"mercedes\"]",
+              "fullValue": "[\"bmw\",\"audi\",\"mercedes\"]",
+              "size": 41,
+              "percentage": "3.1"
+            },
+            {
+              "name": "dev_user_id",
+              "value": "66df0fa2312270d0bb7d6a1",
+              "fullValue": "66df0fa2312270d0bb7d6a1",
+              "size": 35,
+              "percentage": "2.7"
+            },
+            {
+              "name": "_fbp",
+              "value": "fb.1.1234567890123.1234567890",
+              "fullValue": "fb.1.1234567890123.1234567890",
+              "size": 34,
+              "percentage": "2.6"
+            },
+            {
+              "name": "_gid",
+              "value": "GA1.1.987654321.0987654321",
+              "fullValue": "GA1.1.987654321.0987654321",
+              "size": 31,
+              "percentage": "2.4"
+            },
+            {
+              "name": "_ga",
+              "value": "GA1.1.123456789.1234567890",
+              "fullValue": "GA1.1.123456789.1234567890",
+              "size": 30,
+              "percentage": "2.3"
+            },
+            {
+              "name": "_gat_gtag_UA_123456789_1",
+              "value": "1",
+              "fullValue": "1",
+              "size": 26,
+              "percentage": "2.0"
+            },
+            {
+              "name": "last_page",
+              "value": "/admin/dashboard",
+              "fullValue": "/admin/dashboard",
+              "size": 26,
+              "percentage": "2.0"
+            },
+            {
+              "name": "timezone",
+              "value": "Europe/Warsaw",
+              "fullValue": "Europe/Warsaw",
+              "size": 22,
+              "percentage": "1.7"
+            },
+            {
+              "name": "debug_mode",
+              "value": "true",
+              "fullValue": "true",
+              "size": 15,
+              "percentage": "1.1"
+            },
+            {
+              "name": "remember_me",
+              "value": "1",
+              "fullValue": "1",
+              "size": 13,
+              "percentage": "1.0"
+            },
+            {
+              "name": "cart_items",
+              "value": "[]",
+              "fullValue": "[]",
+              "size": 13,
+              "percentage": "1.0"
+            },
+            {
+              "name": "language",
+              "value": "pl",
+              "fullValue": "pl",
+              "size": 11,
+              "percentage": "0.8"
+            },
+            {
+              "name": "theme",
+              "value": "dark",
+              "fullValue": "dark",
+              "size": 10,
+              "percentage": "0.8"
+            }
+          ],
+          "duplicates": [
+            {
+              "name": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU3NTIzNjh9.signature",
+              "size": 165,
+              "percentage": "12.5"
+            },
+            {
+              "name": "refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU4MzUxNjh9.signature",
+              "size": 172,
+              "percentage": "13.0"
+            },
+            {
+              "name": "admin_token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1NzUyMzY4fQ.signature",
+              "size": 173,
+              "percentage": "13.1"
+            },
+            {
+              "name": "admin_refreshToken",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+              "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1ODM1MTY4fQ.signature",
+              "size": 180,
+              "percentage": "13.6"
+            },
+            {
+              "name": "csrfToken",
+              "value": "csrf_abcdef1234567890abcdef1234567890",
+              "fullValue": "csrf_abcdef1234567890abcdef1234567890",
+              "size": 47,
+              "percentage": "3.6"
+            }
+          ],
+          "categories": {
+            "auth": [
+              {
+                "name": "token",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU3NTIzNjh9.signature",
+                "size": 165,
+                "percentage": "12.5"
+              },
+              {
+                "name": "refreshToken",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzI1NzQ4NzY4LCJleHAiOjE3MjU4MzUxNjh9.signature",
+                "size": 172,
+                "percentage": "13.0"
+              },
+              {
+                "name": "admin_token",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1NzUyMzY4fQ.signature",
+                "size": 173,
+                "percentage": "13.1"
+              },
+              {
+                "name": "admin_refreshToken",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...",
+                "fullValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmRmMGZhMjMxMjI3MGQwYmI3ZDZhMSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcyNTc0ODc2OCwiZXhwIjoxNzI1ODM1MTY4fQ.signature",
+                "size": 180,
+                "percentage": "13.6"
+              },
+              {
+                "name": "csrfToken",
+                "value": "csrf_abcdef1234567890abcdef1234567890",
+                "fullValue": "csrf_abcdef1234567890abcdef1234567890",
+                "size": 47,
+                "percentage": "3.6"
+              }
+            ],
+            "analytics": [
+              {
+                "name": "_ga",
+                "value": "GA1.1.123456789.1234567890",
+                "fullValue": "GA1.1.123456789.1234567890",
+                "size": 30,
+                "percentage": "2.3"
+              },
+              {
+                "name": "_gat_gtag_UA_123456789_1",
+                "value": "1",
+                "fullValue": "1",
+                "size": 26,
+                "percentage": "2.0"
+              },
+              {
+                "name": "_fbp",
+                "value": "fb.1.1234567890123.1234567890",
+                "fullValue": "fb.1.1234567890123.1234567890",
+                "size": 34,
+                "percentage": "2.6"
+              },
+              {
+                "name": "_fbc",
+                "value": "fb.1.1234567890123.AbCdEfGhIjKlMnOpQrStUvWxYz",
+                "fullValue": "fb.1.1234567890123.AbCdEfGhIjKlMnOpQrStUvWxYz",
+                "size": 50,
+                "percentage": "3.8"
+              },
+              {
+                "name": "analytics_session",
+                "value": "analytics_1234567890abcdef1234567890abcdef12345678...",
+                "fullValue": "analytics_1234567890abcdef1234567890abcdef1234567890",
+                "size": 70,
+                "percentage": "5.3"
+              }
+            ],
+            "session": [
+              {
+                "name": "sessionId",
+                "value": "sess_1234567890abcdef1234567890abcdef",
+                "fullValue": "sess_1234567890abcdef1234567890abcdef",
+                "size": 47,
+                "percentage": "3.6"
+              }
+            ],
+            "preferences": [
+              {
+                "name": "theme",
+                "value": "dark",
+                "fullValue": "dark",
+                "size": 10,
+                "percentage": "0.8"
+              },
+              {
+                "name": "language",
+                "value": "pl",
+                "fullValue": "pl",
+                "size": 11,
+                "percentage": "0.8"
+              },
+              {
+                "name": "user_preferences",
+                "value": "{\"theme\":\"dark\",\"lang\":\"pl\",\"notifications\":true}",
+                "fullValue": "{\"theme\":\"dark\",\"lang\":\"pl\",\"notifications\":true}",
+                "size": 66,
+                "percentage": "5.0"
+              }
+            ],
+            "other": [
+              {
+                "name": "_gid",
+                "value": "GA1.1.987654321.0987654321",
+                "fullValue": "GA1.1.987654321.0987654321",
+                "size": 31,
+                "percentage": "2.4"
+              },
+              {
+                "name": "debug_mode",
+                "value": "true",
+                "fullValue": "true",
+                "size": 15,
+                "percentage": "1.1"
+              },
+              {
+                "name": "dev_user_id",
+                "value": "66df0fa2312270d0bb7d6a1",
+                "fullValue": "66df0fa2312270d0bb7d6a1",
+                "size": 35,
+                "percentage": "2.7"
+              },
+              {
+                "name": "last_page",
+                "value": "/admin/dashboard",
+                "fullValue": "/admin/dashboard",
+                "size": 26,
+                "percentage": "2.0"
+              },
+              {
+                "name": "timezone",
+                "value": "Europe/Warsaw",
+                "fullValue": "Europe/Warsaw",
+                "size": 22,
+                "percentage": "1.7"
+              },
+              {
+                "name": "remember_me",
+                "value": "1",
+                "fullValue": "1",
+                "size": 13,
+                "percentage": "1.0"
+              },
+              {
+                "name": "cart_items",
+                "value": "[]",
+                "fullValue": "[]",
+                "size": 13,
+                "percentage": "1.0"
+              },
+              {
+                "name": "recent_searches",
+                "value": "[\"bmw\",\"audi\",\"mercedes\"]",
+                "fullValue": "[\"bmw\",\"audi\",\"mercedes\"]",
+                "size": 41,
+                "percentage": "3.1"
+              }
+            ]
+          }
+        }
+      },
+      "responseSize": 60,
+      "success": false,
+      "error": "Not Found"
+    },
+    {
+      "endpoint": "/api/admin/auth/check",
+      "scenario": "Tylko analytics cookies",
+      "status": 404,
+      "statusText": "Not Found",
+      "requestHeaders": {
+        "totalSize": 509,
+        "headers": [
+          {
+            "name": "User-Agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.12...",
+            "size": 127,
+            "percentage": "25.0"
+          },
+          {
+            "name": "Cookie",
+            "value": "_ga=GA1.1.123456789.1234567890; _gid=GA1.1.987654321.0987654321; _fbp=fb.1.1234567890123.1234567890",
+            "size": 107,
+            "percentage": "21.0"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json, text/plain, */*",
+            "size": 41,
+            "percentage": "8.1"
+          },
+          {
+            "name": "Accept-Language",
+            "value": "pl-PL,pl;q=0.9,en;q=0.8",
+            "size": 40,
+            "percentage": "7.9"
+          },
+          {
+            "name": "Accept-Encoding",
+            "value": "gzip, deflate, br",
+            "size": 34,
+            "percentage": "6.7"
+          },
+          {
+            "name": "Upgrade-Insecure-Requests",
+            "value": "1",
+            "size": 28,
+            "percentage": "5.5"
+          },
+          {
+            "name": "Sec-Fetch-Dest",
+            "value": "document",
+            "size": 24,
+            "percentage": "4.7"
+          },
+          {
+            "name": "Sec-Fetch-Mode",
+            "value": "navigate",
+            "size": 24,
+            "percentage": "4.7"
+          },
+          {
+            "name": "Cache-Control",
+            "value": "max-age=0",
+            "size": 24,
+            "percentage": "4.7"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "size": 22,
+            "percentage": "4.3"
+          },
+          {
+            "name": "Sec-Fetch-Site",
+            "value": "none",
+            "size": 20,
+            "percentage": "3.9"
+          },
+          {
+            "name": "Sec-Fetch-User",
+            "value": "?1",
+            "size": 18,
+            "percentage": "3.5"
+          }
+        ],
+        "cookieAnalysis": {
+          "totalSize": 99,
+          "count": 3,
+          "cookies": [
+            {
+              "name": "_fbp",
+              "value": "fb.1.1234567890123.1234567890",
+              "fullValue": "fb.1.1234567890123.1234567890",
+              "size": 34,
+              "percentage": "34.3"
+            },
+            {
+              "name": "_gid",
+              "value": "GA1.1.987654321.0987654321",
+              "fullValue": "GA1.1.987654321.0987654321",
+              "size": 31,
+              "percentage": "31.3"
+            },
+            {
+              "name": "_ga",
+              "value": "GA1.1.123456789.1234567890",
+              "fullValue": "GA1.1.123456789.1234567890",
+              "size": 30,
+              "percentage": "30.3"
+            }
+          ],
+          "duplicates": [],
+          "categories": {
+            "auth": [],
+            "analytics": [
+              {
+                "name": "_ga",
+                "value": "GA1.1.123456789.1234567890",
+                "fullValue": "GA1.1.123456789.1234567890",
+                "size": 30,
+                "percentage": "30.3"
+              },
+              {
+                "name": "_fbp",
+                "value": "fb.1.1234567890123.1234567890",
+                "fullValue": "fb.1.1234567890123.1234567890",
+                "size": 34,
+                "percentage": "34.3"
+              }
+            ],
+            "session": [],
+            "preferences": [],
+            "other": [
+              {
+                "name": "_gid",
+                "value": "GA1.1.987654321.0987654321",
+                "fullValue": "GA1.1.987654321.0987654321",
+                "size": 31,
+                "percentage": "31.3"
+              }
+            ]
+          }
+        }
+      },
+      "responseSize": 65,
+      "success": false,
+      "error": "Not Found"
+    },
+    {
+      "endpoint": "/api/admin/users",
+      "scenario": "Tylko analytics cookies",
+      "status": 404,
+      "statusText": "Not Found",
+      "requestHeaders": {
+        "totalSize": 509,
+        "headers": [
+          {
+            "name": "User-Agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.12...",
+            "size": 127,
+            "percentage": "25.0"
+          },
+          {
+            "name": "Cookie",
+            "value": "_ga=GA1.1.123456789.1234567890; _gid=GA1.1.987654321.0987654321; _fbp=fb.1.1234567890123.1234567890",
+            "size": 107,
+            "percentage": "21.0"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json, text/plain, */*",
+            "size": 41,
+            "percentage": "8.1"
+          },
+          {
+            "name": "Accept-Language",
+            "value": "pl-PL,pl;q=0.9,en;q=0.8",
+            "size": 40,
+            "percentage": "7.9"
+          },
+          {
+            "name": "Accept-Encoding",
+            "value": "gzip, deflate, br",
+            "size": 34,
+            "percentage": "6.7"
+          },
+          {
+            "name": "Upgrade-Insecure-Requests",
+            "value": "1",
+            "size": 28,
+            "percentage": "5.5"
+          },
+          {
+            "name": "Sec-Fetch-Dest",
+            "value": "document",
+            "size": 24,
+            "percentage": "4.7"
+          },
+          {
+            "name": "Sec-Fetch-Mode",
+            "value": "navigate",
+            "size": 24,
+            "percentage": "4.7"
+          },
+          {
+            "name": "Cache-Control",
+            "value": "max-age=0",
+            "size": 24,
+            "percentage": "4.7"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "size": 22,
+            "percentage": "4.3"
+          },
+          {
+            "name": "Sec-Fetch-Site",
+            "value": "none",
+            "size": 20,
+            "percentage": "3.9"
+          },
+          {
+            "name": "Sec-Fetch-User",
+            "value": "?1",
+            "size": 18,
+            "percentage": "3.5"
+          }
+        ],
+        "cookieAnalysis": {
+          "totalSize": 99,
+          "count": 3,
+          "cookies": [
+            {
+              "name": "_fbp",
+              "value": "fb.1.1234567890123.1234567890",
+              "fullValue": "fb.1.1234567890123.1234567890",
+              "size": 34,
+              "percentage": "34.3"
+            },
+            {
+              "name": "_gid",
+              "value": "GA1.1.987654321.0987654321",
+              "fullValue": "GA1.1.987654321.0987654321",
+              "size": 31,
+              "percentage": "31.3"
+            },
+            {
+              "name": "_ga",
+              "value": "GA1.1.123456789.1234567890",
+              "fullValue": "GA1.1.123456789.1234567890",
+              "size": 30,
+              "percentage": "30.3"
+            }
+          ],
+          "duplicates": [],
+          "categories": {
+            "auth": [],
+            "analytics": [
+              {
+                "name": "_ga",
+                "value": "GA1.1.123456789.1234567890",
+                "fullValue": "GA1.1.123456789.1234567890",
+                "size": 30,
+                "percentage": "30.3"
+              },
+              {
+                "name": "_fbp",
+                "value": "fb.1.1234567890123.1234567890",
+                "fullValue": "fb.1.1234567890123.1234567890",
+                "size": 34,
+                "percentage": "34.3"
+              }
+            ],
+            "session": [],
+            "preferences": [],
+            "other": [
+              {
+                "name": "_gid",
+                "value": "GA1.1.987654321.0987654321",
+                "fullValue": "GA1.1.987654321.0987654321",
+                "size": 31,
+                "percentage": "31.3"
+              }
+            ]
+          }
+        }
+      },
+      "responseSize": 60,
+      "success": false,
+      "error": "Not Found"
+    },
+    {
+      "endpoint": "/api/admin/dashboard",
+      "scenario": "Tylko analytics cookies",
+      "status": 404,
+      "statusText": "Not Found",
+      "requestHeaders": {
+        "totalSize": 509,
+        "headers": [
+          {
+            "name": "User-Agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.12...",
+            "size": 127,
+            "percentage": "25.0"
+          },
+          {
+            "name": "Cookie",
+            "value": "_ga=GA1.1.123456789.1234567890; _gid=GA1.1.987654321.0987654321; _fbp=fb.1.1234567890123.1234567890",
+            "size": 107,
+            "percentage": "21.0"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json, text/plain, */*",
+            "size": 41,
+            "percentage": "8.1"
+          },
+          {
+            "name": "Accept-Language",
+            "value": "pl-PL,pl;q=0.9,en;q=0.8",
+            "size": 40,
+            "percentage": "7.9"
+          },
+          {
+            "name": "Accept-Encoding",
+            "value": "gzip, deflate, br",
+            "size": 34,
+            "percentage": "6.7"
+          },
+          {
+            "name": "Upgrade-Insecure-Requests",
+            "value": "1",
+            "size": 28,
+            "percentage": "5.5"
+          },
+          {
+            "name": "Sec-Fetch-Dest",
+            "value": "document",
+            "size": 24,
+            "percentage": "4.7"
+          },
+          {
+            "name": "Sec-Fetch-Mode",
+            "value": "navigate",
+            "size": 24,
+            "percentage": "4.7"
+          },
+          {
+            "name": "Cache-Control",
+            "value": "max-age=0",
+            "size": 24,
+            "percentage": "4.7"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "size": 22,
+            "percentage": "4.3"
+          },
+          {
+            "name": "Sec-Fetch-Site",
+            "value": "none",
+            "size": 20,
+            "percentage": "3.9"
+          },
+          {
+            "name": "Sec-Fetch-User",
+            "value": "?1",
+            "size": 18,
+            "percentage": "3.5"
+          }
+        ],
+        "cookieAnalysis": {
+          "totalSize": 99,
+          "count": 3,
+          "cookies": [
+            {
+              "name": "_fbp",
+              "value": "fb.1.1234567890123.1234567890",
+              "fullValue": "fb.1.1234567890123.1234567890",
+              "size": 34,
+              "percentage": "34.3"
+            },
+            {
+              "name": "_gid",
+              "value": "GA1.1.987654321.0987654321",
+              "fullValue": "GA1.1.987654321.0987654321",
+              "size": 31,
+              "percentage": "31.3"
+            },
+            {
+              "name": "_ga",
+              "value": "GA1.1.123456789.1234567890",
+              "fullValue": "GA1.1.123456789.1234567890",
+              "size": 30,
+              "percentage": "30.3"
+            }
+          ],
+          "duplicates": [],
+          "categories": {
+            "auth": [],
+            "analytics": [
+              {
+                "name": "_ga",
+                "value": "GA1.1.123456789.1234567890",
+                "fullValue": "GA1.1.123456789.1234567890",
+                "size": 30,
+                "percentage": "30.3"
+              },
+              {
+                "name": "_fbp",
+                "value": "fb.1.1234567890123.1234567890",
+                "fullValue": "fb.1.1234567890123.1234567890",
+                "size": 34,
+                "percentage": "34.3"
+              }
+            ],
+            "session": [],
+            "preferences": [],
+            "other": [
+              {
+                "name": "_gid",
+                "value": "GA1.1.987654321.0987654321",
+                "fullValue": "GA1.1.987654321.0987654321",
+                "size": 31,
+                "percentage": "31.3"
+              }
+            ]
+          }
+        }
+      },
+      "responseSize": 64,
+      "success": false,
+      "error": "Not Found"
+    },
+    {
+      "endpoint": "/api/notifications",
+      "scenario": "Tylko analytics cookies",
+      "status": 401,
+      "statusText": "Unauthorized",
+      "requestHeaders": {
+        "totalSize": 509,
+        "headers": [
+          {
+            "name": "User-Agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.12...",
+            "size": 127,
+            "percentage": "25.0"
+          },
+          {
+            "name": "Cookie",
+            "value": "_ga=GA1.1.123456789.1234567890; _gid=GA1.1.987654321.0987654321; _fbp=fb.1.1234567890123.1234567890",
+            "size": 107,
+            "percentage": "21.0"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json, text/plain, */*",
+            "size": 41,
+            "percentage": "8.1"
+          },
+          {
+            "name": "Accept-Language",
+            "value": "pl-PL,pl;q=0.9,en;q=0.8",
+            "size": 40,
+            "percentage": "7.9"
+          },
+          {
+            "name": "Accept-Encoding",
+            "value": "gzip, deflate, br",
+            "size": 34,
+            "percentage": "6.7"
+          },
+          {
+            "name": "Upgrade-Insecure-Requests",
+            "value": "1",
+            "size": 28,
+            "percentage": "5.5"
+          },
+          {
+            "name": "Sec-Fetch-Dest",
+            "value": "document",
+            "size": 24,
+            "percentage": "4.7"
+          },
+          {
+            "name": "Sec-Fetch-Mode",
+            "value": "navigate",
+            "size": 24,
+            "percentage": "4.7"
+          },
+          {
+            "name": "Cache-Control",
+            "value": "max-age=0",
+            "size": 24,
+            "percentage": "4.7"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "size": 22,
+            "percentage": "4.3"
+          },
+          {
+            "name": "Sec-Fetch-Site",
+            "value": "none",
+            "size": 20,
+            "percentage": "3.9"
+          },
+          {
+            "name": "Sec-Fetch-User",
+            "value": "?1",
+            "size": 18,
+            "percentage": "3.5"
+          }
+        ],
+        "cookieAnalysis": {
+          "totalSize": 99,
+          "count": 3,
+          "cookies": [
+            {
+              "name": "_fbp",
+              "value": "fb.1.1234567890123.1234567890",
+              "fullValue": "fb.1.1234567890123.1234567890",
+              "size": 34,
+              "percentage": "34.3"
+            },
+            {
+              "name": "_gid",
+              "value": "GA1.1.987654321.0987654321",
+              "fullValue": "GA1.1.987654321.0987654321",
+              "size": 31,
+              "percentage": "31.3"
+            },
+            {
+              "name": "_ga",
+              "value": "GA1.1.123456789.1234567890",
+              "fullValue": "GA1.1.123456789.1234567890",
+              "size": 30,
+              "percentage": "30.3"
+            }
+          ],
+          "duplicates": [],
+          "categories": {
+            "auth": [],
+            "analytics": [
+              {
+                "name": "_ga",
+                "value": "GA1.1.123456789.1234567890",
+                "fullValue": "GA1.1.123456789.1234567890",
+                "size": 30,
+                "percentage": "30.3"
+              },
+              {
+                "name": "_fbp",
+                "value": "fb.1.1234567890123.1234567890",
+                "fullValue": "fb.1.1234567890123.1234567890",
+                "size": 34,
+                "percentage": "34.3"
+              }
+            ],
+            "session": [],
+            "preferences": [],
+            "other": [
+              {
+                "name": "_gid",
+                "value": "GA1.1.987654321.0987654321",
+                "fullValue": "GA1.1.987654321.0987654321",
+                "size": 31,
+                "percentage": "31.3"
+              }
+            ]
+          }
+        }
+      },
+      "responseSize": 55,
+      "success": false,
+      "error": "Unauthorized"
+    },
+    {
+      "endpoint": "/api/admin/stats",
+      "scenario": "Tylko analytics cookies",
+      "status": 404,
+      "statusText": "Not Found",
+      "requestHeaders": {
+        "totalSize": 509,
+        "headers": [
+          {
+            "name": "User-Agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.12...",
+            "size": 127,
+            "percentage": "25.0"
+          },
+          {
+            "name": "Cookie",
+            "value": "_ga=GA1.1.123456789.1234567890; _gid=GA1.1.987654321.0987654321; _fbp=fb.1.1234567890123.1234567890",
+            "size": 107,
+            "percentage": "21.0"
+          },
+          {
+            "name": "Accept",
+            "value": "application/json, text/plain, */*",
+            "size": 41,
+            "percentage": "8.1"
+          },
+          {
+            "name": "Accept-Language",
+            "value": "pl-PL,pl;q=0.9,en;q=0.8",
+            "size": 40,
+            "percentage": "7.9"
+          },
+          {
+            "name": "Accept-Encoding",
+            "value": "gzip, deflate, br",
+            "size": 34,
+            "percentage": "6.7"
+          },
+          {
+            "name": "Upgrade-Insecure-Requests",
+            "value": "1",
+            "size": 28,
+            "percentage": "5.5"
+          },
+          {
+            "name": "Sec-Fetch-Dest",
+            "value": "document",
+            "size": 24,
+            "percentage": "4.7"
+          },
+          {
+            "name": "Sec-Fetch-Mode",
+            "value": "navigate",
+            "size": 24,
+            "percentage": "4.7"
+          },
+          {
+            "name": "Cache-Control",
+            "value": "max-age=0",
+            "size": 24,
+            "percentage": "4.7"
+          },
+          {
+            "name": "Connection",
+            "value": "keep-alive",
+            "size": 22,
+            "percentage": "4.3"
+          },
+          {
+            "name": "Sec-Fetch-Site",
+            "value": "none",
+            "size": 20,
+            "percentage": "3.9"
+          },
+          {
+            "name": "Sec-Fetch-User",
+            "value": "?1",
+            "size": 18,
+            "percentage": "3.5"
+          }
+        ],
+        "cookieAnalysis": {
+          "totalSize": 99,
+          "count": 3,
+          "cookies": [
+            {
+              "name": "_fbp",
+              "value": "fb.1.1234567890123.1234567890",
+              "fullValue": "fb.1.1234567890123.1234567890",
+              "size": 34,
+              "percentage": "34.3"
+            },
+            {
+              "name": "_gid",
+              "value": "GA1.1.987654321.0987654321",
+              "fullValue": "GA1.1.987654321.0987654321",
+              "size": 31,
+              "percentage": "31.3"
+            },
+            {
+              "name": "_ga",
+              "value": "GA1.1.123456789.1234567890",
+              "fullValue": "GA1.1.123456789.1234567890",
+              "size": 30,
+              "percentage": "30.3"
+            }
+          ],
+          "duplicates": [],
+          "categories": {
+            "auth": [],
+            "analytics": [
+              {
+                "name": "_ga",
+                "value": "GA1.1.123456789.1234567890",
+                "fullValue": "GA1.1.123456789.1234567890",
+                "size": 30,
+                "percentage": "30.3"
+              },
+              {
+                "name": "_fbp",
+                "value": "fb.1.1234567890123.1234567890",
+                "fullValue": "fb.1.1234567890123.1234567890",
+                "size": 34,
+                "percentage": "34.3"
+              }
+            ],
+            "session": [],
+            "preferences": [],
+            "other": [
+              {
+                "name": "_gid",
+                "value": "GA1.1.987654321.0987654321",
+                "fullValue": "GA1.1.987654321.0987654321",
+                "size": 31,
+                "percentage": "31.3"
+              }
+            ]
+          }
+        }
+      },
+      "responseSize": 60,
+      "success": false,
+      "error": "Not Found"
+    }
+  ],
+  "recommendations": [
+    {
+      "priority": "CRITICAL",
+      "issue": "Duplikaty tokenów uwierzytelniania",
+      "description": "Wykryto duplikaty tokenów (token, refreshToken, admin_token, admin_refreshToken)",
+      "solution": "Usuń duplikaty - zostaw tylko token i refreshToken",
+      "impact": "Może zaoszczędzić 300-500B nagłówków"
+    },
+    {
+      "priority": "MEDIUM",
+      "issue": "Cookies analityczne",
+      "description": "Wykryto cookies Google Analytics, Facebook Pixel itp.",
+      "solution": "Przenieś analytics do localStorage lub usuń niepotrzebne",
+      "impact": "Może zaoszczędzić 100-200B nagłówków"
+    }
+  ]
+}

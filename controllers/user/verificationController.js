@@ -3,6 +3,7 @@ import User from '../../models/user/user.js';
 import jwt from 'jsonwebtoken';
 import { sendVerificationCode as sendTwilioCode, verifyCode as verifyTwilioCode } from '../../config/twilio.js';
 import { setSecureCookie } from '../../config/cookieConfig.js';
+import { generateAccessToken } from '../../middleware/auth.js';
 import logger from '../../utils/logger.js';
 
 /**
@@ -511,24 +512,13 @@ export const verify2FACode = async (req, res) => {
       user.twoFACodeExpires = null;
       await user.save();
 
-      // Generuj token JWT - TYLKO z bezpiecznym sekretem z .env
-      if (!process.env.JWT_SECRET) {
-        logger.error('JWT_SECRET not configured - cannot generate token');
-        return res.status(500).json({ 
-          message: 'Błąd konfiguracji serwera.' 
-        });
-      }
-
-      const token = jwt.sign(
-        { 
-          userId: user._id, 
-          role: user.role,
-          type: 'access',
-          iat: Math.floor(Date.now() / 1000)
-        },
-        process.env.JWT_SECRET,
-        { expiresIn: '1h' }
-      );
+      // Użyj zoptymalizowanej funkcji generowania tokena
+      const tokenPayload = {
+        userId: user._id,
+        role: user.role
+      };
+      
+      const token = generateAccessToken(tokenPayload);
 
       // Security: Never log JWT tokens in production
       logger.info('JWT token generated for user verification', {

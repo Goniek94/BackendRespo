@@ -247,7 +247,7 @@ test.describe('Security Audit Tests', () => {
       '/api/users/profile',
       '/api/users/settings',
       '/api/ads/create',
-      '/api/admin'
+      '/api/admin-panel'
     ];
 
     // These tests would need actual route implementations

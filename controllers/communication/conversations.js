@@ -356,6 +356,29 @@ export const getConversationsList = async (req, res) => {
           deletedBy: { $ne: userObjectId }
         };
         break;
+      case 'multimedia':
+        // Pobierz konwersacje z wiadomościami zawierającymi załączniki
+        query = {
+          $or: [
+            { sender: userObjectId },
+            { recipient: userObjectId }
+          ],
+          attachments: { $exists: true, $not: { $size: 0 } }, // Wiadomości z załącznikami
+          deletedBy: { $ne: userObjectId }
+        };
+        break;
+      case 'linki':
+        // Pobierz konwersacje z wiadomościami zawierającymi linki
+        const urlRegex = /(https?:\/\/[^\s]+)/gi;
+        query = {
+          $or: [
+            { sender: userObjectId },
+            { recipient: userObjectId }
+          ],
+          content: { $regex: urlRegex }, // Wiadomości z linkami w treści
+          deletedBy: { $ne: userObjectId }
+        };
+        break;
       default:
         // Domyślnie pobierz wszystkie wiadomości
         console.log('Używam domyślnego zapytania dla wszystkich konwersacji');

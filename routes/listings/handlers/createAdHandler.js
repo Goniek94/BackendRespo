@@ -450,13 +450,7 @@ export const createAd = [
     // Tworzenie powiadomienia o dodaniu ogłoszenia
     try {
       const adTitle = headline || `${brand} ${model}`;
-      await notificationManager.createNotification(req.user.userId, {
-        title: "Ogłoszenie opublikowane!",
-        message: `Twoje ogłoszenie "${adTitle}" zostało pomyślnie opublikowane!`,
-        type: 'listing_added',
-        link: `/ads/${ad._id}`,
-        metadata: { adId: ad._id }
-      });
+      await notificationManager.notifyAdCreated(req.user.userId, adTitle, ad._id);
       console.log(`Utworzono powiadomienie o dodaniu ogłoszenia dla użytkownika ${req.user.userId}`);
     } catch (notificationError) {
       console.error('Błąd podczas tworzenia powiadomienia:', notificationError);

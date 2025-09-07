@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import notificationService from '../notifications/notificationController.js';
 import { sendNewMessageEmail } from '../../config/nodemailer.js';
 import socketService from '../../services/socketService.js';
+import { uploadMessageImages, validateMessageFiles, isImageUploadAvailable } from './messageImageUpload.js';
 
 // Pobieranie wiadomości dla danego folderu
 export const getMessages = async (req, res) => {
@@ -71,6 +72,29 @@ export const getMessages = async (req, res) => {
             { recipient: userObjectId, archived: true },
             { sender: userObjectId, archived: true }
           ],
+          deletedBy: { $ne: userObjectId }
+        };
+        break;
+      case 'multimedia':
+        // Pobierz wszystkie wiadomości z załącznikami (multimedia)
+        query = { 
+          $or: [
+            { recipient: userObjectId },
+            { sender: userObjectId }
+          ],
+          attachments: { $exists: true, $not: { $size: 0 } }, // Wiadomości z załącznikami
+          deletedBy: { $ne: userObjectId }
+        };
+        break;
+      case 'linki':
+        // Pobierz wszystkie wiadomości zawierające linki w treści
+        const urlRegex = /(https?:\/\/[^\s]+)/gi;
+        query = { 
+          $or: [
+            { recipient: userObjectId },
+            { sender: userObjectId }
+          ],
+          content: { $regex: urlRegex }, // Wiadomości z linkami w treści
           deletedBy: { $ne: userObjectId }
         };
         break;
@@ -157,25 +181,81 @@ export const sendMessage = async (req, res) => {
       return res.status(404).json({ message: 'Nie znaleziono odbiorcy' });
     }
 
-    // Przetwarzanie załączników
-    const attachments = req.files ? req.files.map(file => ({
-      name: file.originalname,
-      path: file.path,
-      size: file.size,
-      mimetype: file.mimetype
-    })) : [];
+    // Walidacja i upload załączników do Supabase
+    let attachments = [];
+    
+    if (req.files && req.files.length > 0) {
+      // Sprawdź czy Supabase jest dostępny
+      if (!isImageUploadAvailable()) {
+        return res.status(503).json({ 
+          success: false,
+          message: 'Upload zdjęć niedostępny - brak konfiguracji Supabase' 
+        });
+      }
 
-    // Utwórz nową wiadomość
-    const newMessage = new Message({
-      sender: senderObjectId,
-      recipient: recipientUser._id,
-      subject,
-      content,
-      attachments,
-      relatedAd: adId // Opcjonalne pole, jeśli wiadomość dotyczy ogłoszenia
-    });
+      // Walidacja plików
+      const validation = validateMessageFiles(req.files);
+      if (!validation.valid) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'Błąd walidacji plików',
+          errors: validation.errors 
+        });
+      }
 
-    await newMessage.save();
+      try {
+        // Utwórz tymczasową wiadomość, aby mieć ID dla uploadu
+        const tempMessage = new Message({
+          sender: senderObjectId,
+          recipient: recipientUser._id,
+          subject,
+          content,
+          attachments: [], // Początkowo puste
+          relatedAd: adId
+        });
+        
+        const savedTempMessage = await tempMessage.save();
+        
+        // Upload zdjęć do Supabase
+        console.log(`🔄 Uploading ${validation.files.length} images to Supabase for message ${savedTempMessage._id}`);
+        const uploadedImages = await uploadMessageImages(
+          validation.files, 
+          senderObjectId.toString(), 
+          savedTempMessage._id.toString()
+        );
+        
+        // Aktualizuj wiadomość z załącznikami
+        attachments = uploadedImages;
+        savedTempMessage.attachments = attachments;
+        await savedTempMessage.save();
+        
+        console.log(`✅ Successfully uploaded ${uploadedImages.length} images for message ${savedTempMessage._id}`);
+        
+        // Użyj zapisanej wiadomości
+        var newMessage = savedTempMessage;
+        
+      } catch (uploadError) {
+        console.error('❌ Błąd uploadu zdjęć:', uploadError);
+        return res.status(500).json({ 
+          success: false,
+          message: 'Błąd podczas uploadu zdjęć',
+          error: uploadError.message 
+        });
+      }
+    } else {
+      // Brak załączników - standardowe tworzenie wiadomości
+      const messageWithoutAttachments = new Message({
+        sender: senderObjectId,
+        recipient: recipientUser._id,
+        subject,
+        content,
+        attachments: [],
+        relatedAd: adId
+      });
+
+      await messageWithoutAttachments.save();
+      var newMessage = messageWithoutAttachments;
+    }
 
     // Emit realtime event do odbiorcy (socket.io)
     if (socketService.isUserOnline(recipientUser._id.toString())) {

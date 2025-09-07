@@ -73,8 +73,8 @@ const validateJwtToken = (token) => {
     // Używamy tego samego JWT_SECRET co zwykłe logowanie
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Validate basic token structure - obsługuje minimalne tokeny
-    const userId = decoded.userId || decoded.id; // 'id' to nowe minimalne pole
+    // Validate basic token structure - obsługuje minimalne tokeny z polem 'u'
+    const userId = decoded.u || decoded.userId || decoded.id; // 'u' to nowe ultra-minimalne pole
     if (!userId) {
       throw new Error('Invalid token structure - missing user ID');
     }
@@ -86,6 +86,7 @@ const validateJwtToken = (token) => {
       ...decoded,
       userId: userId, // Normalizujemy do userId
       id: userId, // Zachowujemy też id dla kompatybilności
+      u: userId, // Zachowujemy też u dla kompatybilności
       role: role // Dodajemy rolę jeśli jest dostępna
     };
   } catch (error) {
@@ -105,21 +106,45 @@ const validateJwtToken = (token) => {
  * @returns {boolean} True if session is active
  */
 const validateAdminSession = async (sessionId, userId) => {
-  // Check if user still exists and has admin privileges
-  const user = await User.findById(userId);
-  if (!user || !['admin', 'moderator'].includes(user.role)) {
+  try {
+    // Check if user still exists and has admin privileges
+    const user = await User.findById(userId);
+    if (!user || !['admin', 'moderator'].includes(user.role)) {
+      logger.warn('Admin session validation failed - user not found or insufficient role', {
+        userId,
+        userExists: !!user,
+        userRole: user?.role
+      });
+      return false;
+    }
+    
+    // Check if user account is active - poprawione nazwy statusów
+    if (user.status === 'suspended' || user.status === 'banned' || user.status === 'blocked' || user.status === 'deleted') {
+      logger.warn('Admin session validation failed - account inactive', {
+        userId,
+        status: user.status
+      });
+      return false;
+    }
+    
+    // Additional session validation could be implemented here
+    // e.g., checking against Redis session store, database session table, etc.
+    
+    logger.debug('Admin session validation successful', {
+      userId,
+      userRole: user.role,
+      sessionId
+    });
+    
+    return true;
+  } catch (error) {
+    logger.error('Admin session validation error', {
+      error: error.message,
+      userId,
+      sessionId
+    });
     return false;
   }
-  
-  // Check if user account is active
-  if (user.status === 'blocked' || user.status === 'deleted') {
-    return false;
-  }
-  
-  // Additional session validation could be implemented here
-  // e.g., checking against Redis session store, database session table, etc.
-  
-  return true;
 };
 
 /**
@@ -163,8 +188,8 @@ export const requireAdminAuth = async (req, res, next) => {
   const startTime = Date.now();
   
   try {
-    // Używamy tego samego tokenu co zwykłe logowanie (token, nie admin_token)
-    let token = req.cookies?.token;
+    // Używamy standardowych cookies jak w kontrolerze admina
+    let token = req.cookies?.token; // Używamy tylko standardowego 'token'
     
     // Fallback do Authorization header (dla kompatybilności wstecznej)
     if (!token) {
@@ -230,8 +255,8 @@ export const requireAdminAuth = async (req, res, next) => {
     }
     
     // Validate session - używamy jti jako sessionId jeśli sessionId nie istnieje
-    const sessionId = decoded.sessionId || decoded.jti;
-    const userId = decoded.userId || decoded.id;
+    const sessionId = decoded.sessionId || decoded.jti || decoded.j; // 'j' to nowe ultra-minimalne pole
+    const userId = decoded.userId || decoded.u || decoded.id; // 'u' to nowe ultra-minimalne pole
     const isSessionValid = await validateAdminSession(sessionId, userId);
     if (!isSessionValid) {
       await logSecurityEvent(req, 'auth_invalid_session', { userId: userId });
@@ -288,38 +313,41 @@ export const requireAdminAuth = async (req, res, next) => {
     req.sessionId = sessionId; // Używamy sessionId z wcześniejszej walidacji
     req.authStartTime = startTime;
     
+    // TYMCZASOWO WYŁĄCZONE: AdminActivity logging może powodować duże nagłówki
     // Log successful authentication for audit trail (non-blocking)
-    try {
-      await AdminActivity.create({
-        adminId: user._id,
-        actionType: 'login_attempt',
-        targetResource: {
-          resourceType: 'system',
-          resourceIdentifier: 'admin_panel'
-        },
-        actionDetails: {
-          metadata: {
-            endpoint: req.originalUrl,
-            method: req.method
+    if (false) { // WYŁĄCZONE dla debugowania HTTP 431
+      try {
+        await AdminActivity.create({
+          adminId: user._id,
+          actionType: 'login_attempt',
+          targetResource: {
+            resourceType: 'system',
+            resourceIdentifier: 'admin_panel'
+          },
+          actionDetails: {
+            metadata: {
+              endpoint: req.originalUrl,
+              method: req.method
+            }
+          },
+          requestContext: {
+            ipAddress: req.ip,
+            userAgent: req.get('User-Agent'),
+            sessionId: sessionId,
+            requestId: req.id || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          },
+          result: {
+            status: 'success',
+            executionTime: Date.now() - startTime
           }
-        },
-        requestContext: {
-          ipAddress: req.ip,
-          userAgent: req.get('User-Agent'),
-          sessionId: sessionId, // Używamy sessionId z wcześniejszej walidacji
-          requestId: req.id || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-        },
-        result: {
-          status: 'success',
-          executionTime: Date.now() - startTime
-        }
-      });
-    } catch (activityLogError) {
-      // Don't block authentication if activity logging fails
-      logger.warn('Failed to log admin activity', {
-        error: activityLogError.message,
-        userId: user._id
-      });
+        });
+      } catch (activityLogError) {
+        // Don't block authentication if activity logging fails
+        logger.warn('Failed to log admin activity', {
+          error: activityLogError.message,
+          userId: user._id
+        });
+      }
     }
     
     next();

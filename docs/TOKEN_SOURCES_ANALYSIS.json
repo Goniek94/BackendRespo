@@ -1,0 +1,3620 @@
+{
+  "tokenGeneration": [
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 7,
+      "content": "generateAccessToken,",
+      "pattern": "generateAccessToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 8,
+      "content": "generateRefreshToken,",
+      "pattern": "generateRefreshToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 187,
+      "content": "const accessToken = generateAccessToken(tokenPayload);",
+      "pattern": "generateAccessToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 188,
+      "content": "const refreshToken = generateRefreshToken(tokenPayload);",
+      "pattern": "generateRefreshToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 6,
+      "content": "generateAccessToken,",
+      "pattern": "generateAccessToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 7,
+      "content": "generateRefreshToken,",
+      "pattern": "generateRefreshToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 404,
+      "content": "const accessToken = generateAccessToken(tokenPayload);",
+      "pattern": "generateAccessToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 405,
+      "content": "const refreshToken = generateRefreshToken(tokenPayload);",
+      "pattern": "generateRefreshToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "controllers\\user\\verificationController.js",
+      "line": 6,
+      "content": "import { generateAccessToken } from '../../middleware/auth.js';",
+      "pattern": "generateAccessToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "controllers\\user\\verificationController.js",
+      "line": 521,
+      "content": "const token = generateAccessToken(tokenPayload);",
+      "pattern": "generateAccessToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 50,
+      "content": "const generateAccessToken = (payload) => {",
+      "pattern": "generateAccessToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 60,
+      "content": "return jwt.sign(",
+      "pattern": "jwt\\.sign\\s*\\(",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 74,
+      "content": "const generateRefreshToken = (payload) => {",
+      "pattern": "generateRefreshToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 85,
+      "content": "return jwt.sign(",
+      "pattern": "jwt\\.sign\\s*\\(",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 190,
+      "content": "const newAccessToken = generateAccessToken(tokenPayload);",
+      "pattern": "generateAccessToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 191,
+      "content": "const newRefreshToken = generateRefreshToken(tokenPayload);",
+      "pattern": "generateRefreshToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 356,
+      "content": "const newAccessToken = generateAccessToken(tokenPayload);",
+      "pattern": "generateAccessToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 512,
+      "content": "generateAccessToken,",
+      "pattern": "generateAccessToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 513,
+      "content": "generateRefreshToken,",
+      "pattern": "generateRefreshToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "scripts\\admin-2fa-simulation.js",
+      "line": 17,
+      "content": "import { generateAccessToken } from '../middleware/auth.js';",
+      "pattern": "generateAccessToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "scripts\\admin-2fa-simulation.js",
+      "line": 54,
+      "content": "const standardToken = generateAccessToken({",
+      "pattern": "generateAccessToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "scripts\\admin-2fa-simulation.js",
+      "line": 160,
+      "content": "const oldStyleToken = generateAccessToken({",
+      "pattern": "generateAccessToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "scripts\\complete-token-analysis.js",
+      "line": 50,
+      "content": "const testToken = jwt.sign(",
+      "pattern": "jwt\\.sign\\s*\\(",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "scripts\\find-all-token-sources.js",
+      "line": 23,
+      "content": "/generateAccessToken/g,",
+      "pattern": "generateAccessToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "scripts\\find-all-token-sources.js",
+      "line": 24,
+      "content": "/generateRefreshToken/g,",
+      "pattern": "generateRefreshToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "scripts\\find-all-token-sources.js",
+      "line": 25,
+      "content": "/generateToken/g,",
+      "pattern": "generateToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "scripts\\find-all-token-sources.js",
+      "line": 26,
+      "content": "/createToken/g,",
+      "pattern": "createToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "scripts\\get-token.js",
+      "line": 3,
+      "content": "import { generateAccessToken } from '../middleware/auth.js';",
+      "pattern": "generateAccessToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "scripts\\get-token.js",
+      "line": 24,
+      "content": "const token = generateAccessToken({",
+      "pattern": "generateAccessToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "scripts\\test-jwt-verification.js",
+      "line": 29,
+      "content": "const newToken = jwt.sign(",
+      "pattern": "jwt\\.sign\\s*\\(",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "security-audit\\scripts\\comprehensive-security-audit.js",
+      "line": 384,
+      "content": "/generateAccessToken\\s*\\(\\s*({[^}]+})/g,",
+      "pattern": "generateAccessToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "security-audit\\scripts\\comprehensive-security-audit.js",
+      "line": 385,
+      "content": "/generateRefreshToken\\s*\\(\\s*({[^}]+})/g",
+      "pattern": "generateRefreshToken",
+      "type": "tokenGeneration"
+    },
+    {
+      "file": "tests\\setup.js",
+      "line": 123,
+      "content": "return jwt.sign(payload, process.env.JWT_SECRET || 'test-secret', { expiresIn: '1h' });",
+      "pattern": "jwt\\.sign\\s*\\(",
+      "type": "tokenGeneration"
+    }
+  ],
+  "cookieSettings": [
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 9,
+      "content": "setAuthCookies,",
+      "pattern": "setAuthCookies",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 192,
+      "content": "setAuthCookies(res, accessToken, refreshToken);",
+      "pattern": "setAuthCookies",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 11,
+      "content": "* res.cookie('token', token, getSecureCookieConfig('access'));",
+      "pattern": "res\\.cookie\\s*\\(",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 105,
+      "content": "export const setSecureCookie = (res, name, value, tokenType = 'access') => {",
+      "pattern": "setSecureCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 107,
+      "content": "res.cookie(name, value, config);",
+      "pattern": "res\\.cookie\\s*\\(",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 128,
+      "content": "export const setAuthCookies = (res, accessToken, refreshToken) => {",
+      "pattern": "setAuthCookies",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 129,
+      "content": "setSecureCookie(res, 'at', accessToken, 'access'); // token → at",
+      "pattern": "setSecureCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 130,
+      "content": "setSecureCookie(res, 'rt', refreshToken, 'refresh'); // refreshToken → rt",
+      "pattern": "setSecureCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 154,
+      "content": "export const setAdminCookies = (res, accessToken, refreshToken) => {",
+      "pattern": "setAdminCookies",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 154,
+      "content": "export const setAdminCookies = (res, accessToken, refreshToken) => {",
+      "pattern": "setAdminCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 155,
+      "content": "setSecureCookie(res, 'admin_token', accessToken, 'admin_access');",
+      "pattern": "setSecureCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 156,
+      "content": "setSecureCookie(res, 'admin_refreshToken', refreshToken, 'admin_refresh');",
+      "pattern": "setSecureCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 175,
+      "content": "export const setAdminCookie = (res, adminToken) => {",
+      "pattern": "setAdminCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 176,
+      "content": "setSecureCookie(res, 'admin_token', adminToken, 'admin_access');",
+      "pattern": "setSecureCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 211,
+      "content": "setSecureCookie,",
+      "pattern": "setSecureCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 213,
+      "content": "setAuthCookies,",
+      "pattern": "setAuthCookies",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 215,
+      "content": "setAdminCookies,",
+      "pattern": "setAdminCookies",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 215,
+      "content": "setAdminCookies,",
+      "pattern": "setAdminCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 217,
+      "content": "setAdminCookie,",
+      "pattern": "setAdminCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 8,
+      "content": "setAuthCookies,",
+      "pattern": "setAuthCookies",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 408,
+      "content": "setAuthCookies(res, accessToken, refreshToken);",
+      "pattern": "setAuthCookies",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "controllers\\user\\verificationController.js",
+      "line": 5,
+      "content": "import { setSecureCookie } from '../../config/cookieConfig.js';",
+      "pattern": "setSecureCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "controllers\\user\\verificationController.js",
+      "line": 530,
+      "content": "setSecureCookie(res, 'token', token, 'access');",
+      "pattern": "setSecureCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 31,
+      "content": "import { setAuthCookies as setSecureAuthCookies, clearAuthCookies as clearSecureAuthCookies, setSecureCookie } from '../config/cookieConfig.js';",
+      "pattern": "setAuthCookies",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 31,
+      "content": "import { setAuthCookies as setSecureAuthCookies, clearAuthCookies as clearSecureAuthCookies, setSecureCookie } from '../config/cookieConfig.js';",
+      "pattern": "setSecureCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 125,
+      "content": "const setAuthCookies = (res, accessToken, refreshToken) => {",
+      "pattern": "setAuthCookies",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 201,
+      "content": "setAuthCookies(res, newAccessToken, newRefreshToken);",
+      "pattern": "setAuthCookies",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 366,
+      "content": "setSecureCookie(res, 'token', newAccessToken, 'access');",
+      "pattern": "setSecureCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 514,
+      "content": "setAuthCookies,",
+      "pattern": "setAuthCookies",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "scripts\\find-all-token-sources.js",
+      "line": 30,
+      "content": "/setAuthCookies/g,",
+      "pattern": "setAuthCookies",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "scripts\\find-all-token-sources.js",
+      "line": 31,
+      "content": "/setSecureCookie/g,",
+      "pattern": "setSecureCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "scripts\\find-all-token-sources.js",
+      "line": 32,
+      "content": "/setAdminCookies/g,",
+      "pattern": "setAdminCookies",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "scripts\\find-all-token-sources.js",
+      "line": 32,
+      "content": "/setAdminCookies/g,",
+      "pattern": "setAdminCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "scripts\\find-all-token-sources.js",
+      "line": 33,
+      "content": "/setAdminCookie/g,",
+      "pattern": "setAdminCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "scripts\\real-security-audit.js",
+      "line": 239,
+      "content": "const helperFunctions = ['setAuthCookies', 'clearAuthCookies', 'setAdminCookies', 'clearAdminCookies'];",
+      "pattern": "setAuthCookies",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "scripts\\real-security-audit.js",
+      "line": 239,
+      "content": "const helperFunctions = ['setAuthCookies', 'clearAuthCookies', 'setAdminCookies', 'clearAdminCookies'];",
+      "pattern": "setAdminCookies",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "scripts\\real-security-audit.js",
+      "line": 239,
+      "content": "const helperFunctions = ['setAuthCookies', 'clearAuthCookies', 'setAdminCookies', 'clearAdminCookies'];",
+      "pattern": "setAdminCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "security-audit\\scripts\\cookie-security-analyzer.js",
+      "line": 72,
+      "content": "// Pattern for res.cookie() calls",
+      "pattern": "res\\.cookie\\s*\\(",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 11,
+      "content": "* res.cookie('token', token, getSecureCookieConfig('access'));",
+      "pattern": "res\\.cookie\\s*\\(",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 105,
+      "content": "export const setSecureCookie = (res, name, value, tokenType = 'access') => {",
+      "pattern": "setSecureCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 107,
+      "content": "res.cookie(name, value, config);",
+      "pattern": "res\\.cookie\\s*\\(",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 128,
+      "content": "export const setAuthCookies = (res, accessToken, refreshToken) => {",
+      "pattern": "setAuthCookies",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 129,
+      "content": "setSecureCookie(res, 'token', accessToken, 'access');",
+      "pattern": "setSecureCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 130,
+      "content": "setSecureCookie(res, 'refreshToken', refreshToken, 'refresh');",
+      "pattern": "setSecureCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 150,
+      "content": "export const setAdminCookies = (res, accessToken, refreshToken) => {",
+      "pattern": "setAdminCookies",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 150,
+      "content": "export const setAdminCookies = (res, accessToken, refreshToken) => {",
+      "pattern": "setAdminCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 151,
+      "content": "setSecureCookie(res, 'admin_token', accessToken, 'admin_access');",
+      "pattern": "setSecureCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 152,
+      "content": "setSecureCookie(res, 'admin_refreshToken', refreshToken, 'admin_refresh');",
+      "pattern": "setSecureCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 171,
+      "content": "export const setAdminCookie = (res, adminToken) => {",
+      "pattern": "setAdminCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 172,
+      "content": "setSecureCookie(res, 'admin_token', adminToken, 'admin_access');",
+      "pattern": "setSecureCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 207,
+      "content": "setSecureCookie,",
+      "pattern": "setSecureCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 209,
+      "content": "setAuthCookies,",
+      "pattern": "setAuthCookies",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 211,
+      "content": "setAdminCookies,",
+      "pattern": "setAdminCookies",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 211,
+      "content": "setAdminCookies,",
+      "pattern": "setAdminCookie",
+      "type": "cookieSettings"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 213,
+      "content": "setAdminCookie,",
+      "pattern": "setAdminCookie",
+      "type": "cookieSettings"
+    }
+  ],
+  "responseTokens": [
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 187,
+      "content": "const accessToken = generateAccessToken(tokenPayload);",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 188,
+      "content": "const refreshToken = generateRefreshToken(tokenPayload);",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 192,
+      "content": "setAuthCookies(res, accessToken, refreshToken);",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 192,
+      "content": "setAuthCookies(res, accessToken, refreshToken);",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 258,
+      "content": "const accessToken = req.cookies?.token;",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 259,
+      "content": "const refreshToken = req.cookies?.refreshToken;",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 263,
+      "content": "if (accessToken) {",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 265,
+      "content": "await addToBlacklist(accessToken, {",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 276,
+      "content": "if (refreshToken) {",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 278,
+      "content": "await addToBlacklist(refreshToken, {",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "admin\\middleware\\adminAuth.js",
+      "line": 235,
+      "content": "const refreshToken = req.cookies?.refreshToken;",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "admin\\middleware\\adminAuth.js",
+      "line": 236,
+      "content": "if (!refreshToken) {",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "admin\\middleware\\adminAuth.js",
+      "line": 243,
+      "content": "const userData = await refreshUserSession(refreshToken, req, res);",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "admin\\routes\\cleanupRoutes.js",
+      "line": 26,
+      "content": "'refreshToken',",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "admin\\routes\\cleanupRoutes.js",
+      "line": 102,
+      "content": "'refreshToken',",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "admin\\routes\\cleanupRoutes.js",
+      "line": 304,
+      "content": "'token', 'refreshToken', 'adminToken', 'sessionId', 'csrfToken',",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "admin\\test-admin-api.js",
+      "line": 90,
+      "content": "this.authToken = null;",
+      "pattern": "authToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 125,
+      "content": "* @param {string} accessToken - Access token",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 126,
+      "content": "* @param {string} refreshToken - Refresh token",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 128,
+      "content": "export const setAuthCookies = (res, accessToken, refreshToken) => {",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 128,
+      "content": "export const setAuthCookies = (res, accessToken, refreshToken) => {",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 129,
+      "content": "setSecureCookie(res, 'at', accessToken, 'access'); // token → at",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 130,
+      "content": "setSecureCookie(res, 'rt', refreshToken, 'refresh'); // refreshToken → rt",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 140,
+      "content": "clearSecureCookie(res, 'rt'); // refreshToken → rt",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 144,
+      "content": "clearSecureCookie(res, 'refreshToken');",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 151,
+      "content": "* @param {string} accessToken - Admin access token",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 152,
+      "content": "* @param {string} refreshToken - Admin refresh token",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 154,
+      "content": "export const setAdminCookies = (res, accessToken, refreshToken) => {",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 154,
+      "content": "export const setAdminCookies = (res, accessToken, refreshToken) => {",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 155,
+      "content": "setSecureCookie(res, 'admin_token', accessToken, 'admin_access');",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 156,
+      "content": "setSecureCookie(res, 'admin_refreshToken', refreshToken, 'admin_refresh');",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\cookieConfig.js",
+      "line": 166,
+      "content": "clearSecureCookie(res, 'admin_refreshToken');",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\environments\\development-minimal.js",
+      "line": 32,
+      "content": "accessTokenExpiry: '60m', // 60 minut zamiast 1h",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\environments\\development-minimal.js",
+      "line": 33,
+      "content": "refreshTokenExpiry: '7d',",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\environments\\development.js",
+      "line": 35,
+      "content": "accessTokenExpiry: '24h',         // Długi czas życia dla wygody",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\environments\\development.js",
+      "line": 36,
+      "content": "refreshTokenExpiry: '30d',        // Bardzo długi refresh token",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\environments\\production.js",
+      "line": 55,
+      "content": "accessTokenExpiry: '15m',         // KRÓTKI czas życia - 15 minut",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\environments\\production.js",
+      "line": 56,
+      "content": "refreshTokenExpiry: '7d',         // 7 dni refresh token",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\environments\\staging.js",
+      "line": 54,
+      "content": "accessTokenExpiry: '1h',          // Dłuższy niż produkcja - 1 godzina",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\environments\\staging.js",
+      "line": 55,
+      "content": "refreshTokenExpiry: '14d',        // 14 dni refresh token",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\security.js",
+      "line": 90,
+      "content": "accessTokenExpiry: isProduction ? '15m' : '1h', // Krótszy czas na produkcji",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\security.js",
+      "line": 91,
+      "content": "refreshTokenExpiry: '7d',",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "config\\security.js",
+      "line": 105,
+      "content": "refreshTokenMaxAge: 7 * 24 * 3600000 // 7 days for refresh token",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 404,
+      "content": "const accessToken = generateAccessToken(tokenPayload);",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 405,
+      "content": "const refreshToken = generateRefreshToken(tokenPayload);",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 408,
+      "content": "setAuthCookies(res, accessToken, refreshToken);",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 408,
+      "content": "setAuthCookies(res, accessToken, refreshToken);",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 456,
+      "content": "const accessToken = req.cookies?.token;",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 457,
+      "content": "const refreshToken = req.cookies?.refreshToken;",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 462,
+      "content": "if (accessToken) {",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 464,
+      "content": "await addToBlacklist(accessToken, {",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 483,
+      "content": "if (refreshToken) {",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 485,
+      "content": "await addToBlacklist(refreshToken, {",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 771,
+      "content": "token: token.substring(0, 10) + '...',",
+      "pattern": "token\\s*:",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 64,
+      "content": "expiresIn: jwtConfig.accessTokenExpiry || '1h', // Używa konfiguracji z pliku",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 89,
+      "content": "expiresIn: jwtConfig.refreshTokenExpiry || '7d', // Używa konfiguracji z pliku",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 125,
+      "content": "const setAuthCookies = (res, accessToken, refreshToken) => {",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 125,
+      "content": "const setAuthCookies = (res, accessToken, refreshToken) => {",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 127,
+      "content": "setSecureAuthCookies(res, accessToken, refreshToken);",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 127,
+      "content": "setSecureAuthCookies(res, accessToken, refreshToken);",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 141,
+      "content": "const refreshUserSession = async (refreshToken, req, res) => {",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 144,
+      "content": "const refreshDecoded = jwt.verify(refreshToken, jwtConfig.refreshSecret);",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 149,
+      "content": "const isRefreshBlacklisted = await isBlacklisted(refreshToken);",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 194,
+      "content": "await addToBlacklist(refreshToken, {",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 259,
+      "content": "// Extract token: prefer secure HttpOnly cookie (NOWE SKRÓCONE NAZWY), but also accept Authorization: Bearer",
+      "pattern": "token\\s*:",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 260,
+      "content": "let accessToken = req.cookies?.at || req.cookies?.token; // at (nowe) lub token (stare)",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 261,
+      "content": "if (!accessToken) {",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 264,
+      "content": "accessToken = authHeader.slice(7).trim();",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 268,
+      "content": "if (!accessToken) {",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 281,
+      "content": "const isTokenBlacklisted = await isBlacklisted(accessToken);",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 296,
+      "content": "const decoded = jwt.verify(accessToken, jwtConfig.secret);",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 322,
+      "content": "await addToBlacklist(accessToken, {",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 359,
+      "content": "await addToBlacklist(accessToken, {",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 413,
+      "content": "const refreshToken = req.cookies?.rt || req.cookies?.refreshToken; // rt (nowe) lub refreshToken (stare)",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 415,
+      "content": "if (!refreshToken) {",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 424,
+      "content": "const userData = await refreshUserSession(refreshToken, req, res);",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 469,
+      "content": "const accessToken = req.cookies?.token;",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 471,
+      "content": "if (!accessToken) {",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 477,
+      "content": "const decoded = jwt.verify(accessToken, jwtConfig.secret);",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\cookieCleanup.js",
+      "line": 15,
+      "content": "'refreshToken', // refresh token (stara nazwa - kompatybilność)",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "middleware\\cookieCleanup.js",
+      "line": 17,
+      "content": "'admin_refreshToken' // admin refresh token (jeśli używany)",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "models\\security\\TokenBlacklistDB.js",
+      "line": 9,
+      "content": "token: {",
+      "pattern": "token\\s*:",
+      "type": "responseTokens"
+    },
+    {
+      "file": "models\\security\\TokenBlacklistDB.js",
+      "line": 32,
+      "content": "// tokenBlacklistSchema.index({ token: 1 });",
+      "pattern": "token\\s*:",
+      "type": "responseTokens"
+    },
+    {
+      "file": "routes\\user\\userRoutes.js",
+      "line": 266,
+      "content": "token: req.params.token,",
+      "pattern": "token\\s*:",
+      "type": "responseTokens"
+    },
+    {
+      "file": "routes\\user\\verificationRoutes.js",
+      "line": 85,
+      "content": "token: req.params.token,",
+      "pattern": "token\\s*:",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\analyze-token-flow.js",
+      "line": 39,
+      "content": "let accessToken = null;",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\analyze-token-flow.js",
+      "line": 40,
+      "content": "let refreshToken = null;",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\analyze-token-flow.js",
+      "line": 46,
+      "content": "accessToken = cookie.split('token=')[1].split(';')[0];",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\analyze-token-flow.js",
+      "line": 50,
+      "content": "if (cookie.startsWith('refreshToken=')) {",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\analyze-token-flow.js",
+      "line": 51,
+      "content": "refreshToken = cookie.split('refreshToken=')[1].split(';')[0];",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\analyze-token-flow.js",
+      "line": 57,
+      "content": "if (accessToken) {",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\analyze-token-flow.js",
+      "line": 60,
+      "content": "const decoded = jwt.decode(accessToken);",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\analyze-token-flow.js",
+      "line": 65,
+      "content": "console.log('Błąd dekodowania access token:', error.message);",
+      "pattern": "token\\s*:",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\analyze-token-flow.js",
+      "line": 69,
+      "content": "if (refreshToken) {",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\analyze-token-flow.js",
+      "line": 72,
+      "content": "const decoded = jwt.decode(refreshToken);",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\analyze-token-flow.js",
+      "line": 77,
+      "content": "console.log('Błąd dekodowania refresh token:', error.message);",
+      "pattern": "token\\s*:",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\analyze-token-flow.js",
+      "line": 85,
+      "content": "if (accessToken) {",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\analyze-token-flow.js",
+      "line": 90,
+      "content": "'Cookie': `token=${accessToken}; refreshToken=${refreshToken}`",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\analyze-token-flow.js",
+      "line": 90,
+      "content": "'Cookie': `token=${accessToken}; refreshToken=${refreshToken}`",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\analyze-token-flow.js",
+      "line": 124,
+      "content": "console.log('2. Serwer ustawia cookies: token (access) + refreshToken');",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\analyze-token-flow.js",
+      "line": 127,
+      "content": "console.log('5. Jeśli token wygasł, próbuje refresh z req.cookies.refreshToken');",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\clear-duplicate-cookies.js",
+      "line": 26,
+      "content": "'refreshToken',",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\clear-duplicate-cookies.js",
+      "line": 28,
+      "content": "'admin_refreshToken',",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\complete-token-analysis.js",
+      "line": 84,
+      "content": "console.log('- Czas życia access token: 3 minuty');",
+      "pattern": "token\\s*:",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\complete-token-analysis.js",
+      "line": 86,
+      "content": "console.log('- Czas życia refresh token: 1 godzina (development)');",
+      "pattern": "token\\s*:",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\complete-token-analysis.js",
+      "line": 107,
+      "content": "console.log('4. Ustawia cookies: token=accessToken, refreshToken=refreshToken');",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\complete-token-analysis.js",
+      "line": 107,
+      "content": "console.log('4. Ustawia cookies: token=accessToken, refreshToken=refreshToken');",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\find-all-token-sources.js",
+      "line": 37,
+      "content": "/accessToken/g,",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\find-all-token-sources.js",
+      "line": 38,
+      "content": "/refreshToken/g,",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\find-all-token-sources.js",
+      "line": 39,
+      "content": "/authToken/g,",
+      "pattern": "authToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\find-all-token-sources.js",
+      "line": 273,
+      "content": "m.content.includes('token:') || m.content.includes('accessToken') || m.content.includes('refreshToken')",
+      "pattern": "token\\s*:",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\find-all-token-sources.js",
+      "line": 273,
+      "content": "m.content.includes('token:') || m.content.includes('accessToken') || m.content.includes('refreshToken')",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\find-all-token-sources.js",
+      "line": 273,
+      "content": "m.content.includes('token:') || m.content.includes('accessToken') || m.content.includes('refreshToken')",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\real-security-audit.js",
+      "line": 154,
+      "content": "if (content.includes('accessTokenExpiry')) {",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\real-security-audit.js",
+      "line": 155,
+      "content": "const accessTokenMatch = content.match(/accessTokenExpiry:\\s*isProduction\\s*\\?\\s*['\"`]([^'\"`]+)['\"`]/);",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\real-security-audit.js",
+      "line": 156,
+      "content": "if (accessTokenMatch) {",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\real-security-audit.js",
+      "line": 157,
+      "content": "const prodExpiry = accessTokenMatch[1];",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\security-audit-simple.js",
+      "line": 61,
+      "content": "response.data.accessToken ||",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "scripts\\security-audit-test.js",
+      "line": 75,
+      "content": "loginResponse.data.accessToken ||",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 125,
+      "content": "* @param {string} accessToken - Access token",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 126,
+      "content": "* @param {string} refreshToken - Refresh token",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 128,
+      "content": "export const setAuthCookies = (res, accessToken, refreshToken) => {",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 128,
+      "content": "export const setAuthCookies = (res, accessToken, refreshToken) => {",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 129,
+      "content": "setSecureCookie(res, 'token', accessToken, 'access');",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 130,
+      "content": "setSecureCookie(res, 'refreshToken', refreshToken, 'refresh');",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 140,
+      "content": "clearSecureCookie(res, 'refreshToken');",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 147,
+      "content": "* @param {string} accessToken - Admin access token",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 148,
+      "content": "* @param {string} refreshToken - Admin refresh token",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 150,
+      "content": "export const setAdminCookies = (res, accessToken, refreshToken) => {",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 150,
+      "content": "export const setAdminCookies = (res, accessToken, refreshToken) => {",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 151,
+      "content": "setSecureCookie(res, 'admin_token', accessToken, 'admin_access');",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 152,
+      "content": "setSecureCookie(res, 'admin_refreshToken', refreshToken, 'admin_refresh');",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\config\\cookieConfig.js",
+      "line": 162,
+      "content": "clearSecureCookie(res, 'admin_refreshToken');",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\config\\environments\\development.js",
+      "line": 35,
+      "content": "accessTokenExpiry: '24h',         // Długi czas życia dla wygody",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\config\\environments\\development.js",
+      "line": 36,
+      "content": "refreshTokenExpiry: '30d',        // Bardzo długi refresh token",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\config\\environments\\production.js",
+      "line": 55,
+      "content": "accessTokenExpiry: '15m',         // KRÓTKI czas życia - 15 minut",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\config\\environments\\production.js",
+      "line": 56,
+      "content": "refreshTokenExpiry: '7d',         // 7 dni refresh token",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\config\\environments\\staging.js",
+      "line": 54,
+      "content": "accessTokenExpiry: '1h',          // Dłuższy niż produkcja - 1 godzina",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\config\\environments\\staging.js",
+      "line": 55,
+      "content": "refreshTokenExpiry: '14d',        // 14 dni refresh token",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\config\\security.js",
+      "line": 90,
+      "content": "accessTokenExpiry: isProduction ? '15m' : '1h', // Krótszy czas na produkcji",
+      "pattern": "accessToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\config\\security.js",
+      "line": 91,
+      "content": "refreshTokenExpiry: '7d',",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\config\\security.js",
+      "line": 105,
+      "content": "refreshTokenMaxAge: 7 * 24 * 3600000 // 7 days for refresh token",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\models\\TokenBlacklistDB.js",
+      "line": 9,
+      "content": "token: {",
+      "pattern": "token\\s*:",
+      "type": "responseTokens"
+    },
+    {
+      "file": "shared\\models\\TokenBlacklistDB.js",
+      "line": 32,
+      "content": "// tokenBlacklistSchema.index({ token: 1 });",
+      "pattern": "token\\s*:",
+      "type": "responseTokens"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 166,
+      "content": "const refreshCookie = cookies.find(cookie => cookie.startsWith('refreshToken='));",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 297,
+      "content": "const refreshCookie = logoutCookies.find(cookie => cookie.startsWith('refreshToken='));",
+      "pattern": "refreshToken",
+      "type": "responseTokens"
+    },
+    {
+      "file": "tests\\security\\security-audit.test.js",
+      "line": 301,
+      "content": "token: 'jwt-token-here',",
+      "pattern": "token\\s*:",
+      "type": "responseTokens"
+    }
+  ],
+  "authFunctions": [
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 25,
+      "content": "* Admin login with cookie-based authentication",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 28,
+      "content": "export const loginAdmin = async (req, res) => {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 62,
+      "content": "logger.debug('Existing token invalid, proceeding with login', {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 85,
+      "content": "// Log failed login attempt",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 86,
+      "content": "await logSecurityEvent(req, 'admin_login_failed', {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 117,
+      "content": "await logSecurityEvent(req, 'admin_login_blocked', {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 159,
+      "content": "await logSecurityEvent(req, 'admin_login_failed', {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 174,
+      "content": "// Reset failed attempts on successful login",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 198,
+      "content": "actionType: 'login_attempt',",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 205,
+      "content": "loginMethod: 'password',",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 213,
+      "content": "requestId: `login_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 217,
+      "content": "message: 'Admin login successful'",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\controllers\\auth\\authController.js",
+      "line": 240,
+      "content": "await logSecurityEvent(req, 'admin_login_error', {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\controllers\\dashboard\\dashboardController.js",
+      "line": 46,
+      "content": "type: 'user_registered',",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\controllers\\listings\\adController.js",
+      "line": 143,
+      "content": "registeredInPL: adData.registeredInPL,",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\middleware\\adminAuth.js",
+      "line": 19,
+      "content": "* Rate limiter for admin login attempts",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\middleware\\adminAuth.js",
+      "line": 27,
+      "content": "error: 'Too many login attempts. Try again in 15 minutes.',",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\middleware\\adminAuth.js",
+      "line": 32,
+      "content": "keyGenerator: (req) => `admin_login:${req.ip}:${req.body.email || 'unknown'}`,",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\middleware\\adminAuth.js",
+      "line": 42,
+      "content": "error: 'Too many login attempts. Please try again later.',",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\middleware\\adminAuth.js",
+      "line": 322,
+      "content": "actionType: 'login_attempt',",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\models\\AdminActivity.js",
+      "line": 47,
+      "content": "'login_attempt', 'logout', 'password_reset', 'session_terminated',",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\models\\AdminActivity.js",
+      "line": 265,
+      "content": "if (actionType.includes('login') || actionType.includes('security')) return 'security';",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\routes\\authRoutes.js",
+      "line": 2,
+      "content": "import { loginAdmin, logoutAdmin, checkAdminAuth } from '../controllers/auth/authController.js';",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\routes\\authRoutes.js",
+      "line": 17,
+      "content": "* POST /api/admin-panel/auth/login",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\routes\\authRoutes.js",
+      "line": 18,
+      "content": "* Admin login with cookie-based authentication",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\routes\\authRoutes.js",
+      "line": 28,
+      "content": "router.post('/login', adminLoginLimiter, loginAdmin);",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\routes\\authRoutes.js",
+      "line": 45,
+      "content": "* - Returns current admin user data if authenticated",
+      "pattern": "authenticate",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\routes\\authRoutes.js",
+      "line": 46,
+      "content": "* - Returns 401 if not authenticated",
+      "pattern": "authenticate",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\routes\\cleanupRoutes.js",
+      "line": 164,
+      "content": "* @desc Advanced session cleanup for authenticated users",
+      "pattern": "authenticate",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\routes\\cleanupRoutes.js",
+      "line": 169,
+      "content": "// This endpoint can be called by authenticated users to clean their session",
+      "pattern": "authenticate",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\routes\\cleanupRoutes.js",
+      "line": 194,
+      "content": "'Please login again',",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\routes\\cleanupRoutes.js",
+      "line": 309,
+      "content": "'login_token', 'user_token', 'admin_auth', 'panel_auth'",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\routes\\cleanupRoutes.js",
+      "line": 350,
+      "content": "nextSteps: 'Refresh page and login again'",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\routes\\index.js",
+      "line": 53,
+      "content": "* Admin login, logout, and auth check",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\routes\\index.js",
+      "line": 114,
+      "content": "'POST /admin-panel/auth/login',",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\services\\adminApi.js",
+      "line": 27,
+      "content": "// Przekieruj do strony logowania / Redirect to login page",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\services\\adminApi.js",
+      "line": 28,
+      "content": "window.location.href = '/login';",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "admin\\test-admin-api.js",
+      "line": 168,
+      "content": "log.info('Authentication tests completed (JWT token generation requires user login)');",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "config\\adminConfig.js",
+      "line": 8,
+      "content": "* recognized by the system during login.",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "config\\environments\\production.js",
+      "line": 35,
+      "content": "'/api/users/login': {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "config\\environments\\production.js",
+      "line": 40,
+      "content": "'/api/users/register': {",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "config\\environments\\staging.js",
+      "line": 34,
+      "content": "'/api/users/login': {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "config\\environments\\staging.js",
+      "line": 39,
+      "content": "'/api/users/register': {",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 33,
+      "content": "export const registerUser = async (req, res) => {",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 251,
+      "content": "export const loginUser = async (req, res) => {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 351,
+      "content": "logger.warn('Account locked due to failed login attempts', {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 369,
+      "content": "logger.warn('Failed login attempt', {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 381,
+      "content": "message: `Błędny login lub hasło. Pozostało ${attemptsLeft} ${attemptsLeft === 1 ? 'próba' : attemptsLeft < 4 ? 'próby' : 'prób'}.`,",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 388,
+      "content": "// Reset failed attempts on successful login",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "controllers\\user\\authController.js",
+      "line": 539,
+      "content": "// User is already authenticated by middleware",
+      "pattern": "authenticate",
+      "type": "authFunctions"
+    },
+    {
+      "file": "controllers\\user\\index.js",
+      "line": 9,
+      "content": "registerUser,",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "controllers\\user\\index.js",
+      "line": 10,
+      "content": "loginUser,",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 235,
+      "content": "const authMiddleware = async (req, res, next) => {",
+      "pattern": "authMiddleware",
+      "type": "authFunctions"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 290,
+      "content": "message: 'Token invalidated. Please login again.',",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 330,
+      "content": "message: 'Session expired due to inactivity. Please login again.',",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 418,
+      "content": "message: 'Token expired. Please login again.',",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 434,
+      "content": "message: 'Session expired. Please login again.',",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 475,
+      "content": "// Try to authenticate, but don't fail if it doesn't work",
+      "pattern": "authenticate",
+      "type": "authFunctions"
+    },
+    {
+      "file": "middleware\\auth.js",
+      "line": 520,
+      "content": "export default authMiddleware;",
+      "pattern": "authMiddleware",
+      "type": "authFunctions"
+    },
+    {
+      "file": "models\\schemas\\technicalDetailsSchema.js",
+      "line": 91,
+      "content": "registeredInPL: {",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "models\\user\\user.js",
+      "line": 201,
+      "content": "loginAttempts: {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "models\\user\\user.js",
+      "line": 252,
+      "content": "loginAlerts: { type: Boolean, default: true }",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\health.js",
+      "line": 11,
+      "content": "import authMiddleware from '../middleware/auth.js';",
+      "pattern": "authMiddleware",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\health.js",
+      "line": 88,
+      "content": "router.get('/metrics', authMiddleware, async (req, res) => {",
+      "pattern": "authMiddleware",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\health.js",
+      "line": 118,
+      "content": "router.get('/backups', authMiddleware, async (req, res) => {",
+      "pattern": "authMiddleware",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\health.js",
+      "line": 148,
+      "content": "router.post('/backups/create', authMiddleware, async (req, res) => {",
+      "pattern": "authMiddleware",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\health.js",
+      "line": 187,
+      "content": "router.get('/security', authMiddleware, async (req, res) => {",
+      "pattern": "authMiddleware",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\health.js",
+      "line": 249,
+      "content": "router.get('/production-ready', authMiddleware, async (req, res) => {",
+      "pattern": "authMiddleware",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\listings\\ads\\crud.js",
+      "line": 113,
+      "content": "accidentStatus, damageStatus, tuning, imported, registeredInPL, firstOwner, disabledAdapted,",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\listings\\ads\\crud.js",
+      "line": 177,
+      "content": "registeredInPL,",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\listings\\ads\\helpers.js",
+      "line": 43,
+      "content": "if (query.registeredInPL === 'true' || query.registeredInPL === true) filter.registeredInPL = true;",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\listings\\ads\\helpers.js",
+      "line": 44,
+      "content": "if (query.registeredInPL === 'false' || query.registeredInPL === false) filter.registeredInPL = false;",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\listings\\ads\\helpers.js",
+      "line": 404,
+      "content": "if (filters.registeredInPL !== undefined && ad.registeredInPL === (filters.registeredInPL === 'true' || filters.registeredInPL === true)) {",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\listings\\handlers\\createAdHandler.js",
+      "line": 297,
+      "content": "accidentStatus, damageStatus, tuning, imported, registeredInPL, firstOwner, disabledAdapted,",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\listings\\handlers\\createAdHandler.js",
+      "line": 386,
+      "content": "registeredInPL,",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\listings\\searchStatsRoutes.js",
+      "line": 39,
+      "content": "if (query.registeredInPL === 'true' || query.registeredInPL === true) filter.registeredInPL = true;",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\listings\\searchStatsRoutes.js",
+      "line": 40,
+      "content": "if (query.registeredInPL === 'false' || query.registeredInPL === false) filter.registeredInPL = false;",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\user\\authRoutes.js",
+      "line": 8,
+      "content": "registerUser,",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\user\\authRoutes.js",
+      "line": 9,
+      "content": "loginUser,",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\user\\authRoutes.js",
+      "line": 33,
+      "content": "'/register',",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\user\\authRoutes.js",
+      "line": 118,
+      "content": "registerUser",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\user\\authRoutes.js",
+      "line": 123,
+      "content": "'/login',",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\user\\authRoutes.js",
+      "line": 133,
+      "content": "loginUser",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\user\\authRoutes.js",
+      "line": 140,
+      "content": "import authMiddleware, { optionalAuthMiddleware } from '../../middleware/auth.js';",
+      "pattern": "authMiddleware",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\user\\userRoutes.js",
+      "line": 10,
+      "content": "registerUser,",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\user\\userRoutes.js",
+      "line": 11,
+      "content": "loginUser,",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\user\\userRoutes.js",
+      "line": 30,
+      "content": "// router.post('/auth/google', authController.registerGoogleUser);",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\user\\userRoutes.js",
+      "line": 79,
+      "content": "'/register',",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\user\\userRoutes.js",
+      "line": 164,
+      "content": "registerUser",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\user\\userRoutes.js",
+      "line": 169,
+      "content": "'/login',",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "routes\\user\\userRoutes.js",
+      "line": 179,
+      "content": "loginUser",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\admin-2fa-simulation.js",
+      "line": 165,
+      "content": "sessionData: { loginTime: new Date(), ipAddress: '127.0.0.1' }",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\admin-password-management.js",
+      "line": 300,
+      "content": "user.mustChangePassword = true; // Flag to force password change on next login",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\analyze-headers-and-tokens.js",
+      "line": 89,
+      "content": "const response = await fetch(`${BASE_URL}/api/users/login`, {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\analyze-headers-and-tokens.js",
+      "line": 218,
+      "content": "const checkHTTP431Limits = (loginSize, adminSize) => {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\analyze-headers-and-tokens.js",
+      "line": 230,
+      "content": "const loginStatus = loginSize <= limit ? '✅' : '❌';",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\analyze-headers-and-tokens.js",
+      "line": 233,
+      "content": "console.log(`    Logowanie: ${loginStatus} ${loginSize}B`);",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\analyze-headers-and-tokens.js",
+      "line": 238,
+      "content": "if (loginSize > 8192 || adminSize > 8192) {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\analyze-headers-and-tokens.js",
+      "line": 241,
+      "content": "if (loginSize > 32768 || adminSize > 32768) {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\analyze-headers-and-tokens.js",
+      "line": 244,
+      "content": "if (loginSize <= 8192 && adminSize <= 8192) {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\analyze-token-flow.js",
+      "line": 21,
+      "content": "const loginResponse = await fetch('http://localhost:5000/api/auth/login', {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\analyze-token-flow.js",
+      "line": 32,
+      "content": "console.log('Status logowania:', loginResponse.status);",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\analyze-token-flow.js",
+      "line": 34,
+      "content": "if (loginResponse.status === 200) {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\analyze-token-flow.js",
+      "line": 36,
+      "content": "const setCookieHeaders = loginResponse.headers.raw()['set-cookie'] || [];",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\analyze-token-flow.js",
+      "line": 113,
+      "content": "const errorData = await loginResponse.text();",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\analyze-token-flow.js",
+      "line": 123,
+      "content": "console.log('1. Użytkownik loguje się przez /api/auth/login');",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\clear-duplicate-cookies.js",
+      "line": 2,
+      "content": "* Script to clear duplicate cookies and test admin login",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\clear-duplicate-cookies.js",
+      "line": 106,
+      "content": "<li>✅ Removed duplicate cookie creation in admin login</li>",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\clear-duplicate-cookies.js",
+      "line": 107,
+      "content": "<li>✅ Admin panel now uses the same cookies as regular login</li>",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\clear-duplicate-cookies.js",
+      "line": 110,
+      "content": "<li>✅ Added check for existing login before admin login</li>",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\complete-token-analysis.js",
+      "line": 104,
+      "content": "console.log('1. Użytkownik loguje się przez /api/auth/login');",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\find-all-token-sources.js",
+      "line": 42,
+      "content": "/authMiddleware/g,",
+      "pattern": "authMiddleware",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\find-all-token-sources.js",
+      "line": 43,
+      "content": "/authenticate/g,",
+      "pattern": "authenticate",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\find-all-token-sources.js",
+      "line": 44,
+      "content": "/login/g,",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\find-all-token-sources.js",
+      "line": 45,
+      "content": "/signin/g,",
+      "pattern": "signin",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\find-all-token-sources.js",
+      "line": 46,
+      "content": "/register/g,",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\find-all-token-sources.js",
+      "line": 47,
+      "content": "/signup/g",
+      "pattern": "signup",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\security-audit-simple.js",
+      "line": 36,
+      "content": "const response = await axios.post(`${BASE_URL}/api/auth/login`, {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\security-audit-simple.js",
+      "line": 126,
+      "content": "const response = await axios.options(`${BASE_URL}/api/auth/login`, {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\security-audit-test.js",
+      "line": 67,
+      "content": "// Test user login",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\security-audit-test.js",
+      "line": 68,
+      "content": "const loginResponse = await axios.post(`${BASE_URL}/api/auth/login`, {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\security-audit-test.js",
+      "line": 74,
+      "content": "const hasTokenInBody = loginResponse.data.token ||",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\security-audit-test.js",
+      "line": 75,
+      "content": "loginResponse.data.accessToken ||",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\security-audit-test.js",
+      "line": 76,
+      "content": "loginResponse.data.jwt;",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\security-audit-test.js",
+      "line": 84,
+      "content": "const setCookieHeader = loginResponse.headers['set-cookie'];",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\security-audit-test.js",
+      "line": 106,
+      "content": "const response = await axios.post(`${BASE_URL}/api/auth/login`, {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\security-audit-test.js",
+      "line": 252,
+      "content": "// Test admin login endpoint",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\security-audit-test.js",
+      "line": 253,
+      "content": "const adminLoginResponse = await axios.post(`${ADMIN_URL}/auth/login`, {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\security-audit-test.js",
+      "line": 280,
+      "content": "const response = await axios.options(`${BASE_URL}/api/auth/login`, {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\security-audit-test.js",
+      "line": 315,
+      "content": "axios.post(`${BASE_URL}/api/auth/login`, {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\test-unified-notifications.js",
+      "line": 21,
+      "content": "const loginResponse = await axios.post(`${API_URL}/api/auth/login`, {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\test-unified-notifications.js",
+      "line": 29,
+      "content": "if (loginResponse.status !== 200) {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\test-unified-notifications.js",
+      "line": 31,
+      "content": "console.log('   Status:', loginResponse.status);",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\test-unified-notifications.js",
+      "line": 32,
+      "content": "console.log('   Response:', loginResponse.data);",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\test-unified-notifications.js",
+      "line": 36,
+      "content": "const cookies = loginResponse.headers['set-cookie'];",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\update-capitalization-fix.js",
+      "line": 130,
+      "content": "const booleanFields = ['negotiable', 'tuning', 'imported', 'registeredInPL', 'firstOwner', 'disabledAdapted'];",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "scripts\\update-data-capitalization.js",
+      "line": 112,
+      "content": "const booleanFields = ['tuning', 'imported', 'registeredInPL', 'firstOwner', 'disabledAdapted', 'negotiable'];",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "security-audit\\scripts\\cookie-security-analyzer.js",
+      "line": 356,
+      "content": "'login',",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "security-audit\\scripts\\cors-security-analyzer.js",
+      "line": 120,
+      "content": "securityRisk: 'Allows any website to make authenticated requests to your API'",
+      "pattern": "authenticate",
+      "type": "authFunctions"
+    },
+    {
+      "file": "services\\socketService.js",
+      "line": 51,
+      "content": "this.io.use(this.authMiddleware.bind(this));",
+      "pattern": "authMiddleware",
+      "type": "authFunctions"
+    },
+    {
+      "file": "services\\socketService.js",
+      "line": 69,
+      "content": "authMiddleware(socket, next) {",
+      "pattern": "authMiddleware",
+      "type": "authFunctions"
+    },
+    {
+      "file": "services\\socketService.js",
+      "line": 126,
+      "content": "logger.info('Socket.IO user authenticated', {",
+      "pattern": "authenticate",
+      "type": "authFunctions"
+    },
+    {
+      "file": "shared\\config\\adminConfig.js",
+      "line": 8,
+      "content": "* recognized by the system during login.",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "shared\\config\\environments\\production.js",
+      "line": 35,
+      "content": "'/api/users/login': {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "shared\\config\\environments\\production.js",
+      "line": 40,
+      "content": "'/api/users/register': {",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "shared\\config\\environments\\staging.js",
+      "line": 34,
+      "content": "'/api/users/login': {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "shared\\config\\environments\\staging.js",
+      "line": 39,
+      "content": "'/api/users/register': {",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "shared\\services\\socketService.js",
+      "line": 39,
+      "content": "this.io.use(this.authMiddleware.bind(this));",
+      "pattern": "authMiddleware",
+      "type": "authFunctions"
+    },
+    {
+      "file": "shared\\services\\socketService.js",
+      "line": 54,
+      "content": "authMiddleware(socket, next) {",
+      "pattern": "authMiddleware",
+      "type": "authFunctions"
+    },
+    {
+      "file": "shared\\services\\socketService.js",
+      "line": 111,
+      "content": "logger.info('Socket.IO user authenticated', {",
+      "pattern": "authenticate",
+      "type": "authFunctions"
+    },
+    {
+      "file": "shared\\utils\\listings\\commonFilters.js",
+      "line": 127,
+      "content": "if (query.registeredInPL) filter.registeredInPL = query.registeredInPL === 'tak' || query.registeredInPL === true;",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 7,
+      "content": "import { registerUser, loginUser, logoutUser, checkAuth } from '../../controllers/user/authController.js';",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 7,
+      "content": "import { registerUser, loginUser, logoutUser, checkAuth } from '../../controllers/user/authController.js';",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 12,
+      "content": "* Tests for user registration, login, logout, and authentication",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 27,
+      "content": "app.post('/api/auth/register', registerUser);",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 28,
+      "content": "app.post('/api/auth/login', loginUser);",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 53,
+      "content": ".post('/api/auth/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 87,
+      "content": ".post('/api/auth/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 101,
+      "content": "// Try to register with same email",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 113,
+      "content": ".post('/api/auth/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 120,
+      "content": "// Try to register with same phone",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 132,
+      "content": ".post('/api/auth/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 146,
+      "content": "const loginData = {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 152,
+      "content": ".post('/api/auth/login')",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 153,
+      "content": ".send(loginData)",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 193,
+      "content": "for (const loginData of invalidLogins) {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 195,
+      "content": ".post('/api/auth/login')",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 196,
+      "content": ".send(loginData)",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 210,
+      "content": "const loginData = {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 215,
+      "content": "// Make 5 failed login attempts",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 218,
+      "content": ".post('/api/auth/login')",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 219,
+      "content": ".send(loginData)",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 230,
+      "content": ".post('/api/auth/login')",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 231,
+      "content": ".send(loginData)",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 239,
+      "content": ".post('/api/auth/login')",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 255,
+      "content": "const loginData = {",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 261,
+      "content": ".post('/api/auth/login')",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 262,
+      "content": ".send(loginData)",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 270,
+      "content": "// Create and login user first",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 275,
+      "content": "const loginResponse = await request(app)",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 276,
+      "content": ".post('/api/auth/login')",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 280,
+      "content": "// Extract cookies from login response",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 281,
+      "content": "const cookies = loginResponse.headers['set-cookie'];",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 315,
+      "content": ".post('/api/auth/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 335,
+      "content": "// Should be able to login with original password",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 336,
+      "content": "const loginResponse = await request(app)",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 337,
+      "content": ".post('/api/auth/login')",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 341,
+      "content": "assert.strictEqual(loginResponse.body.success, true);",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 364,
+      "content": ".post('/api/auth/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 394,
+      "content": ".post('/api/auth/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 419,
+      "content": ".post('/api/auth/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 440,
+      "content": ".post('/api/auth/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\controllers\\auth.test.js",
+      "line": 460,
+      "content": ".post('/api/auth/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 44,
+      "content": "const registerResponse = await request(app)",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 45,
+      "content": ".post('/api/auth/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 49,
+      "content": "expect(registerResponse.body.success).toBe(true);",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 50,
+      "content": "expect(registerResponse.body.user).toBeDefined();",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 51,
+      "content": "expect(registerResponse.body.user.email).toBe(testUser.email);",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 52,
+      "content": "expect(registerResponse.body.nextStep).toBe('email_verification');",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 55,
+      "content": "expect(registerResponse.body.devCodes).toBeDefined();",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 56,
+      "content": "expect(registerResponse.body.devCodes.emailCode).toBeDefined();",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 57,
+      "content": "expect(registerResponse.body.devCodes.smsCode).toBeDefined();",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 59,
+      "content": "const userId = registerResponse.body.user.id;",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 60,
+      "content": "const emailCode = registerResponse.body.devCodes.emailCode;",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 61,
+      "content": "const smsCode = registerResponse.body.devCodes.smsCode;",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 109,
+      "content": ".post('/api/auth/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 113,
+      "content": "// Try to register with same email",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 116,
+      "content": ".post('/api/auth/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 127,
+      "content": ".post('/api/auth/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 131,
+      "content": "// Try to register with same phone",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 134,
+      "content": ".post('/api/auth/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 149,
+      "content": ".post('/api/auth/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 165,
+      "content": ".post('/api/auth/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 181,
+      "content": ".post('/api/auth/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 198,
+      "content": ".post('/api/auth/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 214,
+      "content": ".post('/api/auth/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 230,
+      "content": ".post('/api/auth/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 305,
+      "content": "const registerResponse = await request(app)",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 306,
+      "content": ".post('/api/auth/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 310,
+      "content": "userId = registerResponse.body.user.id;",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 311,
+      "content": "userEmail = registerResponse.body.user.email;",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 312,
+      "content": "userPhone = registerResponse.body.user.phoneNumber;",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 358,
+      "content": "const registerResponse = await request(app)",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 359,
+      "content": ".post('/api/auth/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 363,
+      "content": "userId = registerResponse.body.user.id;",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\registration-flow.test.js",
+      "line": 364,
+      "content": "userEmail = registerResponse.body.user.email;",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 49,
+      "content": "test('should successfully register a new user with all valid data', async () => {",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 51,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 110,
+      "content": "expect(dbUser.loginAttempts).toBe(0);",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 133,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 149,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 153,
+      "content": "// Try to register with same email but different phone",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 160,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 177,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 181,
+      "content": "// Try to register with same email in different case",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 190,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 203,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 207,
+      "content": "// Try to register with same phone but different email",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 215,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 232,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 236,
+      "content": "// Try to register with same phone in different format",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 245,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 263,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 316,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 337,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 370,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 402,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 422,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 451,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 465,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 484,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 503,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 525,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 542,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 563,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 577,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 597,
+      "content": "expect(dbUser.loginAttempts).toBe(0);",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 624,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 640,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\integration\\user-registration.test.js",
+      "line": 655,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\models\\user.test.js",
+      "line": 320,
+      "content": "loginAlerts: false",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\production-readiness-audit.js",
+      "line": 318,
+      "content": "return userModel && userModel.includes('loginAttempts');",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\validation\\email-validation.test.js",
+      "line": 58,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\validation\\email-validation.test.js",
+      "line": 77,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\validation\\email-validation.test.js",
+      "line": 96,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\validation\\email-validation.test.js",
+      "line": 115,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\validation\\email-validation.test.js",
+      "line": 134,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\validation\\email-validation.test.js",
+      "line": 153,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\validation\\email-validation.test.js",
+      "line": 174,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\validation\\email-validation.test.js",
+      "line": 197,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tests\\validation\\email-validation.test.js",
+      "line": 217,
+      "content": ".post('/api/users/register')",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tools\\database\\createCarImagesTable.js",
+      "line": 76,
+      "content": "FOR INSERT WITH CHECK (auth.role() = 'authenticated');",
+      "pattern": "authenticate",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tools\\database\\createCarImagesTable.js",
+      "line": 81,
+      "content": "FOR UPDATE USING (auth.role() = 'authenticated');",
+      "pattern": "authenticate",
+      "type": "authFunctions"
+    },
+    {
+      "file": "tools\\database\\createCarImagesTable.js",
+      "line": 86,
+      "content": "FOR DELETE USING (auth.role() = 'authenticated');",
+      "pattern": "authenticate",
+      "type": "authFunctions"
+    },
+    {
+      "file": "utils\\listings\\commonFilters.js",
+      "line": 124,
+      "content": "if (query.registeredInPL) filter.registeredInPL = query.registeredInPL === 'tak' || query.registeredInPL === true;",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "validationSchemas\\adValidation.js",
+      "line": 106,
+      "content": "registeredInPL: Joi.string().allow(''),",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "validationSchemas\\userValidation.js",
+      "line": 3,
+      "content": "const registerSchema = Joi.object({",
+      "pattern": "register",
+      "type": "authFunctions"
+    },
+    {
+      "file": "validationSchemas\\userValidation.js",
+      "line": 50,
+      "content": "const loginSchema = Joi.object({",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "validationSchemas\\userValidation.js",
+      "line": 60,
+      "content": "export { registerSchema, loginSchema };",
+      "pattern": "login",
+      "type": "authFunctions"
+    },
+    {
+      "file": "validationSchemas\\userValidation.js",
+      "line": 60,
+      "content": "export { registerSchema, loginSchema };",
+      "pattern": "register",
+      "type": "authFunctions"
+    }
+  ],
+  "summary": {
+    "totalFiles": 275,
+    "matchingFiles": 73,
+    "totalMatches": 515
+  }
+}

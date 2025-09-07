@@ -193,7 +193,7 @@ console.log('============================');
 
 console.log('📋 PLAN IMPLEMENTACJI:');
 console.log('1. Middleware sprawdzający sesję admina');
-console.log('2. Endpoint do autoryzacji admina (POST /api/admin/auth)');
+console.log('2. Endpoint do autoryzacji admina (POST /api/admin-panel/auth)');
 console.log('3. Frontend: formularz 2FA po kliknięciu "Panel Admina"');
 console.log('4. Redis do przechowywania sesji w produkcji');
 console.log('5. Automatyczne odświeżanie sesji przy aktywności');

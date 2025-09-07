@@ -392,6 +392,8 @@ export const loginUser = async (req, res) => {
     user.lastIP = req.ip;
     await user.save();
 
+    // NAPRAWIONE: Nie czyścimy tokenów niepotrzebnie - pozwalamy na współistnienie
+
     // Generate enterprise-level tokens with security features
     // OPTIMIZED: Minimal payload for security and performance
     const tokenPayload = {

@@ -21,7 +21,9 @@ import {
   getConversationsList,
   archiveMessage,
   unarchiveMessage,
-  getUnreadCount
+  getUnreadCount,
+  unsendMessage,
+  editMessage
 } from '../../controllers/communication/index.js';
 import {
   starConversation,
@@ -36,22 +38,20 @@ import notificationService from '../../controllers/notifications/notificationCon
 
 const router = express.Router();
 
-// Konfiguracja multera do obsługi załączników
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/attachments/');
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    cb(null, 'attachment-' + uniqueSuffix + ext);
-  }
-});
-
+// Konfiguracja multera do obsługi załączników - MEMORY STORAGE dla Supabase
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(), // Przechowuj pliki w pamięci jako Buffer
   limits: {
-    fileSize: 10 * 1024 * 1024 // Limit 10MB
+    fileSize: 10 * 1024 * 1024, // Limit 10MB
+    files: 5 // Maksymalnie 5 plików na raz
+  },
+  fileFilter: (req, file, cb) => {
+    // Akceptuj tylko obrazy
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Tylko pliki obrazów są dozwolone'), false);
+    }
   }
 });
 
@@ -440,65 +440,13 @@ router.patch('/archive/:id', archiveMessage);
 // Przywracanie wiadomości z archiwum
 router.patch('/unarchive/:id', unarchiveMessage);
 
-// Edytowanie wiadomości
-router.put('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { content, attachments } = req.body;
-    const userId = req.user.userId;
-    
-    console.log('✏️ Edytowanie wiadomości:', { id, userId, hasContent: !!content });
-    
-    if (!content || !content.trim()) {
-      return res.status(400).json({ message: 'Treść wiadomości jest wymagana' });
-    }
-    
-    // Znajdź wiadomość
-    const message = await Message.findById(id);
-    if (!message) {
-      return res.status(404).json({ message: 'Wiadomość nie znaleziona' });
-    }
-    
-    // Sprawdź czy użytkownik jest właścicielem wiadomości
-    if (message.sender.toString() !== userId) {
-      return res.status(403).json({ message: 'Brak uprawnień do edycji tej wiadomości' });
-    }
-    
-    // Sprawdź czy wiadomość nie jest starsza niż 24 godziny (opcjonalne ograniczenie)
-    const hoursSinceCreation = (Date.now() - message.createdAt.getTime()) / (1000 * 60 * 60);
-    if (hoursSinceCreation > 24) {
-      return res.status(400).json({ message: 'Nie można edytować wiadomości starszych niż 24 godziny' });
-    }
-    
-    // Aktualizuj wiadomość
-    message.content = content.trim();
-    message.isEdited = true;
-    message.editedAt = new Date();
-    
-    // Opcjonalnie aktualizuj załączniki (jeśli są przesłane)
-    if (attachments && Array.isArray(attachments)) {
-      message.attachments = attachments;
-    }
-    
-    await message.save();
-    
-    console.log('✅ Wiadomość zaktualizowana:', message._id);
-    
-    res.status(200).json({
-      message: 'Wiadomość zaktualizowana',
-      data: {
-        _id: message._id,
-        content: message.content,
-        isEdited: message.isEdited,
-        editedAt: message.editedAt,
-        attachments: message.attachments
-      }
-    });
-  } catch (error) {
-    console.error('💥 Błąd podczas edycji wiadomości:', error);
-    res.status(500).json({ message: 'Błąd serwera', error: error.message });
-  }
-});
+// ========== NOWE ENDPOINTY DLA WIADOMOŚCI ==========
+
+// 🔄 Cofanie wiadomości (unsend)
+router.patch('/unsend/:id', unsendMessage);
+
+// ✏️ Edytowanie wiadomości (używa kontrolera zamiast duplikacji kodu)
+router.put('/:id', editMessage);
 
 // Usuwanie wiadomości
 router.delete('/:id', deleteMessage);

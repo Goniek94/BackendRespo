@@ -26,6 +26,9 @@ import healthRoutes from './routes/health.js';
 
 // Import setupRoutes - centralna konfiguracja tras
 import setupRoutes from './routes/index.js';
+
+// Import skonfigurowanej aplikacji Express
+import app from './app.js';
 import User from './models/user/user.js';
 import Ad from './models/listings/ad.js';
 import { initScheduledTasks } from './utils/scheduledTasks.js';
@@ -36,173 +39,7 @@ const isDev = process.env.NODE_ENV === 'development';
 const PORT = server.port;
 const FRONTEND_URL = server.frontendUrl;
 
-/**
- * Konfiguracja aplikacji Express
- */
-const configureApp = () => {
-  const app = express();
-  
-  // Logger wszystkich żądań HTTP (dla debugowania połączenia frontend-backend)
-  app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
-    next();
-  });
-
-  // Kompresja odpowiedzi (gzip)
-  app.use(compression());
-  
-  // Podstawowa konfiguracja middleware z limitami dla zdjęć i nagłówków
-  app.use(express.json({ limit: '15mb' }));
-  app.use(express.urlencoded({ limit: '15mb', extended: true }));
-  app.use(cookieParser());
-  
-  // ✅ MIDDLEWARE DO MONITOROWANIA NAGŁÓWKÓW HTTP - ROZWIĄZUJE BŁĄD 431
-  app.use(sessionCleanup);
-  app.use(headerSizeMonitor);
-  
-  // Zwiększenie limitów nagłówków HTTP dla dużych ciasteczek/tokenów
-  app.use((req, res, next) => {
-    // Zwiększenie limitu nagłówków do 16KB (domyślnie 8KB)
-    if (req.connection && req.connection.server) {
-      req.connection.server.maxHeadersCount = 0; // Bez limitu liczby nagłówków
-    }
-    next();
-  });
-  
-  // ✅ NOWA KONFIGURACJA - Użycie security headers z konfiguracji
-  app.use(helmet(security.headers));
-  
-  // Dodatkowe nagłówki bezpieczeństwa
-  if (security.headers.additionalHeaders) {
-    app.use((req, res, next) => {
-      Object.entries(security.headers.additionalHeaders).forEach(([header, value]) => {
-        res.setHeader(header, value);
-      });
-      next();
-    });
-  }
-  
-  // Logger dla zapytań HTTP (tylko w trybie deweloperskim)
-  if (isDev) {
-    app.use((req, res, next) => {
-      console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-      next();
-    });
-  }
-  
-  // ✅ NOWA KONFIGURACJA - Użycie CORS z konfiguracji
-  app.use(cors(security.cors));
-  
-  // Konfiguracja limitów zapytań
-  configureRateLimits(app);
-  
-  return app;
-};
-
-/**
- * ✅ NOWA KONFIGURACJA - Konfiguracja limitów zapytań z nowego middleware
- */
-const configureRateLimits = (app) => {
-  // Zastosowanie globalnego API limitera
-  if (!isDev) {
-    app.use('/api', apiLimiter); // Tylko w produkcji
-    console.log('✅ Rate limiting włączony dla API');
-  } else {
-    console.log('⚠️ Rate limiting wyłączony w trybie development');
-  }
-};
-
-/**
- * Konfiguracja katalogów na pliki
- */
-const configureUploads = (app) => {
-  try {
-    const uploadsPath = path.join(path.resolve(), 'uploads');
-    
-    // Utworzenie katalogów na pliki, jeśli nie istnieją
-    if (!fs.existsSync(uploadsPath)) {
-      fs.mkdirSync(uploadsPath, { recursive: true });
-    }
-    
-    const attachmentsPath = path.join(uploadsPath, 'attachments');
-    if (!fs.existsSync(attachmentsPath)) {
-      fs.mkdirSync(attachmentsPath, { recursive: true });
-    }
-    
-    // Dodatkowy middleware do obsługi CORS dla /uploads
-    app.use('/uploads', (req, res, next) => {
-      // Allow both localhost:3000 and localhost:3001 for development
-      if (req.headers.origin === 'http://localhost:3001' || req.headers.origin === 'http://localhost:3000') {
-        res.header('Access-Control-Allow-Origin', req.headers.origin);
-      } else {
-        res.header('Access-Control-Allow-Origin', FRONTEND_URL);
-      }
-      res.header('Access-Control-Allow-Methods', 'GET');
-      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Cache-Control');
-      res.header('Cross-Origin-Resource-Policy', 'cross-origin');
-      
-      if (isDev) {
-        console.log(`📷 Żądanie do /uploads: ${req.url}`);
-      }
-      
-      next();
-    });
-    
-    // Middleware do przetwarzania obrazów
-    app.use('/uploads', imageProcessor);
-    
-    // Udostępnienie katalogu uploads jako statycznego
-    app.use('/uploads', express.static(uploadsPath, {
-      maxAge: '1y', // Cache na 1 rok
-      etag: true,
-      lastModified: true
-    }));
-    
-    if (isDev) {
-      console.log('✅ Katalog uploads skonfigurowany pomyślnie');
-    }
-  } catch (error) {
-    console.error('❌ Błąd konfiguracji ścieżki uploads:', error);
-  }
-};
-
-
-/**
- * Konfiguracja obsługi błędów
- */
-const configureErrorHandling = (app) => {
-  // Centralny middleware do obsługi błędów
-  app.use((err, req, res, next) => {
-    console.error(`❌ Błąd aplikacji: ${err.message}`, err.stack);
-    
-    const statusCode = err.statusCode || 500;
-    const response = {
-      status: 'error',
-      message: err.message || 'Błąd serwera',
-      ...(isDev && { stack: err.stack })
-    };
-    
-    res.status(statusCode).json(response);
-  });
-  
-  // Obsługa błędu 404 - nie znaleziono endpointu
-  app.use((req, res) => {
-    res.status(404).json({
-      status: 'error',
-      message: `Endpoint ${req.method} ${req.originalUrl} nie istnieje`
-    });
-  });
-  
-  // Obsługa nieprzechwyconych wyjątków
-  process.on('uncaughtException', (err) => {
-    console.error('❌ Nieprzechwycony wyjątek:', err);
-  });
-  
-  // Obsługa nieprzechwyconych odrzuceń Promise
-  process.on('unhandledRejection', (reason) => {
-    console.error('❌ Nieobsłużone odrzucenie Promise:', reason);
-  });
-};
+// USUNIĘTE: Stara konfiguracja - teraz używamy app.js
 
 /**
  * Połączenie z bazą danych MongoDB
@@ -257,8 +94,8 @@ const connectToDatabase = async () => {
  * Główna funkcja inicjalizująca aplikację
  */
 const startServer = async () => {
-  // Zwiększenie limitów Node.js dla nagłówków HTTP
-  process.env.NODE_OPTIONS = '--max-http-header-size=65536'; // 64KB zamiast domyślnych 8KB
+  // Zwiększenie limitów Node.js dla nagłówków HTTP - MAKSYMALNE LIMITY
+  process.env.NODE_OPTIONS = '--max-http-header-size=131072'; // 128KB zamiast domyślnych 8KB
   
   // Funkcja do znajdowania wolnego portu
   const findFreePort = (startPort) => {
@@ -296,13 +133,13 @@ const startServer = async () => {
     process.exit(1);
   }
   
-  // Konfiguracja aplikacji
-  const app = configureApp();
+  // UŻYWAMY GOTOWEJ APLIKACJI Z app.js (z minimalnymi nagłówkami)
+  // const app = configureApp(); // USUNIĘTE - używamy importowanego app
   
-  // Utworzenie serwera HTTP z zwiększonymi limitami
+  // Utworzenie serwera HTTP z MAKSYMALNYMI limitami
   const server = http.createServer({
-    // Zwiększenie limitu nagłówków HTTP - ROZWIĄZUJE BŁĄD 431
-    maxHeaderSize: 65536, // 64KB (zwiększone z 32KB)
+    // MAKSYMALNY limit nagłówków HTTP - ROZWIĄZUJE BŁĄD 431
+    maxHeaderSize: 131072, // 128KB (maksymalny możliwy limit)
     headersTimeout: 60000, // 60 sekund
     requestTimeout: 300000, // 5 minut
   }, app);
@@ -315,28 +152,6 @@ const startServer = async () => {
   
   // Inicjalizacja NotificationManager
   notificationManager.initialize();
-  
-  // Konfiguracja katalogów na pliki
-  configureUploads(app);
-  
-  // Konfiguracja tras API
-  setupRoutes(app);
-  
-  // ✅ NOWA KONFIGURACJA - Dodanie health check endpoint
-  app.use('/health', healthRoutes);
-  
-  // Podstawowa trasa - status serwera
-  app.get('/', (req, res) => {
-    res.json({
-      status: 'online',
-      message: 'Backend Marketplace działa prawidłowo',
-      version: process.env.API_VERSION || '1.0.0'
-    });
-  });
-  
-  
-  // Konfiguracja obsługi błędów
-  configureErrorHandling(app);
   
   // Uruchomienie serwera
   server.listen(finalPort, () => {

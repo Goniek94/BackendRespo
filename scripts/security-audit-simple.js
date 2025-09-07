@@ -82,9 +82,7 @@ async function runSecurityAudit() {
     const adminEndpoints = [
       '/api/admin-panel/dashboard',
       '/api/admin-panel/health',
-      '/api/admin-panel/users',
-      '/api/admin/dashboard',
-      '/api/admin/health'
+      '/api/admin-panel/users'
     ];
     
     let adminProtected = 0;

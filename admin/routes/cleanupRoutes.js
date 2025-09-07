@@ -285,4 +285,90 @@ router.get('/session-info', (req, res) => {
   }
 });
 
+/**
+ * @route POST /api/admin-panel/emergency-cleanup
+ * @desc Emergency cleanup - usuwa wszystkie cookies i czyści nagłówki
+ * @access Public (no auth required for emergency cleanup)
+ */
+router.post('/emergency-cleanup', (req, res) => {
+  try {
+    logger.warn('EMERGENCY CLEANUP requested', {
+      ip: req.ip,
+      userAgent: req.get('User-Agent'),
+      timestamp: new Date().toISOString(),
+      headers: Object.keys(req.headers)
+    });
+
+    // AGRESYWNE czyszczenie wszystkich możliwych cookies
+    const allPossibleCookies = [
+      'token', 'refreshToken', 'adminToken', 'sessionId', 'csrfToken',
+      'remember_token', 'auth_session', 'user_session', 'admin_session',
+      'temp_token', 'backup_token', 'old_token', 'legacy_token',
+      'adminjs_session', 'adminjs', 'connect.sid', 'session',
+      'jwt', 'access_token', 'refresh_token', 'auth_token',
+      'login_token', 'user_token', 'admin_auth', 'panel_auth'
+    ];
+
+    allPossibleCookies.forEach(cookieName => {
+      // Wyczyść dla różnych ścieżek i domen
+      res.clearCookie(cookieName, { path: '/' });
+      res.clearCookie(cookieName, { path: '/admin' });
+      res.clearCookie(cookieName, { path: '/api' });
+      res.clearCookie(cookieName, { 
+        path: '/',
+        domain: process.env.DOMAIN,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict'
+      });
+    });
+
+    // Użyj głównej funkcji czyszczenia
+    clearAuthCookies(res);
+
+    // Dodaj nagłówki do wymuszenia odświeżenia
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('X-Emergency-Cleanup', 'true');
+    res.setHeader('X-Cleanup-Timestamp', new Date().toISOString());
+
+    res.status(200).json({
+      success: true,
+      message: 'EMERGENCY CLEANUP completed successfully',
+      action: 'All cookies and sessions cleared',
+      timestamp: new Date().toISOString(),
+      instructions: [
+        '🚨 EMERGENCY CLEANUP COMPLETED',
+        '1. Close ALL browser tabs',
+        '2. Clear browser cache completely',
+        '3. Restart browser',
+        '4. Try accessing admin panel again',
+        '5. If problem persists, contact support'
+      ],
+      cookiesCleared: allPossibleCookies.length,
+      nextSteps: 'Refresh page and login again'
+    });
+
+  } catch (error) {
+    logger.error('EMERGENCY CLEANUP failed', {
+      error: error.message,
+      stack: error.stack,
+      ip: req.ip
+    });
+
+    res.status(500).json({
+      success: false,
+      error: 'Emergency cleanup failed',
+      message: error.message,
+      instructions: [
+        'Manual cleanup required:',
+        '1. Clear all browser cookies manually',
+        '2. Clear browser cache',
+        '3. Restart browser'
+      ]
+    });
+  }
+});
+
 export default router;

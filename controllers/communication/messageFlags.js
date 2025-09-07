@@ -293,3 +293,115 @@ export const deleteConversation = async (req, res) => {
     res.status(500).json({ message: 'Błąd serwera' });
   }
 };
+
+// ===== NOWE FUNKCJE =====
+
+// Cofanie wiadomości (unsend)
+export const unsendMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+
+    // Konwertuj userId na ObjectId
+    const userObjectId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
+    const userIdStr = userObjectId.toString();
+
+    const message = await Message.findById(id);
+    
+    if (!message) {
+      return res.status(404).json({ message: 'Wiadomość nie znaleziona' });
+    }
+    
+    // Sprawdź czy użytkownik jest nadawcą wiadomości
+    if (message.sender.toString() !== userIdStr) {
+      return res.status(403).json({ message: 'Możesz cofnąć tylko własne wiadomości' });
+    }
+
+    // Sprawdź czy wiadomość nie jest starsza niż 15 minut
+    const minutesSinceCreation = (Date.now() - message.createdAt.getTime()) / (1000 * 60);
+    if (minutesSinceCreation > 15) {
+      return res.status(400).json({ message: 'Nie można cofnąć wiadomości starszych niż 15 minut' });
+    }
+
+    // Oznacz wiadomość jako cofniętą
+    message.unsent = true;
+    message.unsentAt = new Date();
+    message.content = '[Wiadomość została cofnięta]';
+    message.attachments = []; // Usuń załączniki
+    await message.save();
+
+    res.status(200).json({ message: 'Wiadomość została cofnięta' });
+  } catch (error) {
+    console.error('Błąd podczas cofania wiadomości:', error);
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+};
+
+// Edytowanie wiadomości
+export const editMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { content, attachments } = req.body;
+    const userId = req.user.userId;
+    
+    console.log('✏️ Edytowanie wiadomości:', { id, userId, hasContent: !!content });
+    
+    if (!content || !content.trim()) {
+      return res.status(400).json({ message: 'Treść wiadomości jest wymagana' });
+    }
+    
+    // Konwertuj userId na ObjectId
+    const userObjectId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
+    const userIdStr = userObjectId.toString();
+    
+    // Znajdź wiadomość
+    const message = await Message.findById(id);
+    if (!message) {
+      return res.status(404).json({ message: 'Wiadomość nie znaleziona' });
+    }
+    
+    // Sprawdź czy użytkownik jest właścicielem wiadomości
+    if (message.sender.toString() !== userIdStr) {
+      return res.status(403).json({ message: 'Brak uprawnień do edycji tej wiadomości' });
+    }
+    
+    // Sprawdź czy wiadomość nie jest starsza niż 15 minut
+    const minutesSinceCreation = (Date.now() - message.createdAt.getTime()) / (1000 * 60);
+    if (minutesSinceCreation > 15) {
+      return res.status(400).json({ message: 'Nie można edytować wiadomości starszych niż 15 minut' });
+    }
+    
+    // Sprawdź czy wiadomość nie została cofnięta
+    if (message.unsent) {
+      return res.status(400).json({ message: 'Nie można edytować cofniętej wiadomości' });
+    }
+    
+    // Aktualizuj wiadomość
+    message.content = content.trim();
+    message.isEdited = true;
+    message.editedAt = new Date();
+    
+    // Opcjonalnie aktualizuj załączniki (jeśli są przesłane)
+    if (attachments && Array.isArray(attachments)) {
+      message.attachments = attachments;
+    }
+    
+    await message.save();
+    
+    console.log('✅ Wiadomość zaktualizowana:', message._id);
+    
+    res.status(200).json({
+      message: 'Wiadomość zaktualizowana',
+      data: {
+        _id: message._id,
+        content: message.content,
+        isEdited: message.isEdited,
+        editedAt: message.editedAt,
+        attachments: message.attachments
+      }
+    });
+  } catch (error) {
+    console.error('💥 Błąd podczas edycji wiadomości:', error);
+    res.status(500).json({ message: 'Błąd serwera', error: error.message });
+  }
+};

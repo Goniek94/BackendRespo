@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import User from '../models/user/user.js';
-import jwt from 'jsonwebtoken';
+import { generateAccessToken } from '../middleware/auth.js';
 
 mongoose.connect('mongodb://localhost:27017/marketplace');
 
@@ -20,20 +20,15 @@ async function getTestToken() {
       process.exit(1);
     }
 
-    // Minimalny payload zgodny z wymaganiami bezpieczeństwa
-    const token = jwt.sign(
-      { 
-        userId: user._id, 
-        role: user.role || 'user',
-        type: 'access',
-        iat: Math.floor(Date.now() / 1000),
-        jti: require('crypto').randomBytes(16).toString('hex')
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+    // Użyj zoptymalizowanej funkcji z middleware/auth.js
+    const token = generateAccessToken({
+      userId: user._id,
+      role: user.role || 'user'
+    });
     
+    console.log('🔐 ZOPTYMALIZOWANY TOKEN (ultra-mały payload):');
     console.log('Token:', token);
+    console.log('Długość:', token.length, 'znaków');
     process.exit(0);
   } catch (error) {
     console.error('Błąd:', error);

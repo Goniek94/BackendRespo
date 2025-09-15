@@ -34,7 +34,7 @@ import auth from '../../middleware/auth.js';
 import Message from '../../models/communication/message.js';
 import User from '../../models/user/user.js';
 import Ad from '../../models/listings/ad.js';
-import notificationService from '../../controllers/notifications/notificationController.js';
+import notificationManager from '../../services/notificationManager.js';
 
 const router = express.Router();
 

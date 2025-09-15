@@ -24,7 +24,13 @@ import {
   verifyEmailCode
 } from '../../controllers/user/index.js';
 
+// Import Socket.IO auth routes
+import socketAuthRoutes from '../auth/socketAuth.js';
+
 const router = express.Router();
+
+// Socket.IO authentication routes
+router.use('/auth', socketAuthRoutes);
 
 // Google Authentication - tymczasowo wyłączone
 // router.post('/auth/google', authController.registerGoogleUser);

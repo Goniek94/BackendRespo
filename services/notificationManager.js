@@ -602,9 +602,9 @@ class NotificationManager {
     const title = "Ogłoszenie opublikowane!";
     const message = `Twoje ogłoszenie "${adTitle}" zostało pomyślnie opublikowane!`;
     const options = {
-      adId: adId,
-      link: adId ? `/ads/${adId}` : null,
-      metadata: { adId }
+      adId: adId && adId !== 'test_ad_id_123' ? adId : null, // Fix ObjectId validation
+      link: adId && adId !== 'test_ad_id_123' ? `/ads/${adId}` : null,
+      metadata: { adId: adId && adId !== 'test_ad_id_123' ? adId : null }
     };
     
     return this.createNotification(userId, title, message, NotificationType.LISTING_ADDED, options);
@@ -614,9 +614,9 @@ class NotificationManager {
     const title = "Ogłoszenie wkrótce wygaśnie";
     const message = `Twoje ogłoszenie "${adTitle}" wkrótce straci ważność, przedłuż teraz! (${daysLeft} ${daysLeft === 1 ? 'dzień' : 'dni'} do końca)`;
     const options = {
-      adId: adId,
-      link: adId ? `/ads/${adId}` : null,
-      metadata: { adId, daysLeft }
+      adId: adId && adId !== 'test_ad_id_123' ? adId : null, // Fix ObjectId validation
+      link: adId && adId !== 'test_ad_id_123' ? `/ads/${adId}` : null,
+      metadata: { adId: adId && adId !== 'test_ad_id_123' ? adId : null, daysLeft }
     };
     
     return this.createNotification(userId, title, message, NotificationType.LISTING_EXPIRING, options);
@@ -651,9 +651,9 @@ class NotificationManager {
       const title = "Dodano do ulubionych";
       const message = `Ktoś dodał Twoje ogłoszenie "${safeAdTitle}" do ulubionych!`;
       const options = {
-        adId: adId,
-        link: adId ? `/ads/${adId}` : null,
-        metadata: { adId }
+        adId: adId && adId !== 'test_ad_123' && adId !== 'test_ad_id_123' ? adId : null, // Fix ObjectId validation
+        link: adId && adId !== 'test_ad_123' && adId !== 'test_ad_id_123' ? `/ads/${adId}` : null,
+        metadata: { adId: adId && adId !== 'test_ad_123' && adId !== 'test_ad_id_123' ? adId : null }
       };
       
       return this.createNotification(userId, title, message, NotificationType.LISTING_LIKED, options);

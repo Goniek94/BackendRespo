@@ -6,7 +6,7 @@
 import Ad from '../../../models/listings/ad.js';
 import auth from '../../../middleware/auth.js';
 import errorHandler from '../../../middleware/errors/errorHandler.js';
-import { notificationService } from '../../../controllers/notifications/notificationController.js';
+import notificationManager from '../../../services/notificationManager.js';
 
 /**
  * PUT /ads/:id/status - Zmiana statusu ogłoszenia
@@ -52,7 +52,7 @@ export const changeStatus = [
         const statusText = status === 'archived' ? 'zarchiwizowane' : 
                           status === 'sold' ? 'sprzedane' : 
                           status === 'active' ? 'aktywne' : status;
-        await notificationService.notifyAdStatusChange(ad.owner.toString(), adTitle, statusText);
+        await notificationManager.notifyAdStatusChange(ad.owner.toString(), adTitle, statusText);
         console.log(`Utworzono powiadomienie o zmianie statusu ogłoszenia dla użytkownika ${ad.owner}`);
       } catch (notificationError) {
         console.error('Błąd podczas tworzenia powiadomienia:', notificationError);
@@ -106,7 +106,7 @@ export const extendAd = [
       // Tworzenie powiadomienia o przedłużeniu
       try {
         const adTitle = ad.headline || `${ad.brand} ${ad.model}`;
-        await notificationService.notifyAdStatusChange(ad.owner.toString(), adTitle, 'przedłużone o 30 dni');
+        await notificationManager.notifyAdStatusChange(ad.owner.toString(), adTitle, 'przedłużone o 30 dni');
         console.log(`Utworzono powiadomienie o przedłużeniu ogłoszenia dla użytkownika ${ad.owner}`);
       } catch (notificationError) {
         console.error('Błąd podczas tworzenia powiadomienia:', notificationError);
@@ -151,7 +151,7 @@ export const deleteAd = [
       // Tworzenie powiadomienia o usunięciu ogłoszenia
       try {
         const adTitle = ad.headline || `${ad.brand} ${ad.model}`;
-        await notificationService.notifyAdStatusChange(ad.owner.toString(), adTitle, 'usunięte');
+        await notificationManager.notifyAdStatusChange(ad.owner.toString(), adTitle, 'usunięte');
         console.log(`Utworzono powiadomienie o usunięciu ogłoszenia dla użytkownika ${ad.owner}`);
       } catch (notificationError) {
         console.error('Błąd podczas tworzenia powiadomienia:', notificationError);

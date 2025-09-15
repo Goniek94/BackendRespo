@@ -11,7 +11,7 @@ import validate from '../../../middleware/validation/validate.js';
 import adValidationSchema from '../../../validationSchemas/adValidation.js';
 import rateLimit from 'express-rate-limit';
 import errorHandler from '../../../middleware/errors/errorHandler.js';
-import NotificationService from '../../../services/notificationService.js';
+import notificationManager from '../../../services/notificationManager.js';
 import { mapFormDataToBackend } from './helpers.js';
 import AdController from '../../../controllers/listings/adController.js';
 
@@ -216,7 +216,7 @@ router.post('/add', auth, createAdLimiter, validate(adValidationSchema), async (
     
     // Create notification about ad creation
     try {
-      await NotificationService.createListingPublishedNotification(req.user.userId, ad);
+      await notificationManager.createListingPublishedNotification(req.user.userId, ad);
       console.log(`Created notification about ad creation for user ${req.user.userId}`);
     } catch (notificationError) {
       console.error('Error creating notification:', notificationError);
@@ -264,12 +264,12 @@ router.put('/:id/status', auth, async (req, res, next) => {
     if (previousStatus !== status) {
       try {
         if (status === 'active') {
-          await NotificationService.createListingPublishedNotification(ad.owner.toString(), ad);
+          await notificationManager.createListingPublishedNotification(ad.owner.toString(), ad);
         } else if (status === 'archived') {
-          await NotificationService.createListingExpiredNotification(ad.owner.toString(), ad);
+          await notificationManager.createListingExpiredNotification(ad.owner.toString(), ad);
         } else {
           // For other status changes, create a generic system notification
-          await NotificationService.createSystemNotification(
+          await notificationManager.createSystemNotification(
             ad.owner.toString(),
             'Status ogłoszenia zmieniony',
             `Status Twojego ogłoszenia "${ad.headline || ad.brand + ' ' + ad.model}" został zmieniony na: ${status}`
@@ -496,7 +496,7 @@ router.post('/:id/renew', auth, async (req, res, next) => {
 
     // Create notification about ad renewal
     try {
-      await NotificationService.createListingPublishedNotification(ad.owner.toString(), ad);
+      await notificationManager.createListingPublishedNotification(ad.owner.toString(), ad);
       console.log(`Created notification about ad renewal for user ${ad.owner}`);
     } catch (notificationError) {
       console.error('Error creating notification:', notificationError);
@@ -558,7 +558,7 @@ router.delete('/:id', auth, async (req, res, next) => {
     // Create notification about ad deletion
     try {
       const adTitle = ad.headline || `${ad.brand} ${ad.model}`;
-      await notificationService.notifyAdStatusChange(ad.owner.toString(), adTitle, 'usunięte');
+      await notificationManager.notifyAdStatusChange(ad.owner.toString(), adTitle, 'usunięte');
       console.log(`Created notification about ad deletion for user ${ad.owner}`);
     } catch (notificationError) {
       console.error('Error creating notification:', notificationError);

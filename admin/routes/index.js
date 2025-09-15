@@ -6,7 +6,20 @@ import listingRoutes from './listingRoutes.js';
 import reportRoutes from './reportRoutes.js';
 // import promotionRoutes from './promotionRoutes.js'; // TODO: Create this file
 import cleanupRoutes from './cleanupRoutes.js';
-import { requireAdminAuth, adminApiLimiter } from '../middleware/adminAuth.js';
+import { requireAuth } from '../../middleware/auth.js';
+import { adminApiLimiter } from '../middleware/adminAuth.js';
+
+// Simple admin role check middleware
+const requireAdminRole = (req, res, next) => {
+  if (!req.user || !['admin', 'moderator'].includes(req.user.role)) {
+    return res.status(403).json({
+      success: false,
+      error: 'Brak uprawnień administratora',
+      code: 'INSUFFICIENT_PRIVILEGES'
+    });
+  }
+  next();
+};
 
 /**
  * Main Admin Routes Index
@@ -32,7 +45,7 @@ router.use((req, res, next) => {
 /**
  * API versioning and health check (protected)
  */
-router.get('/health', requireAdminAuth, (req, res) => {
+router.get('/health', requireAuth, requireAdminRole, (req, res) => {
   res.json({
     success: true,
     service: 'Admin Panel API',
@@ -58,25 +71,25 @@ router.use('/auth', authRoutes);
  * Dashboard routes (protected)
  * Dashboard statistics and data
  */
-router.use('/dashboard', requireAdminAuth, dashboardRoutes);
+router.use('/dashboard', requireAuth, requireAdminRole, dashboardRoutes);
 
 /**
  * User management routes (protected)
  * All user-related admin operations
  */
-router.use('/users', requireAdminAuth, userRoutes);
+router.use('/users', requireAuth, requireAdminRole, userRoutes);
 
 /**
  * Listing management routes (protected)
  * All listing-related admin operations
  */
-router.use('/listings', requireAdminAuth, listingRoutes);
+router.use('/listings', requireAuth, requireAdminRole, listingRoutes);
 
 /**
  * Report management routes (protected)
  * All report-related admin operations
  */
-router.use('/reports', requireAdminAuth, reportRoutes);
+router.use('/reports', requireAuth, requireAdminRole, reportRoutes);
 
 /**
  * Promotion management routes (protected)

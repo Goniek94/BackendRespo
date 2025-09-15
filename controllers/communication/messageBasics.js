@@ -2,7 +2,7 @@ import Message from '../../models/communication/message.js';
 import User from '../../models/user/user.js';
 import Ad from '../../models/listings/ad.js';
 import mongoose from 'mongoose';
-import notificationService from '../notifications/notificationController.js';
+import notificationManager from '../../services/notificationManager.js';
 import { sendNewMessageEmail } from '../../config/nodemailer.js';
 import socketService from '../../services/socketService.js';
 import { uploadMessageImages, validateMessageFiles, isImageUploadAvailable } from './messageImageUpload.js';
@@ -291,7 +291,7 @@ export const sendMessage = async (req, res) => {
         console.log(`Wysyłam powiadomienie o nowej wiadomości od ${senderName} do ${recipientId}`);
         
         // Powiadomienie w aplikacji
-        await notificationService.notifyNewMessage(recipientId, senderName, adTitle);
+        await notificationManager.notifyNewMessage(recipientId, senderName, adTitle);
         
         // Powiadomienie e-mail
         if (recipientUser.email) {

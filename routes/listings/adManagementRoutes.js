@@ -8,7 +8,7 @@ import { Router } from 'express';
 import auth from '../../middleware/auth.js';
 import Ad from '../../models/listings/ad.js';
 import errorHandler from '../../middleware/errors/errorHandler.js';
-import { notificationService } from '../../controllers/notifications/notificationController.js';
+import notificationManager from '../../services/notificationManager.js';
 
 const router = Router();
 
@@ -87,7 +87,7 @@ router.put('/:id/status', auth, async (req, res, next) => {
     if (previousStatus !== status) {
       try {
         const adTitle = ad.headline || `${ad.brand} ${ad.model}`;
-        await notificationService.notifyAdStatusChange(ad.owner.toString(), adTitle, status);
+        await notificationManager.notifyAdStatusChange(ad.owner.toString(), adTitle, status);
         console.log(`Utworzono powiadomienie o zmianie statusu ogłoszenia dla użytkownika ${ad.owner}`);
       } catch (notificationError) {
         console.error('Błąd podczas tworzenia powiadomienia:', notificationError);
@@ -240,7 +240,7 @@ router.post('/:id/renew', auth, async (req, res, next) => {
     // Tworzenie powiadomienia o odnowieniu ogłoszenia
     try {
       const adTitle = ad.headline || `${ad.brand} ${ad.model}`;
-      await notificationService.notifyAdStatusChange(ad.owner.toString(), adTitle, 'odnowione');
+      await notificationManager.notifyAdStatusChange(ad.owner.toString(), adTitle, 'odnowione');
       console.log(`Utworzono powiadomienie o odnowieniu ogłoszenia dla użytkownika ${ad.owner}`);
     } catch (notificationError) {
       console.error('Błąd podczas tworzenia powiadomienia:', notificationError);

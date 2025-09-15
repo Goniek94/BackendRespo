@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { exec } from 'child_process';
 import Ad from '../models/listings/ad.js';
-import notificationService from '../controllers/notifications/notificationController.js';
+import notificationManager from '../services/notificationManager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -56,7 +56,7 @@ const checkExpiringAds = async () => {
         const adTitle = ad.headline || `${ad.brand} ${ad.model}`;
         
         // Wyślij powiadomienie
-        await notificationService.notifyAdExpiringSoon(ad.owner._id, adTitle, daysLeft);
+        await notificationManager.notifyAdExpiringSoon(ad.owner._id, adTitle, daysLeft);
         
         // Oznacz ogłoszenie jako powiadomione
         ad.notifiedAboutExpiration = true;
@@ -109,10 +109,10 @@ const archiveExpiredAds = async () => {
         const adTitle = ad.headline || `${ad.brand} ${ad.model}`;
         
         // Wyślij powiadomienie o wygaśnięciu ogłoszenia
-        await notificationService.notifyAdExpired(ad.owner._id, adTitle, ad._id.toString());
+        await notificationManager.notifyAdExpired(ad.owner._id, adTitle, ad._id.toString());
         
         // Wyślij również powiadomienie o zmianie statusu
-        await notificationService.notifyAdStatusChange(ad.owner._id, adTitle, 'archived');
+        await notificationManager.notifyAdStatusChange(ad.owner._id, adTitle, 'archived');
         
         console.log(`Zarchiwizowano ogłoszenie ${ad._id} i wysłano powiadomienie do użytkownika ${ad.owner._id}`);
       } catch (error) {

@@ -1,7 +1,7 @@
 import Transaction from '../../models/payments/Transaction.js';
 import User from '../../models/user/user.js';
 import Ad from '../../models/listings/ad.js';
-import { notificationService } from '../notifications/notificationController.js';
+import notificationManager from '../../services/notificationManager.js';
 import nodemailer from 'nodemailer';
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
@@ -128,7 +128,7 @@ class TransactionController {
           ? `Twoje ogłoszenie "${adTitle}" zostało wyróżnione`
           : `Opłata za ogłoszenie "${adTitle}" została zrealizowana`;
           
-        await notificationService.createNotification(
+        await notificationManager.createNotification(
           userId,
           'Płatność zrealizowana',
           notificationMessage,
@@ -220,7 +220,7 @@ class TransactionController {
       
       // Utwórz powiadomienie o wysłaniu faktury
       try {
-        await notificationService.createNotification(
+        await notificationManager.createNotification(
           userId,
           'Faktura wysłana',
           'Faktura została wygenerowana i wysłana na Twój adres email',

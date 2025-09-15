@@ -372,12 +372,8 @@ const authMiddleware = async (req, res, next) => {
         userId: decoded.userId,
         role: decoded.role || 'user',
         isAdmin: decoded.role === 'admin',
-        isModerator: decoded.role === 'moderator' || decoded.role === 'admin',
-        permissions: decoded.role === 'admin' 
-          ? adminConfig.adminPermissions 
-          : decoded.role === 'moderator' 
-            ? adminConfig.moderatorPermissions 
-            : {}
+        isModerator: decoded.role === 'moderator' || decoded.role === 'admin'
+        // USUNIĘTE: permissions - pobierane z adminConfig gdy potrzeba
       };
       
       // Update user's last activity in database (async, don't wait)
@@ -481,12 +477,8 @@ const optionalAuthMiddleware = async (req, res, next) => {
           userId: decoded.userId,
           role: decoded.role || 'user',
           isAdmin: decoded.role === 'admin',
-          isModerator: decoded.role === 'moderator' || decoded.role === 'admin',
-          permissions: decoded.role === 'admin' 
-            ? adminConfig.adminPermissions 
-            : decoded.role === 'moderator' 
-              ? adminConfig.moderatorPermissions 
-              : {}
+          isModerator: decoded.role === 'moderator' || decoded.role === 'admin'
+          // USUNIĘTE: permissions - pobierane z adminConfig gdy potrzeba
         };
       }
     } catch (error) {
@@ -514,7 +506,8 @@ export {
   setAuthCookies, 
   clearAuthCookies,
   refreshUserSession,
-  optionalAuthMiddleware
+  optionalAuthMiddleware,
+  authMiddleware as requireAuth // Add named export for admin routes
 };
 
 export default authMiddleware;

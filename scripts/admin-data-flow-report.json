@@ -1,0 +1,1051 @@
+{
+  "backendEndpoints": [
+    {
+      "path": "/api/admin-panel/dashboard",
+      "description": "Główne dane dashboardu",
+      "status": 200,
+      "statusText": "OK",
+      "working": true,
+      "dataPreview": {
+        "stats": {
+          "totalUsers": 5,
+          "totalListings": 3,
+          "totalMessages": 61
+        },
+        "recentActivityCount": 10
+      },
+      "fullUrl": "http://localhost:5000/api/admin-panel/dashboard"
+    },
+    {
+      "path": "/api/admin-panel/dashboard/stats",
+      "description": "Statystyki dashboardu",
+      "status": 200,
+      "statusText": "OK",
+      "working": true,
+      "dataPreview": {
+        "stats": {
+          "totalUsers": 5,
+          "totalListings": 3,
+          "totalMessages": 61
+        },
+        "recentActivityCount": 10
+      },
+      "fullUrl": "http://localhost:5000/api/admin-panel/dashboard/stats"
+    },
+    {
+      "path": "/api/admin-panel/users",
+      "description": "Lista użytkowników",
+      "status": 401,
+      "statusText": "Unauthorized",
+      "working": false,
+      "dataPreview": null,
+      "fullUrl": "http://localhost:5000/api/admin-panel/users"
+    },
+    {
+      "path": "/api/admin-panel/listings",
+      "description": "Lista ogłoszeń",
+      "status": 401,
+      "statusText": "Unauthorized",
+      "working": false,
+      "dataPreview": null,
+      "fullUrl": "http://localhost:5000/api/admin-panel/listings"
+    },
+    {
+      "path": "/api/admin-panel/reports",
+      "description": "Lista raportów",
+      "status": 401,
+      "statusText": "Unauthorized",
+      "working": false,
+      "dataPreview": null,
+      "fullUrl": "http://localhost:5000/api/admin-panel/reports"
+    },
+    {
+      "path": "/api/admin-panel/health",
+      "description": "Status systemu",
+      "status": 401,
+      "statusText": "Unauthorized",
+      "working": false,
+      "dataPreview": null,
+      "fullUrl": "http://localhost:5000/api/admin-panel/health"
+    },
+    {
+      "path": "/api/admin-panel/auth/check",
+      "description": "Sprawdzenie autoryzacji",
+      "status": 401,
+      "statusText": "Unauthorized",
+      "working": false,
+      "dataPreview": null,
+      "fullUrl": "http://localhost:5000/api/admin-panel/auth/check"
+    }
+  ],
+  "frontendComponents": [
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\AdminPanel.js",
+      "apiCalls": [],
+      "dashboardUsage": [
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "AdminDashboard"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "AdminDashboard"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "AdminDashboard"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "AdminDashboard"
+        }
+      ],
+      "isAdminComponent": false,
+      "isDashboard": false
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\components\\Layout\\AdminHeader.js",
+      "apiCalls": [],
+      "dashboardUsage": [
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalUsers"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "dashboard' && layoutData?.quickStats"
+        }
+      ],
+      "isAdminComponent": false,
+      "isDashboard": false
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\components\\Layout\\AdminLayout.js",
+      "apiCalls": [],
+      "dashboardUsage": [
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalUsers"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalUsers"
+        }
+      ],
+      "isAdminComponent": false,
+      "isDashboard": false
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\hooks\\useAdminApi.js",
+      "apiCalls": [
+        {
+          "type": "API_CALL",
+          "pattern": "fetch(`http://localhost:5000/api/admin-panel${endpoint}`",
+          "url": "http://localhost:5000/api/admin-panel${endpoint}"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "fetch(`http://localhost:5000/api/admin-panel${endpoint}`",
+          "url": "http://localhost:5000/api/admin-panel${endpoint}"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "fetch(`http://localhost:5000/api/admin-panel${endpoint}`",
+          "url": "http://localhost:5000/api/admin-panel${endpoint}"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "fetch('http://localhost:5000/api/admin-panel/health'",
+          "url": "http://localhost:5000/api/admin-panel/health"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "getDashboardStats",
+          "url": "getDashboardStats"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "getDashboardStats",
+          "url": "getDashboardStats"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "localhost:5000/api/admin-panel",
+          "url": "localhost:5000/api/admin-panel"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "localhost:5000/api/admin-panel",
+          "url": "localhost:5000/api/admin-panel"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "localhost:5000/api/admin-panel",
+          "url": "localhost:5000/api/admin-panel"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "localhost:5000/api/admin-panel",
+          "url": "localhost:5000/api/admin-panel"
+        }
+      ],
+      "dashboardUsage": [
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "DashboardStats"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "DashboardStats"
+        }
+      ],
+      "isAdminComponent": false,
+      "isDashboard": false
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\hooks\\useAdminAuth.js",
+      "apiCalls": [
+        {
+          "type": "API_CALL",
+          "pattern": "fetch('http://localhost:5000/api/admin-panel/health'",
+          "url": "http://localhost:5000/api/admin-panel/health"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "localhost:5000/api/admin-panel",
+          "url": "localhost:5000/api/admin-panel"
+        }
+      ],
+      "dashboardUsage": [],
+      "isAdminComponent": false,
+      "isDashboard": false
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\sections\\Dashboard\\AdminDashboard.js",
+      "apiCalls": [
+        {
+          "type": "API_CALL",
+          "pattern": "getDashboardStats",
+          "url": "getDashboardStats"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "getDashboardStats",
+          "url": "getDashboardStats"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "getDashboardStats",
+          "url": "getDashboardStats"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        }
+      ],
+      "dashboardUsage": [
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalUsers"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalUsers"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalUsers"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalListings"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalListings"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalListings"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "recentActivity"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "recentActivity"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "recentActivity"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "recentActivity"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "AdminDashboard"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "AdminDashboard"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "DashboardStats"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "DashboardStats"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "DashboardStats"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "dashboardData.stats"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "dashboardData.stats"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "dashboardData.stats"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "dashboardData.stats"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "dashboardData.stats"
+        }
+      ],
+      "isAdminComponent": false,
+      "isDashboard": true
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\sections\\Dashboard\\DashboardStats.js",
+      "apiCalls": [],
+      "dashboardUsage": [
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalUsers"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalUsers"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalUsers"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalUsers"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalUsers"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalUsers"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalMessages"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "DashboardStats"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "DashboardStats"
+        }
+      ],
+      "isAdminComponent": false,
+      "isDashboard": true
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\sections\\Listings\\AdminListings.js",
+      "apiCalls": [
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        }
+      ],
+      "dashboardUsage": [],
+      "isAdminComponent": false,
+      "isDashboard": false
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\sections\\Listings\\ListingsStats.js",
+      "apiCalls": [
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        }
+      ],
+      "dashboardUsage": [],
+      "isAdminComponent": false,
+      "isDashboard": false
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\sections\\Promotions\\AdminPromotions.js",
+      "apiCalls": [
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        }
+      ],
+      "dashboardUsage": [],
+      "isAdminComponent": false,
+      "isDashboard": false
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\sections\\Reports\\AdminReports.js",
+      "apiCalls": [
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        }
+      ],
+      "dashboardUsage": [],
+      "isAdminComponent": false,
+      "isDashboard": false
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\sections\\Statistics\\AdminStatistics.js",
+      "apiCalls": [
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        }
+      ],
+      "dashboardUsage": [],
+      "isAdminComponent": false,
+      "isDashboard": false
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\sections\\Statistics\\StatisticsExport.js",
+      "apiCalls": [
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        }
+      ],
+      "dashboardUsage": [],
+      "isAdminComponent": false,
+      "isDashboard": false
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\sections\\Users\\AdminUsers.js",
+      "apiCalls": [
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        }
+      ],
+      "dashboardUsage": [],
+      "isAdminComponent": false,
+      "isDashboard": false
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\sections\\Users\\UsersStats.js",
+      "apiCalls": [
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        }
+      ],
+      "dashboardUsage": [],
+      "isAdminComponent": false,
+      "isDashboard": false
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\hooks\\useAdminApi.js",
+      "apiCalls": [
+        {
+          "type": "API_CALL",
+          "pattern": "fetch(`http://localhost:5000/api/admin-panel${endpoint}`",
+          "url": "http://localhost:5000/api/admin-panel${endpoint}"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "fetch(`http://localhost:5000/api/admin-panel${endpoint}`",
+          "url": "http://localhost:5000/api/admin-panel${endpoint}"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "fetch(`http://localhost:5000/api/admin-panel${endpoint}`",
+          "url": "http://localhost:5000/api/admin-panel${endpoint}"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "fetch('http://localhost:5000/api/admin-panel/health'",
+          "url": "http://localhost:5000/api/admin-panel/health"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "getDashboardStats",
+          "url": "getDashboardStats"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "getDashboardStats",
+          "url": "getDashboardStats"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "localhost:5000/api/admin-panel",
+          "url": "localhost:5000/api/admin-panel"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "localhost:5000/api/admin-panel",
+          "url": "localhost:5000/api/admin-panel"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "localhost:5000/api/admin-panel",
+          "url": "localhost:5000/api/admin-panel"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "localhost:5000/api/admin-panel",
+          "url": "localhost:5000/api/admin-panel"
+        }
+      ],
+      "dashboardUsage": [
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "DashboardStats"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "DashboardStats"
+        }
+      ],
+      "isAdminComponent": false,
+      "isDashboard": false
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\hooks\\useAdminAuth.js",
+      "apiCalls": [
+        {
+          "type": "API_CALL",
+          "pattern": "fetch('http://localhost:5000/api/admin-panel/health'",
+          "url": "http://localhost:5000/api/admin-panel/health"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "localhost:5000/api/admin-panel",
+          "url": "localhost:5000/api/admin-panel"
+        }
+      ],
+      "dashboardUsage": [],
+      "isAdminComponent": false,
+      "isDashboard": false
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\sections\\Dashboard\\AdminDashboard.js",
+      "apiCalls": [
+        {
+          "type": "API_CALL",
+          "pattern": "getDashboardStats",
+          "url": "getDashboardStats"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "getDashboardStats",
+          "url": "getDashboardStats"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "getDashboardStats",
+          "url": "getDashboardStats"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        }
+      ],
+      "dashboardUsage": [
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalUsers"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalUsers"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalUsers"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalListings"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalListings"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalListings"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "recentActivity"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "recentActivity"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "recentActivity"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "recentActivity"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "AdminDashboard"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "AdminDashboard"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "DashboardStats"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "DashboardStats"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "DashboardStats"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "dashboardData.stats"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "dashboardData.stats"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "dashboardData.stats"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "dashboardData.stats"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "dashboardData.stats"
+        }
+      ],
+      "isAdminComponent": false,
+      "isDashboard": true
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\sections\\Dashboard\\DashboardStats.js",
+      "apiCalls": [],
+      "dashboardUsage": [
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalUsers"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalUsers"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalUsers"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalUsers"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalUsers"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalUsers"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "totalMessages"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "DashboardStats"
+        },
+        {
+          "type": "DASHBOARD_DATA",
+          "pattern": "DashboardStats"
+        }
+      ],
+      "isAdminComponent": false,
+      "isDashboard": true
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\sections\\Listings\\AdminListings.js",
+      "apiCalls": [
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        }
+      ],
+      "dashboardUsage": [],
+      "isAdminComponent": false,
+      "isDashboard": false
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\sections\\Listings\\ListingsStats.js",
+      "apiCalls": [
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        }
+      ],
+      "dashboardUsage": [],
+      "isAdminComponent": false,
+      "isDashboard": false
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\sections\\Promotions\\AdminPromotions.js",
+      "apiCalls": [
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        }
+      ],
+      "dashboardUsage": [],
+      "isAdminComponent": false,
+      "isDashboard": false
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\sections\\Reports\\AdminReports.js",
+      "apiCalls": [
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        }
+      ],
+      "dashboardUsage": [],
+      "isAdminComponent": false,
+      "isDashboard": false
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\sections\\Statistics\\AdminStatistics.js",
+      "apiCalls": [
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        }
+      ],
+      "dashboardUsage": [],
+      "isAdminComponent": false,
+      "isDashboard": false
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\sections\\Statistics\\StatisticsExport.js",
+      "apiCalls": [
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        }
+      ],
+      "dashboardUsage": [],
+      "isAdminComponent": false,
+      "isDashboard": false
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\sections\\Users\\AdminUsers.js",
+      "apiCalls": [
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        }
+      ],
+      "dashboardUsage": [],
+      "isAdminComponent": false,
+      "isDashboard": false
+    },
+    {
+      "file": "..\\marketplace-frontend\\src\\components\\admin\\sections\\Users\\UsersStats.js",
+      "apiCalls": [
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        },
+        {
+          "type": "API_CALL",
+          "pattern": "useAdminApi",
+          "url": "useAdminApi"
+        }
+      ],
+      "dashboardUsage": [],
+      "isAdminComponent": false,
+      "isDashboard": false
+    }
+  ],
+  "dataFlow": [
+    {
+      "source": "Backend Dashboard Controller",
+      "endpoint": "/api/admin-panel/dashboard",
+      "destination": "Frontend useAdminApi hook",
+      "dataTypes": [
+        "stats",
+        "weeklyGrowth",
+        "monthlyGrowth",
+        "listingStats",
+        "userStats",
+        "messageStats",
+        "trends",
+        "recentActivity",
+        "systemStatus"
+      ],
+      "status": "WORKING",
+      "sampleData": {
+        "stats": {
+          "totalUsers": 5,
+          "totalListings": 3,
+          "totalMessages": 61
+        },
+        "recentActivityCount": 10
+      }
+    }
+  ],
+  "issues": []
+}

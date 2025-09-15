@@ -96,6 +96,28 @@ class SocketService {
         }
       }
 
+      // TRYB DEVELOPMENT: Pozwól na połączenia bez tokenu dla testów
+      if (!token && process.env.NODE_ENV === 'development') {
+        logger.warn('Socket.IO development mode - allowing connection without token', {
+          ip: socket.handshake.address,
+          userAgent: socket.handshake.headers['user-agent']
+        });
+        
+        // Utwórz użytkownika testowego
+        socket.user = {
+          userId: '688b4aba9c0f2fecd035b20a', // Test user ID z logów
+          email: 'test@example.com',
+          role: 'admin'
+        };
+        
+        logger.info('Socket.IO development user created', {
+          userId: socket.user.userId,
+          email: socket.user.email,
+          ip: socket.handshake.address
+        });
+        return next();
+      }
+
       if (!token) {
         logger.warn('Socket.IO authentication failed - missing token', {
           ip: socket.handshake.address,
@@ -172,11 +194,8 @@ class SocketService {
     // Dołączenie do pokoju specyficznego dla użytkownika
     socket.join(`user:${userId}`);
 
-    // Wysłanie potwierdzenia połączenia
-    socket.emit('connection_success', {
-      message: 'Połączono z systemem powiadomień',
-      userId: userId
-    });
+    // Logowanie połączenia bez wysyłania powiadomienia
+    logger.info('[NotificationManager] Użytkownik ' + userId + ' połączył się');
 
     // Obsługa rozłączenia
     socket.on('disconnect', () => {

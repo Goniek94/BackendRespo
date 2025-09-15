@@ -4,7 +4,7 @@ import auth from '../../middleware/auth.js';
 import User from '../../models/user/user.js';
 import Ad from '../../models/listings/ad.js';
 import mongoose from 'mongoose';
-import NotificationService from '../../services/notificationService.js';
+import notificationManager from '../../services/notificationManager.js';
 
 const router = Router();
 
@@ -110,7 +110,7 @@ router.post('/add/:id', auth, async (req, res) => {
         
         // Używamy try/catch wewnątrz, aby złapać błędy z NotificationService
         try {
-          const notification = await NotificationService.createListingLikedNotification(ad.owner, ad, req.user.userId);
+          const notification = await notificationManager.createListingLikedNotification(ad.owner, ad, req.user.userId);
           if (notification) {
             console.log(`Utworzono powiadomienie o dodaniu do ulubionych dla użytkownika ${ad.owner}, ID powiadomienia: ${notification._id}`);
           } else {

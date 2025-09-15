@@ -354,7 +354,7 @@ export const checkAdminAuth = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Administrator jest zalogowany',
-      admin: adminData
+      user: adminData
     });
 
   } catch (error) {

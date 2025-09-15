@@ -2,7 +2,7 @@ import Message from '../../models/communication/message.js';
 import User from '../../models/user/user.js';
 import Ad from '../../models/listings/ad.js';
 import mongoose from 'mongoose';
-import notificationService from '../notifications/notificationController.js';
+import notificationManager from '../../services/notificationManager.js';
 
 // Pobieranie konwersacji między dwoma użytkownikami (opcjonalnie dla konkretnego ogłoszenia)
 export const getConversation = async (req, res) => {
@@ -168,7 +168,7 @@ export const replyToConversation = async (req, res) => {
         }
       }
       
-      await notificationService.notifyNewMessage(
+      await notificationManager.notifyNewMessage(
         recipientObjectId.toString(),
         senderName,
         adTitle
@@ -273,7 +273,7 @@ export const replyToMessage = async (req, res) => {
         }
       }
       
-      await notificationService.notifyNewMessage(
+      await notificationManager.notifyNewMessage(
         recipientObjectId.toString(),
         senderName,
         adTitle

@@ -1,0 +1,32 @@
+{
+  "adminEmails": [
+    "mateusz.goszczycki1994@gmail.com",
+    "admin2@autosell.pl",
+    "admin3@autosell.pl"
+  ],
+  "adminCodes": {
+    "mateusz.goszczycki1994@gmail.com": {
+      "code": "ADMIN-MATEUSZ-2024-EB18720D532F5AFE",
+      "name": "Mateusz Goszczycki",
+      "role": "admin",
+      "permissions": "all"
+    },
+    "admin2@autosell.pl": {
+      "code": "ADMIN-SECOND-2024-9345AF28D5BBA872",
+      "name": "Administrator 2",
+      "role": "admin",
+      "permissions": "users,listings"
+    },
+    "admin3@autosell.pl": {
+      "code": "ADMIN-THIRD-2024-B246141FBDEECA5E",
+      "name": "Administrator 3",
+      "role": "admin",
+      "permissions": "reports,statistics"
+    }
+  },
+  "instructions": {
+    "usage": "Sprawdź czy email jest w adminEmails, następnie porównaj hasło z odpowiednim kodem",
+    "loginFlow": "email + kod -> JWT token z role=admin -> dostęp do panelu",
+    "security": "Kody są długie i unikalne, trudne do odgadnięcia"
+  }
+}

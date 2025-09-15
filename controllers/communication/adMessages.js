@@ -2,7 +2,7 @@ import Message from '../../models/communication/message.js';
 import User from '../../models/user/user.js';
 import Ad from '../../models/listings/ad.js';
 import mongoose from 'mongoose';
-import notificationService from '../notifications/notificationController.js';
+import notificationManager from '../../services/notificationManager.js';
 import socketService from '../../services/socketService.js';
 
 // Wysyłanie wiadomości do użytkownika (z profilu użytkownika)
@@ -60,7 +60,7 @@ export const sendMessageToUser = async (req, res) => {
     // Tworzenie powiadomienia o nowej wiadomości
     try {
       const senderName = sender.name || sender.email;
-      await notificationService.notifyNewMessage(recipientUser._id.toString(), senderName, null);
+      await notificationManager.notifyNewMessage(recipientUser._id.toString(), senderName, null);
     } catch (notificationError) {
       console.error('Błąd podczas tworzenia powiadomienia:', notificationError);
       // Nie przerywamy głównego procesu w przypadku błędu powiadomienia
@@ -143,7 +143,7 @@ export const sendMessageToAd = async (req, res) => {
     // Tworzenie powiadomienia o nowej wiadomości
     try {
       const senderName = sender.name || sender.email;
-      await notificationService.notifyNewMessage(ownerId.toString(), senderName, adTitle);
+      await notificationManager.notifyNewMessage(ownerId.toString(), senderName, adTitle);
     } catch (notificationError) {
       console.error('Błąd podczas tworzenia powiadomienia:', notificationError);
       // Nie przerywamy głównego procesu w przypadku błędu powiadomienia

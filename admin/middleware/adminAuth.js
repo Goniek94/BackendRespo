@@ -148,35 +148,20 @@ const validateAdminSession = async (sessionId, userId) => {
 };
 
 /**
- * Logs security-related events for monitoring and compliance
+ * NAPRAWIONE: Uproszczone logowanie bezpieczeństwa - zapobiega HTTP 431
  * @param {Object} req - Express request object
  * @param {string} eventType - Type of security event
  * @param {Object} details - Additional event details
  */
 const logSecurityEvent = async (req, eventType, details = {}) => {
   try {
-    const securityLog = {
-      eventType,
-      ipAddress: req.ip,
-      userAgent: req.get('User-Agent'),
-      timestamp: new Date(),
-      details,
-      headers: {
-        'x-forwarded-for': req.get('X-Forwarded-For'),
-        'x-real-ip': req.get('X-Real-IP')
-      }
-    };
-    
-    // Use secure logger instead of console.log
-    logger.warn('Admin security event', securityLog);
-    
-    // Could also store in database for compliance
-    // await SecurityLog.create(securityLog);
-  } catch (error) {
-    logger.error('Failed to log security event', {
-      error: error.message,
-      stack: error.stack
+    // NAPRAWIONE: Minimalne logowanie aby uniknąć HTTP 431
+    logger.warn(`Admin security: ${eventType}`, {
+      ip: req.ip,
+      userId: details.userId || 'unknown'
     });
+  } catch (error) {
+    // Ignore logging errors to prevent cascading failures
   }
 };
 

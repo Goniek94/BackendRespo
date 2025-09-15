@@ -305,8 +305,8 @@ export const checkAdminAuth = async (req, res) => {
       });
     }
 
-    // Get fresh user data from database - używa userId z req.user (z middleware)
-    const dbUser = await User.findById(user.userId).select('-password');
+    // NAPRAWIONE: Get fresh user data from database - używa userId z req.user
+    const dbUser = await User.findById(user.userId || user._id).select('-password');
     
     if (!dbUser) {
       return res.status(401).json({

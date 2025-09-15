@@ -227,6 +227,7 @@ const refreshUserSession = async (refreshToken, req, res) => {
  */
 const authMiddleware = async (req, res, next) => {
   try {
+
     // Check database connection
     if (mongoose.connection.readyState !== 1) {
       logger.warn('Database not connected during authentication', {

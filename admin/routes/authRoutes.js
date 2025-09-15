@@ -1,6 +1,7 @@
 import express from 'express';
 import { loginAdmin, logoutAdmin, checkAdminAuth } from '../controllers/auth/authController.js';
 import { requireAdminAuth, adminLoginLimiter } from '../middleware/adminAuth.js';
+import { requireAuth } from '../../middleware/auth.js';
 
 /**
  * Admin Authentication Routes
@@ -38,25 +39,25 @@ router.post('/login', adminLoginLimiter, loginAdmin);
 router.post('/logout', requireAdminAuth, logoutAdmin);
 
 /**
- * GET /api/admin-panel/auth/check
- * Check admin authentication status
+ * NAPRAWIONE: GET /api/admin-panel/auth/check
+ * Check admin authentication status - używa standardowego requireAuth
  * 
  * Response:
  * - Returns current admin user data if authenticated
  * - Returns 401 if not authenticated
  */
-router.get('/check', requireAdminAuth, checkAdminAuth);
+router.get('/check', requireAuth, checkAdminAuth);
 
 /**
- * GET /api/admin-panel/auth/me
- * Alias for auth check (common pattern)
+ * NAPRAWIONE: GET /api/admin-panel/auth/me
+ * Alias for auth check (common pattern) - używa standardowego requireAuth
  */
-router.get('/me', requireAdminAuth, checkAdminAuth);
+router.get('/me', requireAuth, checkAdminAuth);
 
 /**
- * GET /api/admin-panel/auth/session
- * Check admin session status (frontend compatibility)
+ * NAPRAWIONE: GET /api/admin-panel/auth/session
+ * Check admin session status (frontend compatibility) - używa standardowego requireAuth
  */
-router.get('/session', requireAdminAuth, checkAdminAuth);
+router.get('/session', requireAuth, checkAdminAuth);
 
 export default router;

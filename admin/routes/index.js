@@ -9,17 +9,8 @@ import cleanupRoutes from './cleanupRoutes.js';
 import { requireAuth } from '../../middleware/auth.js';
 import { adminApiLimiter } from '../middleware/adminAuth.js';
 
-// Simple admin role check middleware
-const requireAdminRole = (req, res, next) => {
-  if (!req.user || !['admin', 'moderator'].includes(req.user.role)) {
-    return res.status(403).json({
-      success: false,
-      error: 'Brak uprawnień administratora',
-      code: 'INSUFFICIENT_PRIVILEGES'
-    });
-  }
-  next();
-};
+// USUNIĘTE: requireAdminRole - sprawdzanie roli przeniesione do kontrolerów
+// Każdy kontroler sam sprawdza czy użytkownik ma odpowiednią rolę
 
 /**
  * Main Admin Routes Index
@@ -44,8 +35,18 @@ router.use((req, res, next) => {
 
 /**
  * API versioning and health check (protected)
+ * NAPRAWIONE: Tylko requireAuth - sprawdzanie roli w kontrolerze
  */
-router.get('/health', requireAuth, requireAdminRole, (req, res) => {
+router.get('/health', requireAuth, (req, res) => {
+  // Sprawdź rolę w kontrolerze
+  if (!req.user || !['admin', 'moderator'].includes(req.user.role)) {
+    return res.status(403).json({
+      success: false,
+      error: 'Brak uprawnień administratora',
+      code: 'INSUFFICIENT_PRIVILEGES'
+    });
+  }
+
   res.json({
     success: true,
     service: 'Admin Panel API',
@@ -54,7 +55,7 @@ router.get('/health', requireAuth, requireAdminRole, (req, res) => {
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || 'development',
     user: {
-      id: req.user._id,
+      id: req.user.userId || req.user._id,
       role: req.user.role,
       email: req.user.email
     }
@@ -70,26 +71,30 @@ router.use('/auth', authRoutes);
 /**
  * Dashboard routes (protected)
  * Dashboard statistics and data
+ * NAPRAWIONE: Przywrócono requireAuth
  */
-router.use('/dashboard', requireAuth, requireAdminRole, dashboardRoutes);
+router.use('/dashboard', requireAuth, dashboardRoutes);
 
 /**
  * User management routes (protected)
  * All user-related admin operations
+ * NAPRAWIONE: Tylko requireAuth - sprawdzanie roli w kontrolerach
  */
-router.use('/users', requireAuth, requireAdminRole, userRoutes);
+router.use('/users', requireAuth, userRoutes);
 
 /**
  * Listing management routes (protected)
  * All listing-related admin operations
+ * NAPRAWIONE: Tylko requireAuth - sprawdzanie roli w kontrolerach
  */
-router.use('/listings', requireAuth, requireAdminRole, listingRoutes);
+router.use('/listings', requireAuth, listingRoutes);
 
 /**
  * Report management routes (protected)
  * All report-related admin operations
+ * NAPRAWIONE: Tylko requireAuth - sprawdzanie roli w kontrolerach
  */
-router.use('/reports', requireAuth, requireAdminRole, reportRoutes);
+router.use('/reports', requireAuth, reportRoutes);
 
 /**
  * Promotion management routes (protected)

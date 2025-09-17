@@ -197,7 +197,7 @@ export const sendVerificationCode = async (req, res) => {
     // ===== TRYB SYMULACJI WERYFIKACJI (MOCK/DEV MODE) =====
     // Generate verification code - use fixed code "123456" in mock mode
     const MOCK_MODE = process.env.NODE_ENV !== 'production';
-    const code = MOCK_MODE ? '123456' : Math.floor(100000 + Math.random() * 900000).toString();
+    const code = MOCK_MODE ? '123456' : require('crypto').randomInt(100000, 999999).toString();
     
     // Zapisz kod w bazie danych
     user.twoFACode = code;
@@ -362,7 +362,7 @@ export const send2FACode = async (req, res) => {
     // ===== TRYB SYMULACJI WERYFIKACJI (MOCK/DEV MODE) =====
     // Generate verification code - use fixed code "123456" in mock mode
     const MOCK_MODE = process.env.NODE_ENV !== 'production';
-    const code = MOCK_MODE ? '123456' : Math.floor(100000 + Math.random() * 900000).toString();
+    const code = MOCK_MODE ? '123456' : require('crypto').randomInt(100000, 999999).toString();
     console.log(`Wygenerowano kod: ${code} dla ${phone || email}`);
 
     // Znajdź użytkownika

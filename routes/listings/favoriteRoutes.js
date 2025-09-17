@@ -127,13 +127,14 @@ router.post('/add/:id', auth, async (req, res) => {
       // Nie przerywamy głównego procesu w przypadku błędu powiadomienia
     }
     
-    // Aktualizuj licznik ulubionych w ogłoszeniu
+    // Aktualizuj licznik ulubionych i akcji ulubionych w ogłoszeniu
     try {
       ad.favorites = (ad.favorites || 0) + 1;
+      ad.favoriteActions = (ad.favoriteActions || 0) + 1;
       await ad.save();
-      console.log('Zaktualizowano licznik ulubionych dla ogłoszenia:', ad._id, 'nowa wartość:', ad.favorites);
+      console.log('Zaktualizowano liczniki dla ogłoszenia:', ad._id, 'ulubione:', ad.favorites, 'akcje:', ad.favoriteActions);
     } catch (updateAdError) {
-      console.error('Błąd podczas aktualizacji licznika ulubionych w ogłoszeniu:', updateAdError);
+      console.error('Błąd podczas aktualizacji liczników ulubionych w ogłoszeniu:', updateAdError);
       // Nie przerywamy głównego procesu w przypadku błędu aktualizacji licznika
     }
     
@@ -190,16 +191,17 @@ router.delete('/remove/:id', auth, async (req, res) => {
       return res.status(500).json({ message: 'Błąd podczas aktualizacji ulubionych', error: saveError.message });
     }
     
-    // Aktualizuj licznik ulubionych w ogłoszeniu
+    // Aktualizuj licznik ulubionych i akcji ulubionych w ogłoszeniu
     try {
       const ad = await Ad.findById(adId);
       if (ad) {
         ad.favorites = Math.max((ad.favorites || 0) - 1, 0);
+        ad.favoriteActions = (ad.favoriteActions || 0) + 1;
         await ad.save();
-        console.log('Zaktualizowano licznik ulubionych dla ogłoszenia:', ad._id, 'nowa wartość:', ad.favorites);
+        console.log('Zaktualizowano liczniki dla ogłoszenia:', ad._id, 'ulubione:', ad.favorites, 'akcje:', ad.favoriteActions);
       }
     } catch (updateAdError) {
-      console.error('Błąd podczas aktualizacji licznika ulubionych w ogłoszeniu:', updateAdError);
+      console.error('Błąd podczas aktualizacji liczników ulubionych w ogłoszeniu:', updateAdError);
       // Nie przerywamy głównego procesu w przypadku błędu aktualizacji licznika
     }
     

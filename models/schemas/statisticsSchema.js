@@ -13,6 +13,11 @@ const statisticsSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  favoriteActions: {
+    type: Number,
+    default: 0,
+    description: 'Licznik wszystkich akcji dodawania/usuwania z ulubionych'
+  },
   messages: {
     type: Number,
     default: 0

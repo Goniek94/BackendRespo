@@ -24,6 +24,8 @@ import {
   verifyEmailCode
 } from '../../controllers/user/index.js';
 
+import { getUserDashboard } from '../../controllers/user/dashboardController.js';
+
 // Import Socket.IO auth routes
 import socketAuthRoutes from '../auth/socketAuth.js';
 
@@ -493,7 +495,7 @@ router.post('/send-sms-code', async (req, res) => {
     }
 
     // W trybie deweloperskim zawsze zwracamy kod "123456"
-    const smsVerificationCode = process.env.NODE_ENV !== 'production' ? '123456' : Math.floor(100000 + Math.random() * 900000).toString();
+    const smsVerificationCode = process.env.NODE_ENV !== 'production' ? '123456' : require('crypto').randomInt(100000, 999999).toString();
 
     // Send SMS - SYMULACJA W TRYBIE DEWELOPERSKIM
     if (process.env.NODE_ENV !== 'production') {
@@ -559,7 +561,7 @@ router.post('/resend-email-code', async (req, res) => {
     }
 
     // Generate new code
-    const emailVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const emailVerificationCode = require('crypto').randomInt(100000, 999999).toString();
     user.emailVerificationCode = emailVerificationCode;
     user.emailVerificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
     
@@ -624,7 +626,7 @@ router.post('/resend-sms-code', async (req, res) => {
     }
 
     // Generate new code - w trybie deweloperskim zawsze "123456"
-    const smsVerificationCode = process.env.NODE_ENV !== 'production' ? '123456' : Math.floor(100000 + Math.random() * 900000).toString();
+    const smsVerificationCode = process.env.NODE_ENV !== 'production' ? '123456' : require('crypto').randomInt(100000, 999999).toString();
     user.smsVerificationCode = smsVerificationCode;
     user.smsVerificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
     
@@ -684,6 +686,9 @@ router.post(
 
 // Pobranie profilu użytkownika
 router.get('/profile', auth, getUserProfile);
+
+// Pobranie danych dashboardu użytkownika
+router.get('/dashboard', auth, getUserDashboard);
 
 // Pobranie ostatnio oglądanych ogłoszeń użytkownika
 router.get('/recently-viewed', auth, getRecentlyViewed);

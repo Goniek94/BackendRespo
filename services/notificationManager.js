@@ -330,7 +330,7 @@ class NotificationManager {
     const now = Date.now();
     const history = this.notificationHistory.get(hash);
     if (!history) return false;
-    return (now - history.timestamp) < 5 * 60 * 1000; // 5 minut
+    return (now - history.timestamp) < 2 * 60 * 1000; // 2 minuty - krótszy czas dla lepszej deduplikacji
   }
 
   addToHistory(hash) {

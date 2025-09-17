@@ -2,6 +2,7 @@ import express from 'express';
 import {
   getUsers,
   getUserById,
+  createUser,
   updateUser,
   toggleUserBlock,
   deleteUser,
@@ -87,6 +88,20 @@ router.get('/export',
   validateExportQuery,
   logAdminActivity('users_data_exported'),
   exportUsers
+);
+
+/**
+ * POST /admin/users
+ * Create new user
+ * Permissions: admin only
+ */
+router.post('/',
+  requireAdminRole(['admin']),
+  sanitizeUserInput,
+  validateUserUpdate, // Reuse validation for user creation
+  validateBusinessRules,
+  logAdminActivity('user_created'),
+  createUser
 );
 
 /**

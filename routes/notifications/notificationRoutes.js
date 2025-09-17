@@ -326,45 +326,50 @@ router.get('/unread-count', auth, async (req, res) => {
   try {
     const userId = req.user.userId;
     
-    // Pobierz wszystkie nieprzeczytane powiadomienia
-    const unreadNotifications = await Notification.find({ 
+    // Pobierz wszystkie nieprzeczytane powiadomienia (włącznie z powiadomieniami o wiadomościach)
+    const allUnreadNotifications = await Notification.countDocuments({ 
       user: userId, 
       isRead: false 
-    }).select('type');
-    
-    // Podziel na kategorie
-    let messageCount = 0;
-    let notificationCount = 0;
-    
-    unreadNotifications.forEach(notification => {
-      if (notification.type === 'new_message') {
-        messageCount++;
-      } else {
-        notificationCount++;
-      }
     });
     
-    // Dodatkowo pobierz nieprzeczytane wiadomości z modelu Message
+    // Pobierz rzeczywiste nieprzeczytane wiadomości z modelu Message
+    // Tylko te w skrzynce odbiorczej (nie usunięte, nie w archiwum, nie drafty)
     const Message = (await import('../../models/communication/message.js')).default;
     const unreadMessages = await Message.countDocuments({
-      recipient: userId,
-      read: false,
-      deletedBy: { $ne: userId }
+      recipient: userId,        // Użytkownik jest odbiorcą
+      read: false,             // Nieprzeczytane
+      deletedBy: { $ne: userId }, // Nie usunięte przez użytkownika
+      archived: { $ne: true }, // Nie w archiwum
+      draft: { $ne: true },    // Nie drafty
+      unsent: { $ne: true }    // Nie cofnięte
     });
     
-    // Użyj większej wartości (powiadomienia vs rzeczywiste wiadomości)
-    const finalMessageCount = Math.max(messageCount, unreadMessages);
+    // LICZNIK WIADOMOŚCI = tylko rzeczywiste nieprzeczytane wiadomości w skrzynce
+    const messageCount = unreadMessages;
     
-    const totalUnread = finalMessageCount + notificationCount;
+    // LICZNIK POWIADOMIEŃ = wszystkie nieprzeczytane powiadomienia (włącznie z powiadomieniami o wiadomościach)
+    const notificationCount = allUnreadNotifications;
+    
+    // Całkowita liczba nieprzeczytanych elementów
+    const totalUnread = messageCount + notificationCount;
+    
+    console.log(`📊 Rozdzielone liczniki dla użytkownika ${userId}:`, {
+      realMessages: unreadMessages,
+      allNotifications: allUnreadNotifications,
+      messageCount,
+      notificationCount,
+      totalUnread,
+      note: 'Liczniki są teraz rozdzielone - wiadomości to tylko rzeczywiste wiadomości, powiadomienia to wszystkie powiadomienia'
+    });
     
     res.status(200).json({ 
       unreadCount: totalUnread,
-      messages: finalMessageCount,
-      notifications: notificationCount,
+      messages: messageCount,        // Tylko rzeczywiste wiadomości
+      notifications: notificationCount, // Wszystkie powiadomienia
       breakdown: {
-        messageNotifications: messageCount,
-        actualMessages: unreadMessages,
-        otherNotifications: notificationCount
+        realMessages: unreadMessages,
+        allNotifications: allUnreadNotifications,
+        separated: true
       }
     });
   } catch (err) {
@@ -452,6 +457,65 @@ router.delete('/:id', auth, async (req, res) => {
     }
     
     res.status(500).json({ message: 'Błąd serwera', error: err.message });
+  }
+});
+
+/**
+ * @route POST /api/notifications/send
+ * @desc Wysyłanie nowego powiadomienia
+ * @access Private
+ */
+router.post('/send', auth, async (req, res) => {
+  try {
+    const { type, recipientId, title, message, relatedId, actionUrl } = req.body;
+    
+    if (!type || !recipientId || !title || !message) {
+      return res.status(400).json({
+        success: false,
+        message: 'Brak wymaganych pól: type, recipientId, title, message'
+      });
+    }
+    
+    // Utwórz powiadomienie używając notificationManager
+    const notification = await notificationManager.createNotification(
+      recipientId,
+      title,
+      message,
+      type,
+      { 
+        relatedId,
+        actionUrl,
+        senderId: req.user.userId
+      }
+    );
+    
+    if (!notification) {
+      return res.status(500).json({
+        success: false,
+        message: 'Nie udało się utworzyć powiadomienia'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Powiadomienie wysłane pomyślnie',
+      data: {
+        notification: {
+          id: notification._id,
+          title: notification.title,
+          message: notification.message,
+          type: notification.type,
+          metadata: notification.metadata,
+          createdAt: notification.createdAt
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error sending notification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Błąd podczas wysyłania powiadomienia'
+    });
   }
 });
 

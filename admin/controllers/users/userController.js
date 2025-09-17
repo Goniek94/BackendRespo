@@ -110,6 +110,88 @@ export const getUserById = async (req, res) => {
 };
 
 /**
+ * Create new user
+ * POST /admin/users
+ */
+export const createUser = async (req, res) => {
+  try {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        code: 'VALIDATION_ERROR',
+        details: errors.array()
+      });
+    }
+
+    const userData = req.body;
+    const adminId = req.user._id;
+
+    // Import User model directly
+    const User = (await import('../../../models/user/user.js')).default;
+
+    // Check if user with this email already exists
+    const existingUser = await User.findOne({ email: userData.email });
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        error: 'User with this email already exists',
+        code: 'USER_ALREADY_EXISTS'
+      });
+    }
+
+    // Create new user
+    const newUser = new User({
+      name: userData.name,
+      email: userData.email,
+      role: userData.role || 'user',
+      status: userData.status || 'active',
+      isVerified: userData.isVerified || false,
+      phone: userData.phone || '',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    // If password is provided, hash it
+    if (userData.password) {
+      const bcrypt = await import('bcrypt');
+      newUser.password = await bcrypt.hash(userData.password, 12);
+    }
+
+    const savedUser = await newUser.save();
+
+    // Remove password from response
+    const userResponse = savedUser.toObject();
+    delete userResponse.password;
+
+    res.status(201).json({
+      success: true,
+      data: userResponse,
+      message: 'User created successfully'
+    });
+  } catch (error) {
+    console.error('Create user error:', error);
+    
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        error: 'User with this email already exists',
+        code: 'DUPLICATE_EMAIL'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create user',
+      code: 'CREATE_USER_FAILED',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
  * Update user information
  * PUT /admin/users/:id
  */
@@ -391,43 +473,11 @@ export const bulkUpdateUsers = async (req, res) => {
  */
 export const getUserAnalytics = async (req, res) => {
   try {
-    // Import User model directly to avoid service complications
-    const User = (await import('../../../models/user/user.js')).default;
-
-    // Simple direct queries to database
-    const total = await User.countDocuments();
-    const verified = await User.countDocuments({ 
-      $or: [
-        { isVerified: true },
-        { emailVerified: true },
-        { isEmailVerified: true }
-      ]
-    });
-    const inactive = await User.countDocuments({ 
-      $or: [
-        { status: 'inactive' },
-        { status: 'pending' },
-        { registrationStep: { $lt: 5 } }
-      ]
-    });
-    const blocked = await User.countDocuments({ 
-      $or: [
-        { status: 'blocked' },
-        { status: 'suspended' }
-      ]
-    });
-
-    // Return exactly what frontend expects
-    const analytics = {
-      total,
-      verified,
-      inactive,
-      blocked
-    };
+    const result = await userService.getUserAnalytics(req.query);
 
     res.json({
       success: true,
-      data: analytics,
+      data: result,
       message: 'User analytics retrieved successfully'
     });
   } catch (error) {

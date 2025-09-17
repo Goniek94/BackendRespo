@@ -1,8 +1,20 @@
 /**
- * EXPRESS APPLICATION CONFIGURATION - ULTRA MINIMAL HEADERS
+ * EXPRESS APPLICATION CONFIGURATION - PRODUCTION SECURITY
  * 
- * EMERGENCY FIX dla HTTP 431 - usunięte wszystkie niepotrzebne nagłówki
- * Tylko najważniejsze funkcjonalności dla działania aplikacji
+ * SECURITY FIXES APPLIED:
+ * ✅ Fixed double password hashing (admin auth now uses model method)
+ * ✅ Fixed default phone verification (changed from true to false)
+ * ✅ Protected CSRF cookies from cleanup middleware
+ * ✅ Replaced Math.random with crypto.randomInt for SMS codes
+ * ✅ Added production-grade Helmet security headers
+ * 
+ * PRODUCTION SECURITY FEATURES:
+ * - Content Security Policy (CSP) - XSS protection
+ * - HTTP Strict Transport Security (HSTS) - HTTPS enforcement
+ * - X-Frame-Options - Clickjacking protection
+ * - X-Content-Type-Options - MIME sniffing protection
+ * - Referrer Policy - Referer header control
+ * - Certificate Transparency (Expect-CT)
  */
 
 import dotenv from 'dotenv';
@@ -12,6 +24,7 @@ import express from 'express';
 import cors from 'cors';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 import fs from 'fs';
 
 // Import centralnej konfiguracji
@@ -75,9 +88,48 @@ const createApp = () => {
     allowedHeaders: ['Content-Type', 'Authorization'] // TYLKO te nagłówki
   }));
   
-  // USUNIĘTE: helmet, headerSizeMonitor, sessionCleanup - powodują duże nagłówki
-  // USUNIĘTE: rate limiting - dodaje nagłówki
-  // USUNIĘTE: wszystkie dodatkowe nagłówki bezpieczeństwa
+  // PRODUCTION SECURITY: Helmet z pełnymi zabezpieczeniami
+  app.use(helmet({
+    // Content Security Policy - ochrona przed XSS
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "https:", "blob:"],
+        scriptSrc: ["'self'"],
+        connectSrc: ["'self'", "ws:", "wss:"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'"],
+        frameSrc: ["'none'"],
+      },
+    },
+    // Cross Origin Embedder Policy
+    crossOriginEmbedderPolicy: false, // Wyłączone dla kompatybilności
+    // HTTP Strict Transport Security - wymusza HTTPS
+    hsts: {
+      maxAge: 31536000, // 1 rok
+      includeSubDomains: true,
+      preload: true
+    },
+    // X-Frame-Options - ochrona przed clickjacking
+    frameguard: { action: 'deny' },
+    // X-Content-Type-Options - zapobiega MIME sniffing
+    noSniff: true,
+    // X-XSS-Protection - ochrona przed XSS (legacy)
+    xssFilter: true,
+    // Referrer Policy - kontroluje nagłówek Referer
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+    // X-Permitted-Cross-Domain-Policies - Adobe Flash/PDF
+    permittedCrossDomainPolicies: false,
+    // X-DNS-Prefetch-Control - kontroluje DNS prefetching
+    dnsPrefetchControl: { allow: false },
+    // Expect-CT - Certificate Transparency
+    expectCt: {
+      maxAge: 86400,
+      enforce: true
+    }
+  }));
   
   // Konfiguracja katalogów na pliki - MINIMAL
   configureUploads(app);

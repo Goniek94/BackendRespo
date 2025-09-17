@@ -49,12 +49,12 @@ const userSchema = new mongoose.Schema({
   },
   isPhoneVerified: {
     type: Boolean,
-    default: true  // Zmienione na true - standardowa rejestracja oznacza weryfikację
+    default: false  // SECURITY FIX: Phone must be verified, not default true
   },
   // Dodane pole dla kompatybilności z frontendem
   phoneVerified: {
     type: Boolean,
-    default: true  // Zmienione na true - standardowa rejestracja oznacza weryfikację
+    default: false  // SECURITY FIX: Phone must be verified, not default true
   },
   password: {
     type: String,

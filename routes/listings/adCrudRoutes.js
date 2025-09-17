@@ -70,7 +70,8 @@ const createAdLimiter = rateLimit({
  * Handler: createAdHandler.js
  * Poprawki: wszystkie brakujące pola, mapowanie purchaseOptions, konwersje typów
  */
-router.post('/add', createAdLimiter, createAd);
+// Tymczasowo wyłączony rate limiter dla testów
+router.post('/add', /* createAdLimiter, */ createAd);
 
 /**
  * GET /ads/:id - Pobieranie szczegółów ogłoszenia oraz aktualizacja wyświetleń

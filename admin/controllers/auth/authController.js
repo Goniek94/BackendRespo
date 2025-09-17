@@ -93,8 +93,8 @@ export const loginAdmin = async (req, res) => {
       });
     }
 
-    // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    // Verify password using model method (avoids double hashing)
+    const isPasswordValid = await user.comparePassword(password);
 
     if (!isPasswordValid) {
       // Increment failed attempts

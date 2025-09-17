@@ -72,7 +72,7 @@ class UserService {
 
     try {
       // Execute queries in parallel for better performance
-      const [users, totalCount] = await Promise.all([
+      const [rawUsers, totalCount] = await Promise.all([
         User.find(query)
           .select('-password -__v')
           .sort(sortOptions)
@@ -81,6 +81,18 @@ class UserService {
           .lean(),
         User.countDocuments(query)
       ]);
+
+      // Map MongoDB fields to frontend-expected fields
+      const users = rawUsers.map(user => ({
+        ...user,
+        id: user._id.toString(),
+        phone: user.phoneNumber || '',
+        verified: user.isVerified || false,
+        listings_count: 0, // TODO: Add actual count from listings collection
+        last_active: user.lastActivity || user.lastLogin,
+        created_at: user.createdAt,
+        updated_at: user.updatedAt
+      }));
 
       // Calculate pagination metadata
       const totalPages = Math.ceil(totalCount / limit);

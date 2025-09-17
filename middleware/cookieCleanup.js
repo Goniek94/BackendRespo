@@ -55,9 +55,10 @@ const COOKIES_TO_REMOVE = [
   '_utm_content',
   
   // Other common cookies
-  'csrf_token',
-  'xsrf_token',
-  '_csrf',
+  // SECURITY FIX: Removed CSRF cookies from cleanup to preserve CSRF protection
+  // 'csrf_token',
+  // 'xsrf_token', 
+  // '_csrf',
   'remember_token',
   'user_preferences',
   'theme',
@@ -152,8 +153,9 @@ const shouldRemoveCookie = (cookieName) => {
     /^_fb/,             // Facebook tracking
     /^gtm_/,            // Google Tag Manager
     /session/i,         // Session cookies
-    /csrf/i,            // CSRF tokens
-    /xsrf/i,            // XSRF tokens
+    // SECURITY FIX: Removed CSRF patterns to preserve CSRF protection
+    // /csrf/i,            // CSRF tokens
+    // /xsrf/i,            // XSRF tokens
     /tracking/i,        // Tracking cookies
     /analytics/i,       // Analytics cookies
     /advertisement/i,   // Advertisement cookies

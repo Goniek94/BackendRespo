@@ -5,6 +5,7 @@ import AdminActivity from '../models/AdminActivity.js';
 import { isBlacklisted } from '../../models/security/TokenBlacklist.js';
 import logger from '../../utils/logger.js';
 import { refreshUserSession } from '../../middleware/auth.js';
+import { generateSecureToken } from '../../utils/securityTokens.js';
 
 /**
  * Professional Admin Authentication Middleware
@@ -319,7 +320,7 @@ export const requireAdminAuth = async (req, res, next) => {
             ipAddress: req.ip,
             userAgent: req.get('User-Agent'),
             sessionId: sessionId,
-            requestId: req.id || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+            requestId: req.id || `req_${Date.now()}_${generateSecureToken(9)}`
           },
           result: {
             status: 'success',
@@ -438,7 +439,7 @@ export const logAdminActivity = (actionType) => {
               ipAddress: req.ip,
               userAgent: req.get('User-Agent'),
               sessionId: req.sessionId,
-              requestId: req.id || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+              requestId: req.id || `req_${Date.now()}_${generateSecureToken(9)}`
             },
             result: {
               status: isSuccess ? 'success' : 'failure',

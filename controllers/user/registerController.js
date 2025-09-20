@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { validationResult } from 'express-validator';
 import User from '../../models/user/user.js';
 import logger from '../../utils/logger.js';
+import { generateEmailVerificationToken, generateSecureCode } from '../../utils/securityTokens.js';
 
 /**
  * REGISTER CONTROLLER
@@ -113,9 +114,9 @@ export const registerUser = async (req, res) => {
     const saltRounds = 12;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Generate unique verification token for email
-    const emailVerificationToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
-    const smsVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate secure verification tokens using cryptographic functions
+    const emailVerificationToken = generateEmailVerificationToken();
+    const smsVerificationCode = generateSecureCode(6);
 
     // Create new user with email verification required
     const newUser = new User({
@@ -137,12 +138,12 @@ export const registerUser = async (req, res) => {
       smsVerificationCode: smsVerificationCode,
       smsVerificationCodeExpires: new Date(Date.now() + 10 * 60 * 1000),
       
-      // Verification status - email not verified by default
+      // Verification status - both email and phone require verification
       isEmailVerified: false,
       emailVerified: false,
-      isPhoneVerified: true, // Phone verification can be skipped for now
-      phoneVerified: true,
-      isVerified: false, // User is not fully verified until email is confirmed
+      isPhoneVerified: false, // Phone verification required for security
+      phoneVerified: false,
+      isVerified: false, // User is not fully verified until both email and phone are confirmed
       
       role: 'user',
       status: 'active',

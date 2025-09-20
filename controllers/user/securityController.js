@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { validationResult } from 'express-validator';
 import User from '../../models/user/user.js';
 import logger from '../../utils/logger.js';
+import { generatePasswordResetToken } from '../../utils/securityTokens.js';
 
 /**
  * SECURITY CONTROLLER
@@ -62,9 +63,7 @@ export const requestPasswordReset = async (req, res) => {
     }
 
     // Generate reset token
-    const resetToken = Math.random().toString(36).substring(2, 15) + 
-                      Math.random().toString(36).substring(2, 15) + 
-                      Date.now().toString(36);
+    const resetToken = generatePasswordResetToken();
 
     // Set reset token and expiration (1 hour)
     user.passwordResetToken = resetToken;

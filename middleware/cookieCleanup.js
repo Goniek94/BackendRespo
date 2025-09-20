@@ -6,24 +6,41 @@
 import logger from '../utils/logger.js';
 
 /**
- * Lista dozwolonych cookies - tylko niezbędne dla działania aplikacji
- * EMERGENCY FIX: Tylko jeden zestaw tokenów, żeby wyeliminować duplikaty
+ * Lista dozwolonych cookies - WSZYSTKIE niezbędne tokeny uwierzytelniania
+ * FIXED: Dodano wszystkie tokeny używane w aplikacji
  */
 const ALLOWED_COOKIES = [
-  'token',        // access token - TYLKO JEDEN
-  'refreshToken'  // refresh token - TYLKO JEDEN
-  // USUNIĘTE: admin_token, admin_refreshToken - powodują duplikaty
-  // USUNIĘTE: at, rt - powodują duplikaty
+  // Główne tokeny użytkowników
+  'token',              // access token
+  'refreshToken',       // refresh token
+  
+  // Tokeny administratorów
+  'admin_token',        // admin access token
+  'admin_refreshToken', // admin refresh token
+  
+  // Skrócone nazwy (kompatybilność wsteczna)
+  'at',                 // short access token
+  'rt',                 // short refresh token
+  
+  // Tokeny bezpieczeństwa
+  'csrf_token',         // CSRF protection
+  'xsrf_token',         // XSRF protection
+  '_csrf',              // Alternative CSRF
+  
+  // Sesje i bezpieczeństwo
+  'session_id',         // Session identifier
+  'remember_token'      // Remember me functionality
 ];
 
 /**
- * EMERGENCY: Lista duplikatów tokenów do natychmiastowego usunięcia
+ * REMOVED: Nie usuwamy już żadnych tokenów uwierzytelniania jako duplikaty
+ * Wszystkie tokeny auth są teraz chronione w ALLOWED_COOKIES
  */
-const DUPLICATE_TOKENS_TO_REMOVE = [
-  'admin_token',
-  'admin_refreshToken', 
-  'at',
-  'rt'
+const LEGACY_TOKENS_TO_MONITOR = [
+  // Monitorujemy ale nie usuwamy - mogą być potrzebne
+  'old_token',
+  'legacy_auth',
+  'temp_token'
 ];
 
 /**
@@ -79,24 +96,16 @@ export const cookieCleanupMiddleware = (req, res, next) => {
     const cookies = req.cookies || {};
     const cookieNames = Object.keys(cookies);
     
-    // EMERGENCY: Natychmiast usuń duplikaty tokenów
-    const duplicateTokens = cookieNames.filter(name => 
-      DUPLICATE_TOKENS_TO_REMOVE.includes(name)
+    // FIXED: Nie usuwamy już tokenów uwierzytelniania jako duplikaty
+    // Monitorujemy legacy tokeny ale ich nie usuwamy automatycznie
+    const legacyTokens = cookieNames.filter(name => 
+      LEGACY_TOKENS_TO_MONITOR.includes(name)
     );
     
-    if (duplicateTokens.length > 0) {
-      console.log(`🚨 EMERGENCY: Removing duplicate tokens: ${duplicateTokens.join(', ')}`);
-      
-      duplicateTokens.forEach(cookieName => {
-        res.clearCookie(cookieName, { path: '/' });
-        res.clearCookie(cookieName, { path: '/admin' });
-        res.clearCookie(cookieName, { 
-          path: '/',
-          domain: process.env.NODE_ENV === 'production' ? '.autosell.pl' : undefined,
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax'
-        });
+    if (legacyTokens.length > 0) {
+      logger.info('Legacy tokens detected (monitoring only)', {
+        tokens: legacyTokens,
+        endpoint: req.originalUrl
       });
     }
     
@@ -125,12 +134,15 @@ export const cookieCleanupMiddleware = (req, res, next) => {
       });
     }
     
-    // Loguj rozmiar cookies dla monitorowania
+    // FIXED: Zwiększony próg cookies z 1KB do 4KB (rozsądny limit)
     const cookieHeader = req.headers.cookie;
-    if (cookieHeader && cookieHeader.length > 1024) { // Obniżony próg do 1KB
-      console.warn(`⚠️  Large cookie header: ${cookieHeader.length} bytes`);
-      console.warn(`   Cookies: ${cookieNames.join(', ')}`);
-      console.warn(`   URL: ${req.originalUrl}`);
+    if (cookieHeader && cookieHeader.length > 4096) { // Zwiększony próg do 4KB
+      logger.warn('Large cookie header detected', {
+        size: cookieHeader.length,
+        cookies: cookieNames,
+        url: req.originalUrl,
+        threshold: '4KB'
+      });
     }
     
     next();
@@ -221,13 +233,20 @@ export const cookieSizeMonitor = (req, res, next) => {
       const cookies = req.cookies || {};
       const cookieCount = Object.keys(cookies).length;
       
-      // Loguj informacje o cookies
+      // FIXED: Zwiększony próg monitorowania cookies
       if (process.env.NODE_ENV === 'development') {
-        console.log(`🍪 Cookies: ${cookieCount} items, ${cookieSize} bytes`);
+        logger.debug('Cookie monitoring', {
+          count: cookieCount,
+          size: cookieSize,
+          cookies: Object.keys(cookies)
+        });
         
-        if (cookieSize > 4096) { // 4KB warning
-          console.warn(`⚠️  Large cookies: ${cookieSize} bytes`);
-          console.warn('   Cookie names:', Object.keys(cookies));
+        if (cookieSize > 4096) { // 4KB warning (zwiększony z 1KB)
+          logger.warn('Large cookies detected', {
+            size: cookieSize,
+            threshold: '4KB',
+            cookies: Object.keys(cookies)
+          });
         }
       }
       

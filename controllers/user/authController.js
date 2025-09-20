@@ -9,6 +9,11 @@ import {
   clearAuthCookies 
 } from '../../middleware/auth.js';
 import logger from '../../utils/logger.js';
+import { 
+  generateEmailVerificationToken, 
+  generateSecureCode, 
+  generatePasswordResetToken 
+} from '../../utils/securityTokens.js';
 
 /**
  * ENTERPRISE-LEVEL AUTH CONTROLLER
@@ -125,9 +130,9 @@ export const registerUser = async (req, res) => {
     const saltRounds = 12;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Generate unique verification token for email
-    const emailVerificationToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
-    const smsVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate secure verification tokens using cryptographic functions
+    const emailVerificationToken = generateEmailVerificationToken();
+    const smsVerificationCode = generateSecureCode(6);
 
     // Create new user with email verification required
     const newUser = new User({
@@ -672,10 +677,8 @@ export const requestPasswordReset = async (req, res) => {
       });
     }
 
-    // Generate reset token
-    const resetToken = Math.random().toString(36).substring(2, 15) + 
-                      Math.random().toString(36).substring(2, 15) + 
-                      Date.now().toString(36);
+    // Generate secure reset token using cryptographic functions
+    const resetToken = generatePasswordResetToken();
 
     // Set reset token and expiration (1 hour)
     user.passwordResetToken = resetToken;

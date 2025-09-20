@@ -2,10 +2,13 @@
  * Professional Admin Utility Functions
  * Helper functions for common admin panel operations
  * Features: Data formatting, validation, security, performance
+ * UPDATED: Secure token generation using cryptographic functions
  * 
  * @author Senior Developer
- * @version 1.0.0
+ * @version 1.1.0
  */
+
+import { generateSessionId, generateSecurePassword } from '../../utils/securityTokens.js';
 
 /**
  * Format user data for admin display
@@ -36,11 +39,8 @@ export const formatUserForAdmin = (user) => {
  * Generate secure admin session ID
  * @returns {string} Unique session identifier
  */
-export const generateSessionId = () => {
-  const timestamp = Date.now().toString(36);
-  const randomPart = Math.random().toString(36).substring(2, 15);
-  const randomPart2 = Math.random().toString(36).substring(2, 15);
-  return `admin_${timestamp}_${randomPart}${randomPart2}`;
+export const generateAdminSessionId = () => {
+  return generateSessionId();
 };
 
 /**
@@ -187,19 +187,12 @@ export const isValidPolishPhone = (phone) => {
 };
 
 /**
- * Generate random password
+ * Generate cryptographically secure random password
  * @param {number} length - Password length (default: 12)
- * @returns {string} Random password
+ * @returns {string} Cryptographically secure random password
  */
 export const generateRandomPassword = (length = 12) => {
-  const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
-  let password = '';
-  
-  for (let i = 0; i < length; i++) {
-    password += charset.charAt(Math.floor(Math.random() * charset.length));
-  }
-  
-  return password;
+  return generateSecurePassword(length);
 };
 
 /**

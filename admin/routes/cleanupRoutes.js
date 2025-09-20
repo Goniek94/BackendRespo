@@ -1,17 +1,20 @@
 import express from 'express';
 import { clearAuthCookies } from '../../config/cookieConfig.js';
 import logger from '../../utils/logger.js';
+import { requireAdminAuth } from '../middleware/adminAuth.js';
 
 const router = express.Router();
 
 /**
  * @route GET /api/admin-panel/clear-cookies
  * @desc Clear all authentication cookies to fix HTTP 431 errors (GET method)
- * @access Public (no auth required for cleanup)
+ * @access Admin only (SECURED)
  */
-router.get('/clear-cookies', (req, res) => {
+router.get('/clear-cookies', requireAdminAuth, (req, res) => {
   try {
-    logger.info('Cookie cleanup requested via GET', {
+    logger.info('Admin cookie cleanup requested via GET', {
+      adminId: req.user?.id,
+      adminRole: req.user?.role,
       ip: req.ip,
       userAgent: req.get('User-Agent'),
       timestamp: new Date().toISOString()
@@ -53,8 +56,12 @@ router.get('/clear-cookies', (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'All cookies cleared successfully via GET',
+      message: 'Admin cookies cleared successfully via GET',
       method: 'GET',
+      admin: {
+        id: req.user?.id,
+        role: req.user?.role
+      },
       timestamp: new Date().toISOString(),
       instructions: [
         'Refresh the page',
@@ -64,9 +71,10 @@ router.get('/clear-cookies', (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Cookie cleanup failed via GET', {
+    logger.error('Admin cookie cleanup failed via GET', {
       error: error.message,
       stack: error.stack,
+      adminId: req.user?.id,
       ip: req.ip
     });
 
@@ -82,12 +90,13 @@ router.get('/clear-cookies', (req, res) => {
 /**
  * @route POST /api/admin-panel/clear-cookies
  * @desc Clear all authentication cookies to fix HTTP 431 errors (POST method)
- * @access Public (no auth required for cleanup)
+ * @access Admin only (SECURED)
  */
-// Shared handler to clear cookies
 const clearCookiesHandler = (req, res) => {
   try {
-    logger.info('Cookie cleanup requested', {
+    logger.info('Admin cookie cleanup requested via POST', {
+      adminId: req.user?.id,
+      adminRole: req.user?.role,
       ip: req.ip,
       userAgent: req.get('User-Agent'),
       timestamp: new Date().toISOString()
@@ -129,7 +138,11 @@ const clearCookiesHandler = (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'All cookies cleared successfully',
+      message: 'Admin cookies cleared successfully',
+      admin: {
+        id: req.user?.id,
+        role: req.user?.role
+      },
       timestamp: new Date().toISOString(),
       instructions: [
         'Refresh the page',
@@ -139,9 +152,10 @@ const clearCookiesHandler = (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Cookie cleanup failed', {
+    logger.error('Admin cookie cleanup failed', {
       error: error.message,
       stack: error.stack,
+      adminId: req.user?.id,
       ip: req.ip
     });
 
@@ -153,18 +167,15 @@ const clearCookiesHandler = (req, res) => {
   }
 };
 
-// POST (primary) endpoint
-router.post('/clear-cookies', clearCookiesHandler);
-
-// GET alias for convenience (read-only environments, quick manual calls)
-router.get('/clear-cookies', clearCookiesHandler);
+// POST (primary) endpoint - SECURED
+router.post('/clear-cookies', requireAdminAuth, clearCookiesHandler);
 
 /**
  * @route POST /api/admin-panel/cleanup-session
  * @desc Advanced session cleanup for authenticated users
  * @access Admin only
  */
-router.post('/cleanup-session', (req, res) => {
+router.post('/cleanup-session', requireAdminAuth, (req, res) => {
   try {
     // This endpoint can be called by authenticated users to clean their session
     const userId = req.user?.id;
@@ -215,9 +226,9 @@ router.post('/cleanup-session', (req, res) => {
 /**
  * @route GET /api/admin-panel/session-info
  * @desc Get information about current session and cookies
- * @access Public
+ * @access Admin only (SECURED)
  */
-router.get('/session-info', (req, res) => {
+router.get('/session-info', requireAdminAuth, (req, res) => {
   try {
     const cookieHeader = req.headers.cookie;
     const cookiesSize = cookieHeader ? Buffer.byteLength(cookieHeader, 'utf8') : 0;
@@ -288,15 +299,20 @@ router.get('/session-info', (req, res) => {
 /**
  * @route POST /api/admin-panel/emergency-cleanup
  * @desc Emergency cleanup - usuwa wszystkie cookies i czyści nagłówki
- * @access Public (no auth required for emergency cleanup)
+ * @access Admin only (SECURED - was previously public, now protected)
  */
-router.post('/emergency-cleanup', (req, res) => {
+router.post('/emergency-cleanup', requireAdminAuth, (req, res) => {
   try {
-    logger.warn('EMERGENCY CLEANUP requested', {
+    logger.warn('🚨 EMERGENCY CLEANUP requested - ADMIN ACCESS', {
+      adminId: req.user?.id,
+      adminRole: req.user?.role,
       ip: req.ip,
       userAgent: req.get('User-Agent'),
       timestamp: new Date().toISOString(),
-      headers: Object.keys(req.headers)
+      headers: Object.keys(req.headers),
+      referer: req.get('Referer'),
+      xForwardedFor: req.get('X-Forwarded-For'),
+      warning: 'SECURED ENDPOINT - Admin authentication required'
     });
 
     // AGRESYWNE czyszczenie wszystkich możliwych cookies

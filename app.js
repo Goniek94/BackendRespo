@@ -48,25 +48,38 @@ const FRONTEND_URL = server.frontendUrl;
 const createApp = () => {
   const app = express();
   
-  // ZWIĘKSZONE LIMITY dla HTTP 431 fix
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ limit: '50mb', extended: true }));
+  // FIXED: Zwiększone limity dla HTTP 431 fix - rozsądne wartości produkcyjne
+  app.use(express.json({ 
+    limit: '50mb',
+    parameterLimit: 50000,  // Zwiększony limit parametrów
+    extended: true
+  }));
+  app.use(express.urlencoded({ 
+    limit: '50mb', 
+    extended: true,
+    parameterLimit: 50000   // Zwiększony limit parametrów
+  }));
   
-  // DEBUGGING nagłówków - monitorowanie rozmiaru
+  // FIXED: Zwiększone progi monitorowania nagłówków
   app.use((req, res, next) => {
     const headerSize = JSON.stringify(req.headers).length;
     const cookieSize = req.headers.cookie?.length || 0;
     
-    if (headerSize > 8192) { // 8KB warning threshold
-      console.warn(`⚠️  Large headers detected: ${headerSize} bytes`);
-      console.warn(`   Cookie size: ${cookieSize} bytes`);
-      console.warn(`   URL: ${req.originalUrl}`);
+    // FIXED: Zwiększony próg z 8KB do 32KB (zgodnie z Node.js defaults)
+    if (headerSize > 32768) { // 32KB warning threshold
+      logger.warn('Large headers detected', {
+        headerSize: headerSize,
+        cookieSize: cookieSize,
+        url: req.originalUrl,
+        threshold: '32KB'
+      });
     }
     
-    // Dodaj nagłówek z informacją o rozmiarze (tylko development)
+    // Dodaj nagłówki informacyjne (tylko development)
     if (isDev) {
       res.setHeader('X-Header-Size', headerSize);
       res.setHeader('X-Cookie-Size', cookieSize);
+      res.setHeader('X-Header-Threshold', '32KB');
     }
     
     next();
@@ -80,12 +93,27 @@ const createApp = () => {
   app.use(cookieSizeMonitor);      // Monitoruje rozmiar cookies
   app.use(cookieCleanupMiddleware); // Usuwa niepotrzebne cookies
   
-  // MINIMAL CORS - tylko najważniejsze nagłówki
+  // FIXED: Rozszerzone CORS - dodano potrzebne nagłówki
   app.use(cors({
     origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5000'],
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization'] // TYLKO te nagłówki
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type', 
+      'Authorization',
+      'X-Requested-With',    // Potrzebne dla AJAX
+      'Accept',              // Potrzebne dla content negotiation
+      'Cache-Control',       // Potrzebne dla cache control
+      'X-CSRF-Token',        // Potrzebne dla CSRF protection
+      'X-Header-Size',       // Nasze custom nagłówki
+      'X-Cookie-Size'        // Nasze custom nagłówki
+    ],
+    exposedHeaders: [
+      'X-Total-Count',       // Potrzebne dla paginacji
+      'X-Header-Size',       // Nasze monitoring nagłówki
+      'X-Cookie-Size'        // Nasze monitoring nagłówki
+    ],
+    maxAge: 86400 // 24h cache dla preflight requests
   }));
   
   // PRODUCTION SECURITY: Helmet z pełnymi zabezpieczeniami

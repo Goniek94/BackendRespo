@@ -5,6 +5,7 @@ import { sendVerificationCode as sendTwilioCode, verifyCode as verifyTwilioCode 
 import { setSecureCookie } from '../../config/cookieConfig.js';
 import { generateAccessToken } from '../../middleware/auth.js';
 import logger from '../../utils/logger.js';
+import { generateSecureCode } from '../../utils/securityTokens.js';
 
 /**
  * SYMULACJA: Wysłanie linku weryfikacyjnego email
@@ -197,7 +198,7 @@ export const sendVerificationCode = async (req, res) => {
     // ===== TRYB SYMULACJI WERYFIKACJI (MOCK/DEV MODE) =====
     // Generate verification code - use fixed code "123456" in mock mode
     const MOCK_MODE = process.env.NODE_ENV !== 'production';
-    const code = MOCK_MODE ? '123456' : require('crypto').randomInt(100000, 999999).toString();
+    const code = MOCK_MODE ? '123456' : generateSecureCode(6);
     
     // Zapisz kod w bazie danych
     user.twoFACode = code;
@@ -362,7 +363,7 @@ export const send2FACode = async (req, res) => {
     // ===== TRYB SYMULACJI WERYFIKACJI (MOCK/DEV MODE) =====
     // Generate verification code - use fixed code "123456" in mock mode
     const MOCK_MODE = process.env.NODE_ENV !== 'production';
-    const code = MOCK_MODE ? '123456' : require('crypto').randomInt(100000, 999999).toString();
+    const code = MOCK_MODE ? '123456' : generateSecureCode(6);
     console.log(`Wygenerowano kod: ${code} dla ${phone || email}`);
 
     // Znajdź użytkownika

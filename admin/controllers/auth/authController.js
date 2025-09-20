@@ -9,6 +9,7 @@ import {
   setAuthCookies, 
   clearAuthCookies 
 } from '../../../middleware/auth.js';
+import { generateSessionId, generateAdminRequestId } from '../../../utils/securityTokens.js';
 
 /**
  * Admin Authentication Controller
@@ -151,13 +152,13 @@ export const loginAdmin = async (req, res) => {
     
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
-    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const sessionId = generateSessionId();
 
     // Set secure HttpOnly cookies - UŻYWA STANDARDOWYCH COOKIES
     setAuthCookies(res, accessToken, refreshToken);
 
-    // TYMCZASOWO WYŁĄCZONE: AdminActivity może powodować duże nagłówki
-    if (false) { // WYŁĄCZONE dla debugowania HTTP 431
+    // WŁĄCZONE: AdminActivity dla pełnego audytu bezpieczeństwa
+    try {
       await AdminActivity.create({
         adminId: user._id,
         actionType: 'login_attempt',
@@ -175,12 +176,18 @@ export const loginAdmin = async (req, res) => {
           ipAddress: req.ip,
           userAgent: req.get('User-Agent'),
           sessionId,
-          requestId: `login_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          requestId: generateAdminRequestId('login')
         },
         result: {
           status: 'success',
           message: 'Admin login successful'
         }
+      });
+    } catch (auditError) {
+      // Log audit error but don't fail login
+      logger.error('Failed to create admin activity log', {
+        error: auditError.message,
+        adminId: user._id
       });
     }
 
@@ -254,26 +261,34 @@ export const logoutAdmin = async (req, res) => {
     // Clear standard cookies - UŻYWA STANDARDOWYCH COOKIES
     clearAuthCookies(res);
 
-    // TYMCZASOWO WYŁĄCZONE: AdminActivity może powodować duże nagłówki
-    if (false && userId) { // WYŁĄCZONE dla debugowania HTTP 431
-      await AdminActivity.create({
-        adminId: userId,
-        actionType: 'logout',
-        targetResource: {
-          resourceType: 'system',
-          resourceIdentifier: 'admin_panel'
-        },
-        requestContext: {
-          ipAddress: req.ip,
-          userAgent: req.get('User-Agent'),
-          sessionId: req.sessionId,
-          requestId: `logout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-        },
-        result: {
-          status: 'success',
-          message: 'Admin logout successful'
-        }
-      });
+    // WŁĄCZONE: AdminActivity dla pełnego audytu bezpieczeństwa
+    if (userId) {
+      try {
+        await AdminActivity.create({
+          adminId: userId,
+          actionType: 'logout',
+          targetResource: {
+            resourceType: 'system',
+            resourceIdentifier: 'admin_panel'
+          },
+          requestContext: {
+            ipAddress: req.ip,
+            userAgent: req.get('User-Agent'),
+            sessionId: req.sessionId,
+            requestId: generateAdminRequestId('logout')
+          },
+          result: {
+            status: 'success',
+            message: 'Admin logout successful'
+          }
+        });
+      } catch (auditError) {
+        // Log audit error but don't fail logout
+        logger.error('Failed to create admin logout activity log', {
+          error: auditError.message,
+          adminId: userId
+        });
+      }
     }
 
     res.status(200).json({

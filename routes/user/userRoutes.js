@@ -322,8 +322,9 @@ router.post('/send-email-verification-link', async (req, res) => {
       });
     }
 
-    // Generate new verification token
-    const emailVerificationToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+    // Generate new verification token using secure method
+    const { generateEmailVerificationToken } = await import('../../utils/securityTokens.js');
+    const emailVerificationToken = generateEmailVerificationToken();
     user.emailVerificationToken = emailVerificationToken;
     user.emailVerificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
     

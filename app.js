@@ -8,6 +8,7 @@ import compression from "compression";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import fs from "fs";
+import mongoSanitize from "express-mongo-sanitize";
 
 import config from "./config/index.js";
 import logger from "./utils/logger.js";
@@ -16,6 +17,7 @@ import setupRoutes from "./routes/index.js";
 // narzędziowe middleware (Twoje)
 import headerSizeMonitor from "./middleware/headerSizeMonitor.js";
 import { cookieSizeMonitor } from "./middleware/cookieCleanup.js";
+import { apiLimiter } from "./middleware/rateLimiting.js";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -29,6 +31,14 @@ const createApp = () => {
   app.use(express.json({ limit: "1mb", strict: true }));
   app.use(
     express.urlencoded({ limit: "1mb", extended: true, parameterLimit: 100 })
+  );
+
+  // --- Sanitizacja NoSQL operators ($, .) w body/query/params ---
+  app.use(
+    mongoSanitize({
+      allowDots: false,
+      replaceWith: "_",
+    })
   );
 
   // --- Monitoring nagłówków ---
@@ -60,12 +70,16 @@ const createApp = () => {
     })
   );
   // gwarantujemy Vary: Origin
-  app.use((req, res, next) => {
+  app.use((_req, res, next) => {
     res.append("Vary", "Origin");
     next();
   });
   // szybki preflight
   app.options("*", (_req, res) => res.sendStatus(204));
+
+  // --- Globalny rate limiting dla wszystkich tras API ---
+  app.use("/api", apiLimiter);
+  app.use("/api/v1", apiLimiter);
 
   // --- Helmet (v7) ---
   app.use(
@@ -107,9 +121,6 @@ const createApp = () => {
       referrerPolicy: { policy: "strict-origin-when-cross-origin" },
     })
   );
-
-  // ⚠️ Brak globalnego rate-limitera typu: app.use("/api", apiLimiter)
-  // Limitery są zakładane granularnie w routes/index.js oraz admin/routes/index.js.
 
   // --- Statyki /uploads ---
   configureUploads(app);

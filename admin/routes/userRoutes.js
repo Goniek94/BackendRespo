@@ -1,4 +1,5 @@
-import express from 'express';
+// routes/admin/userRoutes.js
+import express from "express";
 import {
   getUsers,
   getUserById,
@@ -8,8 +9,8 @@ import {
   deleteUser,
   bulkUpdateUsers,
   getUserAnalytics,
-  exportUsers
-} from '../controllers/users/userController.js';
+  exportUsers,
+} from "../controllers/users/userController.js"; // <— UWAGA na ścieżkę (1x ..)
 import {
   validateUserUpdate,
   validateUserBlock,
@@ -20,155 +21,162 @@ import {
   validateExportQuery,
   validateUserId,
   validateBusinessRules,
-  sanitizeUserInput
-} from '../validators/userValidators.js';
+  sanitizeUserInput,
+} from "../validators/userValidators.js"; // <— UWAGA na ścieżkę (1x ..)
 import {
-  requireAdminAuth,
+  // requireAdminAuth, // użyj tylko jeśli NIE montujesz z requireAuth w parent index
   requireAdminRole,
-  logAdminActivity,
-  adminApiLimiter
-} from '../middleware/adminAuth.js';
+  logAdminActivity, // przywrócone po naprawie AdminActivity
+  // adminApiLimiter   // rate limit masz globalnie w routes/admin/index.js
+} from "../middleware/adminAuth.js"; // <— w tym samym module /routes/middleware
 
 /**
  * Professional User Management Routes
  * Secure, validated, and monitored routes for user administration
- * Features: Authentication, authorization, validation, activity logging
- * 
- * @author Senior Developer
- * @version 1.0.0
  */
 
 const router = express.Router();
 
-// Authentication and rate limiting are applied in parent router (admin/routes/index.js)
+// Jeśli NIE montujesz tych tras z requireAuth w parent routerze, odkomentuj:
+// router.use(requireAdminAuth);
 
 /**
- * GET /admin/users
- * Get paginated list of users with filtering and sorting
- * Permissions: admin, moderator
+ * GET /api/admin-panel/users
+ * Lista użytkowników (paginacja + filtry)
+ * Uprawnienia: admin, moderator
  */
-router.get('/',
-  requireAdminRole(['admin', 'moderator']),
+router.get(
+  "/",
+  requireAdminRole(["admin", "moderator"]),
   validateUserQuery,
-  logAdminActivity('users_list_viewed'),
+  logAdminActivity("users_list_viewed"),
   getUsers
 );
 
 /**
- * GET /admin/users/stats
- * Get user statistics (alias for analytics)
- * Permissions: admin only
+ * GET /api/admin-panel/users/stats
+ * Alias do analytics
+ * Uprawnienia: admin
  */
-router.get('/stats',
-  requireAdminRole(['admin']),
+router.get(
+  "/stats",
+  requireAdminRole(["admin"]),
   validateAnalyticsQuery,
-  logAdminActivity('users_stats_viewed'),
+  logAdminActivity("users_stats_viewed"),
   getUserAnalytics
 );
 
 /**
- * GET /admin/users/analytics
- * Get user analytics and insights
- * Permissions: admin only
+ * GET /api/admin-panel/users/analytics
+ * Analityka użytkowników
+ * Uprawnienia: admin
  */
-router.get('/analytics',
-  requireAdminRole(['admin']),
+router.get(
+  "/analytics",
+  requireAdminRole(["admin"]),
   validateAnalyticsQuery,
-  logAdminActivity('users_analytics_viewed'),
+  logAdminActivity("users_analytics_viewed"),
   getUserAnalytics
 );
 
 /**
- * GET /admin/users/export
- * Export users data in JSON or CSV format
- * Permissions: admin only
+ * GET /api/admin-panel/users/export
+ * Eksport JSON/CSV
+ * Uprawnienia: admin
  */
-router.get('/export',
-  requireAdminRole(['admin']),
+router.get(
+  "/export",
+  requireAdminRole(["admin"]),
   validateExportQuery,
-  logAdminActivity('users_data_exported'),
+  logAdminActivity("users_data_exported"),
   exportUsers
 );
 
 /**
- * POST /admin/users
- * Create new user
- * Permissions: admin only
+ * POST /api/admin-panel/users
+ * Tworzenie użytkownika
+ * Uprawnienia: admin
  */
-router.post('/',
-  requireAdminRole(['admin']),
+router.post(
+  "/",
+  requireAdminRole(["admin"]),
   sanitizeUserInput,
-  validateUserUpdate, // Reuse validation for user creation
+  validateUserUpdate, // re-use walidacji update dla create
   validateBusinessRules,
-  logAdminActivity('user_created'),
+  logAdminActivity("user_created"),
   createUser
 );
 
 /**
- * POST /admin/users/bulk-update
- * Bulk update multiple users
- * Permissions: admin, moderator (with limits)
+ * POST /api/admin-panel/users/bulk-update
+ * Zbiorcza aktualizacja
+ * Uprawnienia: admin, moderator
  */
-router.post('/bulk-update',
-  requireAdminRole(['admin', 'moderator']),
+router.post(
+  "/bulk-update",
+  requireAdminRole(["admin", "moderator"]),
   sanitizeUserInput,
   validateBulkUserUpdate,
   validateBusinessRules,
-  logAdminActivity('users_bulk_updated'),
+  logAdminActivity("bulk_operation"),
   bulkUpdateUsers
 );
 
 /**
- * GET /admin/users/:id
- * Get single user by ID with detailed information
- * Permissions: admin, moderator
+ * GET /api/admin-panel/users/:id
+ * Szczegóły użytkownika
+ * Uprawnienia: admin, moderator
  */
-router.get('/:id',
-  requireAdminRole(['admin', 'moderator']),
+router.get(
+  "/:id",
+  requireAdminRole(["admin", "moderator"]),
   validateUserId,
-  logAdminActivity('user_details_viewed'),
+  logAdminActivity("user_details_viewed"),
   getUserById
 );
 
 /**
- * PUT /admin/users/:id
- * Update user information
- * Permissions: admin, moderator (limited fields)
+ * PUT /api/admin-panel/users/:id
+ * Aktualizacja użytkownika
+ * Uprawnienia: admin, moderator (ograniczone pola)
  */
-router.put('/:id',
-  requireAdminRole(['admin', 'moderator']),
+router.put(
+  "/:id",
+  requireAdminRole(["admin", "moderator"]),
   sanitizeUserInput,
   validateUserUpdate,
   validateBusinessRules,
-  logAdminActivity('user_updated'),
+  logAdminActivity("user_updated"),
   updateUser
 );
 
 /**
- * POST /admin/users/:id/block
- * Block or unblock user
- * Permissions: admin, moderator
+ * POST /api/admin-panel/users/:id/block
+ * Blokuj/odblokuj
+ * Uprawnienia: admin, moderator
  */
-router.post('/:id/block',
-  requireAdminRole(['admin', 'moderator']),
+router.post(
+  "/:id/block",
+  requireAdminRole(["admin", "moderator"]),
   sanitizeUserInput,
   validateUserBlock,
   validateBusinessRules,
-  logAdminActivity('user_block_toggled'),
+  logAdminActivity("user_blocked"),
   toggleUserBlock
 );
 
 /**
- * DELETE /admin/users/:id
- * Delete user (soft delete)
- * Permissions: admin only
+ * DELETE /api/admin-panel/users/:id
+ * Usunięcie (soft delete)
+ * Uprawnienia: admin
  */
-router.delete('/:id',
-  requireAdminRole(['admin']),
+router.delete(
+  "/:id",
+  requireAdminRole(["admin"]),
   sanitizeUserInput,
   validateUserDelete,
   validateBusinessRules,
-  logAdminActivity('user_deleted'),
+  logAdminActivity("user_deleted"),
   deleteUser
 );
 

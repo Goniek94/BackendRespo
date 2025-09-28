@@ -39,12 +39,8 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    // Hash new password
-    const saltRounds = 12;
-    const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
-
-    // Update password
-    user.password = hashedNewPassword;
+    // Update password - will be automatically hashed by User model middleware
+    user.password = newPassword;
     user.updatedAt = new Date();
     await user.save();
 
@@ -102,8 +98,8 @@ export const requestPasswordReset = async (req, res) => {
     const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     // Save reset token to user
-    user.resetPasswordToken = resetToken;
-    user.resetPasswordExpires = resetTokenExpiry;
+    user.passwordResetToken = resetToken;
+    user.passwordResetTokenExpires = resetTokenExpiry;
     await user.save();
 
     // TODO: Send email with reset link
@@ -136,8 +132,8 @@ export const verifyResetToken = async (req, res) => {
 
     // Find user with valid reset token
     const user = await User.findOne({
-      resetPasswordToken: token,
-      resetPasswordExpires: { $gt: Date.now() }
+      passwordResetToken: token,
+      passwordResetTokenExpires: { $gt: Date.now() }
     });
 
     if (!user) {
@@ -179,8 +175,8 @@ export const resetPassword = async (req, res) => {
 
     // Find user with valid reset token
     const user = await User.findOne({
-      resetPasswordToken: token,
-      resetPasswordExpires: { $gt: Date.now() }
+      passwordResetToken: token,
+      passwordResetTokenExpires: { $gt: Date.now() }
     });
 
     if (!user) {
@@ -190,14 +186,11 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    // Hash new password
-    const saltRounds = 12;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-
     // Update password and clear reset token
-    user.password = hashedPassword;
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
+    // Password will be automatically hashed by User model middleware
+    user.password = password;
+    user.passwordResetToken = undefined;
+    user.passwordResetTokenExpires = undefined;
     user.failedLoginAttempts = 0; // Reset failed attempts
     user.accountLocked = false; // Unlock account
     user.lockUntil = undefined;

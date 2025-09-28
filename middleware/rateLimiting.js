@@ -1,160 +1,131 @@
-import rateLimit from 'express-rate-limit';
-import logger from '../utils/logger.js';
-import User from '../models/user/user.js';
+// middleware/rateLimiting.js
+import rateLimit from "express-rate-limit";
+import logger from "../utils/logger.js";
 
-// Rate limiter for authentication endpoints
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // max 5 attempts per IP per window
-  message: {
-    error: 'Zbyt wiele prób logowania. Spróbuj ponownie za 15 minut.',
-    code: 'RATE_LIMIT_EXCEEDED',
-    retryAfter: 15 * 60 // seconds
-  },
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  handler: (req, res) => {
-    logger.warn(`Rate limit exceeded for IP: ${req.ip} on ${req.path}`, {
-      ip: req.ip,
-      userAgent: req.get('User-Agent'),
-      path: req.path,
-      method: req.method
-    });
-    
-    res.status(429).json({
-      error: 'Zbyt wiele prób logowania. Spróbuj ponownie za 15 minut.',
-      code: 'RATE_LIMIT_EXCEEDED',
-      retryAfter: 15 * 60
-    });
-  },
-  skip: (req) => {
-    // Skip rate limiting in test environment
-    if (process.env.NODE_ENV === 'test') {
-      return true;
-    }
-    // Skip rate limiting for localhost in development
-    if (process.env.NODE_ENV === 'development' && req.ip === '127.0.0.1') {
-      return true;
-    }
-    return false;
-  },
-  // Użyj keyGenerator zamiast skip dla asynchronicznych operacji
-  keyGenerator: async (req) => {
-    // Sprawdź czy to admin przed wygenerowaniem klucza
-    if (req.body && req.body.email) {
-      try {
-        const user = await User.findOne({ email: req.body.email });
-        if (user && (user.role === 'admin' || user.role === 'administrator')) {
-          logger.info(`Rate limiting skipped for ${user.role}: ${user.email}`, {
-            email: user.email,
-            role: user.role,
-            ip: req.ip
-          });
-          // Zwróć unikalny klucz dla adminów, który nigdy nie osiągnie limitu
-          return `admin-${user._id}-${Date.now()}`;
-        }
-      } catch (error) {
-        logger.error('Error checking user role for rate limiting:', error);
-      }
-    }
-    // Dla zwykłych użytkowników użyj IP
-    return req.ip;
-  }
+/**
+ * Jeśli serwer jest za proxy (nginx/cloud), w app.js koniecznie:
+ *   app.set('trust proxy', 1);
+ */
+const isProd = process.env.NODE_ENV === "production";
+
+/* ----------------------------- Helpers ----------------------------- */
+
+const getClientIp = (req) => {
+  const xff = req.headers["x-forwarded-for"];
+  const fromXff = (Array.isArray(xff) ? xff[0] : xff || "")
+    .split(",")[0]
+    .trim();
+  return fromXff || req.ip || req.connection?.remoteAddress || "unknown";
+};
+
+const normEmail = (e = "") => String(e).toLowerCase().trim();
+const maskEmail = (e = "") =>
+  e ? e.replace(/(^.{2}).*(@.*$)/, "$1***$2") : "unknown";
+
+// globalny skip: dev/test/off switch
+const shouldSkip = (req) => {
+  // wyłącz całkowicie na DEV/STAGING/TEST lub gdy ustawisz RATE_LIMIT_DISABLED=1
+  if (!isProd || process.env.RATE_LIMIT_DISABLED === "1") return true;
+  // nie licz preflightów (CORS) i websocketowych "OPTIONS"
+  if (req.method === "OPTIONS") return true;
+  return false;
+};
+
+const makeLimiter = ({ windowMs, max, keyGenerator, code, message }) =>
+  rateLimit({
+    windowMs,
+    max,
+    keyGenerator,
+    standardHeaders: true, // RateLimit-*
+    legacyHeaders: false,
+    skip: shouldSkip,
+    handler: (req, res) => {
+      const ip = getClientIp(req);
+      const email = maskEmail(req.body?.email || "");
+      // policz pozostały czas do resetu
+      const retryAfterSec = Math.max(
+        1,
+        Math.ceil((req.rateLimit.resetTime - Date.now()) / 1000)
+      );
+
+      logger.warn(
+        `${code} exceeded ip=${ip} email=${email} path=${
+          req.originalUrl
+        } ua=${req.get("User-Agent")}`
+      );
+
+      res.setHeader("Retry-After", String(retryAfterSec));
+      return res.status(429).json({
+        success: false,
+        error: message,
+        code,
+        retryAfter: retryAfterSec,
+      });
+    },
+  });
+
+/* --------------------------- Klucze limiterów --------------------------- */
+
+const emailAwareKey = (req) =>
+  `${getClientIp(req)}:${normEmail(req.body?.email)}`;
+
+const ipOnlyKey = (req) => getClientIp(req);
+
+/* ------------------------------ Limitery ------------------------------ */
+
+/** Luźny globalny limiter API (PROD). DEV: wyłączony przez shouldSkip */
+export const apiLimiter = makeLimiter({
+  windowMs: 60 * 1000, // 1 minuta
+  max: 600, // 600 req/min/IP - luźno, nie dławi SPA
+  keyGenerator: ipOnlyKey,
+  code: "API_RATE_LIMIT_EXCEEDED",
+  message: "Too many requests. Please slow down.",
 });
 
-// Rate limiter for password reset endpoints (more restrictive)
-const passwordResetLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 3, // max 3 attempts per IP per hour
-  message: {
-    error: 'Zbyt wiele prób resetowania hasła. Spróbuj ponownie za godzinę.',
-    code: 'PASSWORD_RESET_LIMIT_EXCEEDED',
-    retryAfter: 60 * 60
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  handler: (req, res) => {
-    logger.warn(`Password reset rate limit exceeded for IP: ${req.ip}`, {
-      ip: req.ip,
-      userAgent: req.get('User-Agent'),
-      email: req.body.email || 'unknown'
-    });
-    
-    res.status(429).json({
-      error: 'Zbyt wiele prób resetowania hasła. Spróbuj ponownie za godzinę.',
-      code: 'PASSWORD_RESET_LIMIT_EXCEEDED',
-      retryAfter: 60 * 60
-    });
-  }
+/** Login – ciaśniej, na minucie z burstem */
+export const authLimiter = makeLimiter({
+  windowMs: 15 * 60 * 1000, // 15 min okno
+  max: 30, // 30 prób / 15 min na IP+email
+  keyGenerator: emailAwareKey,
+  code: "RATE_LIMIT_EXCEEDED",
+  message: "Zbyt wiele prób logowania. Spróbuj ponownie później.",
 });
 
-// Rate limiter for registration endpoints
-const registrationLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5, // max 5 registrations per IP per hour
-  message: {
-    error: 'Zbyt wiele prób rejestracji. Spróbuj ponownie za godzinę.',
-    code: 'REGISTRATION_LIMIT_EXCEEDED',
-    retryAfter: 60 * 60
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  handler: (req, res) => {
-    logger.warn(`Registration rate limit exceeded for IP: ${req.ip}`, {
-      ip: req.ip,
-      userAgent: req.get('User-Agent'),
-      email: req.body.email || 'unknown'
-    });
-    
-    res.status(429).json({
-      error: 'Zbyt wiele prób rejestracji. Spróbuj ponownie za godzinę.',
-      code: 'REGISTRATION_LIMIT_EXCEEDED',
-      retryAfter: 60 * 60
-    });
-  },
-  skip: (req) => {
-    // Skip rate limiting in test environment
-    if (process.env.NODE_ENV === 'test') {
-      return true;
-    }
-    // Skip rate limiting for localhost in development
-    if (process.env.NODE_ENV === 'development' && req.ip === '127.0.0.1') {
-      return true;
-    }
-    return false;
-  }
+/** Admin login – jeszcze ciaśniej */
+export const adminLoginLimiter = makeLimiter({
+  windowMs: 60 * 60 * 1000, // 1 h
+  max: 10, // 10 prób / h na IP+email
+  keyGenerator: emailAwareKey,
+  code: "ADMIN_RATE_LIMIT_EXCEEDED",
+  message:
+    "Zbyt wiele prób logowania w panelu administracyjnym. Spróbuj ponownie później.",
 });
 
-// General API rate limiter
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // max 100 requests per IP per window
-  message: {
-    error: 'Zbyt wiele żądań. Spróbuj ponownie za 15 minut.',
-    code: 'API_RATE_LIMIT_EXCEEDED',
-    retryAfter: 15 * 60
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  handler: (req, res) => {
-    logger.warn(`API rate limit exceeded for IP: ${req.ip} on ${req.path}`, {
-      ip: req.ip,
-      userAgent: req.get('User-Agent'),
-      path: req.path,
-      method: req.method
-    });
-    
-    res.status(429).json({
-      error: 'Zbyt wiele żądań. Spróbuj ponownie za 15 minut.',
-      code: 'API_RATE_LIMIT_EXCEEDED',
-      retryAfter: 15 * 60
-    });
-  }
+/** Reset hasła */
+export const passwordResetLimiter = makeLimiter({
+  windowMs: 60 * 60 * 1000, // 1 h
+  max: 5,
+  keyGenerator: emailAwareKey,
+  code: "PASSWORD_RESET_LIMIT_EXCEEDED",
+  message: "Zbyt wiele prób resetowania hasła. Spróbuj ponownie później.",
 });
 
-export {
+/** Rejestracja */
+export const registrationLimiter = makeLimiter({
+  windowMs: 60 * 60 * 1000, // 1 h
+  max: 20,
+  keyGenerator: emailAwareKey,
+  code: "REGISTRATION_LIMIT_EXCEEDED",
+  message: "Zbyt wiele prób rejestracji. Spróbuj ponownie później.",
+});
+
+/* ---------------------- Backward compatibility ---------------------- */
+export { authLimiter as checkUserRole };
+
+export default {
   authLimiter,
+  adminLoginLimiter,
   passwordResetLimiter,
   registrationLimiter,
-  apiLimiter
+  apiLimiter,
 };

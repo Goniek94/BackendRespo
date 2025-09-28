@@ -1,693 +1,566 @@
-// controllers/admin/adController.js
 /**
- * Kontroler do zarządzania ogłoszeniami przez administratora
- * Controller for managing ads by administrator
+ * Admin Ads Controller
+ * Zwraca dane zgodne z nowym UI i obsługuje stare rekordy (headline/owner/cover/photos/active).
  */
 
-import Ad from '../../../models/listings/ad.js';
-import User from '../../../models/user/user.js';
-import Notification from '../../../models/communication/notification.js';
+import Ad from "../../../models/listings/ad.js";
+import User from "../../../models/user/user.js";
+import Notification from "../../../models/communication/notification.js";
 
-/**
- * Pobiera statystyki ogłoszeń
- * Retrieves listings statistics
- */
-export const getListingsStats = async (req, res) => {
+/* Helpers */
+const clampDiscount = (d) => Math.max(0, Math.min(99, Number(d) || 0));
+const discounted = (price, discount) => {
+  const p = Number(price) || 0;
+  const d = clampDiscount(discount);
+  return d > 0 ? Math.round(p * (1 - d / 100)) : null;
+};
+
+/* ========================= STATYSTYKI ========================= */
+export const getListingsStats = async (_req, res) => {
   try {
-    // Pobierz statystyki z bazy danych
-    const totalCount = await Ad.countDocuments();
-    const pendingCount = await Ad.countDocuments({ status: 'pending' });
-    const activeCount = await Ad.countDocuments({ status: 'active' });
-    const rejectedCount = await Ad.countDocuments({ status: 'rejected' });
-    
-    // Zakończone ogłoszenia (sold + archived)
-    const completedCount = await Ad.countDocuments({ 
-      status: { $in: ['sold', 'archived'] } 
+    const total = await Ad.countDocuments();
+    const pending = await Ad.countDocuments({ status: "pending" });
+    // legacy 'active' traktujemy jak 'approved'
+    const approved = await Ad.countDocuments({
+      $or: [{ status: "approved" }, { status: "active" }],
     });
-    
-    // Ukryte ogłoszenia (needs_changes + inne statusy)
-    const hiddenCount = await Ad.countDocuments({ 
-      status: { $in: ['needs_changes', 'opublikowane'] } 
-    });
-    
-    // Oblicz statystyki z poprzedniego miesiąca dla porównania
+    const rejected = await Ad.countDocuments({ status: "rejected" });
+
     const lastMonth = new Date();
     lastMonth.setMonth(lastMonth.getMonth() - 1);
-    
-    const totalLastMonth = await Ad.countDocuments({ 
-      createdAt: { $lt: lastMonth } 
+    const totalLast = await Ad.countDocuments({
+      createdAt: { $lt: lastMonth },
     });
-    const pendingLastMonth = await Ad.countDocuments({ 
-      status: 'pending',
-      createdAt: { $lt: lastMonth } 
+    const pendLast = await Ad.countDocuments({
+      status: "pending",
+      createdAt: { $lt: lastMonth },
     });
-    const activeLastMonth = await Ad.countDocuments({ 
-      status: 'active',
-      createdAt: { $lt: lastMonth } 
+    const apprLast = await Ad.countDocuments({
+      $or: [{ status: "approved" }, { status: "active" }],
+      createdAt: { $lt: lastMonth },
     });
-    const rejectedLastMonth = await Ad.countDocuments({ 
-      status: 'rejected',
-      createdAt: { $lt: lastMonth } 
+    const rejLast = await Ad.countDocuments({
+      status: "rejected",
+      createdAt: { $lt: lastMonth },
     });
-    const completedLastMonth = await Ad.countDocuments({ 
-      status: { $in: ['sold', 'archived'] },
-      createdAt: { $lt: lastMonth } 
-    });
-    
-    // Oblicz zmiany procentowe
-    const calculateChange = (current, previous) => {
-      if (previous === 0) return current > 0 ? 100 : 0;
-      return Math.round(((current - previous) / previous) * 100);
-    };
-    
-    const stats = {
-      total: totalCount,
-      pending: pendingCount,
-      approved: activeCount, // Aktywne ogłoszenia
-      rejected: rejectedCount,
-      completed: completedCount, // Zakończone (sold + archived)
-      hidden: hiddenCount, // Ukryte
-      totalChange: calculateChange(totalCount, totalLastMonth),
-      pendingChange: calculateChange(pendingCount, pendingLastMonth),
-      approvedChange: calculateChange(activeCount, activeLastMonth),
-      rejectedChange: calculateChange(rejectedCount, rejectedLastMonth),
-      completedChange: calculateChange(completedCount, completedLastMonth)
-    };
-    
-    return res.status(200).json({
+
+    const ch = (cur, prev) =>
+      prev === 0
+        ? cur > 0
+          ? 100
+          : 0
+        : Math.round(((cur - prev) / prev) * 100);
+
+    res.status(200).json({
       success: true,
-      data: stats
+      data: {
+        total,
+        pending,
+        approved,
+        rejected,
+        totalChange: ch(total, totalLast),
+        pendingChange: ch(pending, pendLast),
+        approvedChange: ch(approved, apprLast),
+        rejectedChange: ch(rejected, rejLast),
+      },
     });
   } catch (error) {
-    console.error('Błąd podczas pobierania statystyk ogłoszeń:', error);
-    return res.status(500).json({ message: 'Błąd serwera podczas pobierania statystyk ogłoszeń.' });
+    console.error("Błąd statystyk ogłoszeń:", error);
+    res
+      .status(500)
+      .json({ message: "Błąd serwera podczas pobierania statystyk ogłoszeń." });
   }
 };
 
-/**
- * Tworzy nowe ogłoszenie przez administratora
- * Creates a new ad by administrator
- */
+/* ========================= CREATE ========================= */
 export const createAd = async (req, res) => {
   try {
-    // Pobierz wszystkie możliwe pola z request body
-    const adData = req.body;
-    
-    // Mapowanie pól - obsługa różnych nazw pól
-    const title = adData.title || adData.headline;
-    const headline = adData.headline || adData.title;
-    
-    // Walidacja wymaganych pól
-    if (!headline || !adData.description || !adData.price) {
-      return res.status(400).json({ 
-        message: 'Tytuł, opis i cena są wymagane.' 
-      });
+    const b = req.body || {};
+    const title = b.title || b.headline;
+
+    if (!title || b.price == null || b.description == null) {
+      return res
+        .status(400)
+        .json({ message: "Tytuł, opis i cena są wymagane." });
     }
 
-    // Tworzenie nowego ogłoszenia z wszystkimi dostępnymi polami
+    const images = Array.isArray(b.images) ? b.images : [];
+    const mainImage = b.mainImage || images[0] || "";
+
     const newAd = new Ad({
-      // Podstawowe informacje
-      headline: headline,
-      description: adData.description,
-      shortDescription: adData.shortDescription,
-      price: parseFloat(adData.price),
-      brand: adData.brand,
-      model: adData.model,
-      generation: adData.generation,
-      version: adData.version,
-      year: adData.year ? parseInt(adData.year) : undefined,
-      mileage: adData.mileage ? parseInt(adData.mileage) : undefined,
-      fuelType: adData.fuelType,
-      transmission: adData.transmission,
-      
-      // Identyfikatory pojazdu
-      vin: adData.vin,
-      registrationNumber: adData.registrationNumber,
-      
-      // Zdjęcia
-      images: adData.images || [],
-      mainImage: adData.mainImage,
-      
-      // Opcje ogłoszenia
-      purchaseOptions: adData.purchaseOptions,
-      negotiable: adData.negotiable,
-      listingType: adData.listingType || 'standardowe',
-      status: adData.status || 'active',
-      
-      // Dane techniczne
-      condition: adData.condition,
-      accidentStatus: adData.accidentStatus,
-      damageStatus: adData.damageStatus,
-      tuning: adData.tuning,
-      imported: adData.imported,
-      registeredInPL: adData.registeredInPL,
-      firstOwner: adData.firstOwner,
-      disabledAdapted: adData.disabledAdapted,
-      
-      bodyType: adData.bodyType,
-      color: adData.color,
-      paintFinish: adData.paintFinish,
-      seats: adData.seats,
-      lastOfficialMileage: adData.lastOfficialMileage ? parseInt(adData.lastOfficialMileage) : undefined,
-      power: adData.power ? parseInt(adData.power) : undefined,
-      engineSize: adData.engineSize ? parseFloat(adData.engineSize) : undefined,
-      drive: adData.drive,
-      doors: adData.doors,
-      weight: adData.weight ? parseInt(adData.weight) : undefined,
-      
-      // Lokalizacja
-      voivodeship: adData.voivodeship,
-      city: adData.city,
-      countryOfOrigin: adData.countryOfOrigin,
-      
-      // Najem
-      rentalPrice: adData.rentalPrice ? parseFloat(adData.rentalPrice) : undefined,
-      
-      // Informacje o właścicielu
-      owner: req.user.userId,
-      ownerName: adData.ownerName,
-      ownerLastName: adData.ownerLastName,
-      ownerEmail: adData.ownerEmail,
-      ownerPhone: adData.ownerPhone,
-      sellerType: adData.sellerType || 'Prywatny',
-      
-      // Metadane
-      ownerRole: 'admin',
-      featured: adData.featured || false,
-      discount: adData.discount ? parseFloat(adData.discount) : undefined,
-      discountedPrice: adData.discountedPrice ? parseFloat(adData.discountedPrice) : undefined,
-      moderationComment: adData.moderationComment,
-      
-      // Statystyki
-      views: adData.views || 0,
-      favorites: adData.favorites || 0,
-      contactAttempts: adData.contactAttempts || 0,
-      
-      // Daty
-      createdAt: new Date(),
-      updatedAt: new Date()
+      title,
+      description: b.description,
+      price: Number(b.price),
+      user: req.user?.userId || req.user?._id,
+      status: b.status || "approved",
+      images,
+      mainImage,
+      discount: clampDiscount(b.discount),
     });
+    newAd.discountedPrice = discounted(newAd.price, newAd.discount);
 
     await newAd.save();
 
-    return res.status(201).json({
+    res.status(201).json({
       success: true,
-      message: 'Ogłoszenie zostało utworzone pomyślnie.',
+      message: "Ogłoszenie utworzone.",
       data: {
         id: newAd._id,
-        brand: newAd.brand,
-        model: newAd.model,
-        year: newAd.year,
+        title: newAd.title,
         price: newAd.price,
-        status: newAd.status
-      }
+        status: newAd.status,
+        mainImage: newAd.mainImage || null,
+      },
     });
   } catch (error) {
-    console.error('Błąd podczas tworzenia ogłoszenia:', error);
-    return res.status(500).json({ 
-      message: 'Błąd serwera podczas tworzenia ogłoszenia.',
-      error: error.message 
+    console.error("Błąd tworzenia ogłoszenia:", error);
+    res.status(500).json({
+      message: "Błąd serwera podczas tworzenia ogłoszenia.",
+      error: error.message,
     });
   }
 };
 
-/**
- * Pobiera listę ogłoszeń z możliwością filtrowania i paginacji
- * Retrieves a list of ads with filtering and pagination options
- */
+/* ========================= LISTA ========================= */
 export const getAds = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 10, 
-      search = '', 
-      status,
-      listingType,
-      userId,
-      sortBy = 'createdAt',
-      sortOrder = 'desc'
-    } = req.query;
-    
-    // Przygotuj zapytanie / Prepare query
+    const page = Number(req.query.page || 1);
+    const limit = Number(req.query.limit || 20);
+    const search = String(req.query.search || "").trim();
+    const status = req.query.status;
+    const userId = req.query.userId;
+
     const query = {};
-    
-    // Filtrowanie po statusie / Filter by status
-    if (status) {
-      query.status = status;
-    }
-    
-    // Filtrowanie po typie ogłoszenia / Filter by listing type
-    if (listingType) {
-      query.listingType = listingType;
-    }
-    
-    // Filtrowanie po użytkowniku / Filter by user
+    if (status) query.status = status;
+
+    // user albo owner (legacy)
     if (userId) {
-      query.owner = userId;
+      query.$or = [{ user: userId }, { owner: userId }];
     }
-    
-    // Wyszukiwanie po tytule lub opisie / Search by title or description
+
     if (search) {
-      query.$or = [
-        { headline: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
+      const searchOr = [
+        { title: { $regex: search, $options: "i" } },
+        { headline: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
       ];
+      query.$or = Array.isArray(query.$or)
+        ? [...query.$or, ...searchOr]
+        : searchOr;
     }
-    
-    // Przygotuj opcje sortowania / Prepare sort options
-    const sort = {};
-    sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
-    
-    // Pobierz całkowitą liczbę pasujących ogłoszeń / Get total count of matching ads
+
     const total = await Ad.countDocuments(query);
-    
-    // Pobierz ogłoszenia z paginacją / Get ads with pagination
-    const ads = await Ad.find(query)
-      .populate('owner', 'email name lastName')
-      .sort(sort)
+
+    const docs = await Ad.find(query)
+      .populate("user", "name lastName email")
+      .populate("owner", "name lastName email") // legacy
+      .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
-      .limit(parseInt(limit));
-    
-    // Mapuj dane do formatu oczekiwanego przez frontend
-    const mappedListings = ads.map(ad => ({
-      id: ad._id.toString(),
-      title: ad.headline || `${ad.brand} ${ad.model} ${ad.year}`,
-      headline: ad.headline,
-      brand: ad.brand,
-      model: ad.model,
-      year: ad.year,
-      price: ad.price,
-      mileage: ad.mileage,
-      fuelType: ad.fuelType,
-      transmission: ad.transmission,
-      status: ad.status,
-      listingType: ad.listingType,
-      category: `${ad.brand} ${ad.model}`,
-      images: ad.images || [],
-      mainImage: ad.mainImage,
-      description: ad.description,
-      user: ad.owner ? {
-        id: ad.owner._id.toString(),
-        name: ad.owner.name,
-        lastName: ad.owner.lastName,
-        email: ad.owner.email
-      } : null,
-      created_at: ad.createdAt,
-      updated_at: ad.updatedAt,
-      negotiable: ad.negotiable,
-      purchaseOptions: ad.purchaseOptions,
-      vin: ad.vin,
-      registrationNumber: ad.registrationNumber
-    }));
-    
-    return res.status(200).json({
+      .limit(limit);
+
+    const listings = docs.map((d) => {
+      const title =
+        d.title ||
+        d.headline ||
+        [d.brand, d.model, d.year].filter(Boolean).join(" ") ||
+        null;
+
+      const u = d.user || d.owner || null;
+      const author = u
+        ? {
+            id: u._id?.toString?.(),
+            name:
+              [u.name, u.lastName].filter(Boolean).join(" ") || u.email || null,
+            email: u.email || null,
+          }
+        : null;
+
+      const firstImage =
+        d.mainImage ||
+        d.cover ||
+        (Array.isArray(d.images) && d.images[0]) ||
+        (Array.isArray(d.photos) && d.photos[0]) ||
+        (Array.isArray(d.photoUrls) && d.photoUrls[0]) ||
+        null;
+
+      const statusNorm =
+        d.status === "active" ? "approved" : d.status || "pending";
+
+      return {
+        id: d._id.toString(),
+        title,
+        description: d.description,
+        price: d.price,
+        status: statusNorm,
+        discount: d.discount || 0,
+        discountedPrice: d.discountedPrice ?? null,
+        created_at: d.createdAt,
+        updated_at: d.updatedAt,
+        mainImage: firstImage,
+        images: Array.isArray(d.images)
+          ? d.images
+          : Array.isArray(d.photos)
+          ? d.photos
+          : Array.isArray(d.photoUrls)
+          ? d.photoUrls
+          : [],
+        author,
+      };
+    });
+
+    res.status(200).json({
       success: true,
       data: {
-        listings: mappedListings,
-        total: total,
+        listings,
+        total,
         totalPages: Math.ceil(total / limit),
         pagination: {
-          total,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(total / limit)
-        }
-      }
+          totalCount: total,
+          currentPage: page,
+          pageSize: limit,
+          totalPages: Math.ceil(total / limit),
+        },
+      },
     });
   } catch (error) {
-    console.error('Błąd podczas pobierania listy ogłoszeń:', error);
-    return res.status(500).json({ message: 'Błąd serwera podczas pobierania listy ogłoszeń.' });
+    console.error("GET /admin-panel/listings FAILED:", {
+      message: error?.message,
+      stack: error?.stack,
+    });
+    res.status(500).json({
+      message: "Błąd serwera podczas pobierania listy ogłoszeń.",
+      dev: process.env.NODE_ENV !== "production" ? error?.message : undefined,
+    });
   }
 };
 
-/**
- * Pobiera szczegóły pojedynczego ogłoszenia
- * Retrieves details of a single ad
- */
+/* ========================= DETAILS ========================= */
 export const getAdDetails = async (req, res) => {
   try {
     const { adId } = req.params;
-    
     const ad = await Ad.findById(adId)
-      .populate('owner', 'email name lastName phoneNumber')
-      .populate('comments');
-    
-    if (!ad) {
-      return res.status(404).json({ message: 'Ogłoszenie nie zostało znalezione.' });
-    }
-    
-    return res.status(200).json({ ad });
+      .populate("user", "email name lastName phoneNumber")
+      .populate("owner", "email name lastName phoneNumber");
+    if (!ad)
+      return res
+        .status(404)
+        .json({ message: "Ogłoszenie nie zostało znalezione." });
+    res.status(200).json({ success: true, data: ad });
   } catch (error) {
-    console.error('Błąd podczas pobierania szczegółów ogłoszenia:', error);
-    return res.status(500).json({ message: 'Błąd serwera podczas pobierania szczegółów ogłoszenia.' });
+    console.error("Błąd szczegółów ogłoszenia:", error);
+    res
+      .status(500)
+      .json({
+        message: "Błąd serwera podczas pobierania szczegółów ogłoszenia.",
+      });
   }
 };
 
-/**
- * Aktualizuje ogłoszenie (status, typ ogłoszenia, zniżka)
- * Updates an ad (status, listing type, discount)
- */
+/* ========================= UPDATE ========================= */
 export const updateAd = async (req, res) => {
   try {
     const { adId } = req.params;
-    const { status, listingType, discount, title, description, price } = req.body;
-    
-    // Sprawdź czy ogłoszenie istnieje / Check if ad exists
+    const { status, discount, title, description, price, images, mainImage } =
+      req.body || {};
+
     const ad = await Ad.findById(adId);
-    if (!ad) {
-      return res.status(404).json({ message: 'Ogłoszenie nie zostało znalezione.' });
-    }
-    
-    // Aktualizuj dane / Update data
+    if (!ad)
+      return res
+        .status(404)
+        .json({ message: "Ogłoszenie nie zostało znalezione." });
+
     if (status !== undefined) ad.status = status;
-    if (listingType !== undefined) ad.listingType = listingType;
-    if (discount !== undefined) ad.discount = discount;
-    if (title !== undefined) ad.headline = title;
+    if (title !== undefined) ad.title = title;
     if (description !== undefined) ad.description = description;
-    if (price !== undefined) ad.price = price;
-    
-    // Jeśli dodajemy zniżkę, oblicz cenę po zniżce / If adding discount, calculate discounted price
-    if (discount !== undefined && discount > 0) {
-      ad.discountedPrice = ad.price * (1 - discount / 100);
-    } else if (discount === 0) {
-      ad.discountedPrice = undefined;
-    }
-    
+    if (price !== undefined) ad.price = Number(price);
+
+    if (Array.isArray(images)) ad.images = images;
+    if (mainImage !== undefined) ad.mainImage = mainImage;
+
+    if (discount !== undefined) ad.discount = clampDiscount(discount);
+    ad.discountedPrice = discounted(ad.price, ad.discount);
+
     await ad.save();
-    
-    return res.status(200).json({ 
-      message: 'Ogłoszenie zostało zaktualizowane.',
-      ad
-    });
+
+    res
+      .status(200)
+      .json({ success: true, message: "Ogłoszenie zaktualizowane.", data: ad });
   } catch (error) {
-    console.error('Błąd podczas aktualizacji ogłoszenia:', error);
-    return res.status(500).json({ message: 'Błąd serwera podczas aktualizacji ogłoszenia.' });
+    console.error("Błąd aktualizacji ogłoszenia:", error);
+    res
+      .status(500)
+      .json({ message: "Błąd serwera podczas aktualizacji ogłoszenia." });
   }
 };
 
-/**
- * Usuwa ogłoszenie
- * Deletes an ad
- */
+/* ========================= DELETE ========================= */
 export const deleteAd = async (req, res) => {
   try {
     const { adId } = req.params;
-    
-    // Sprawdź czy ogłoszenie istnieje / Check if ad exists
-    const ad = await Ad.findById(adId);
-    if (!ad) {
-      return res.status(404).json({ message: 'Ogłoszenie nie zostało znalezione.' });
-    }
-    
-    // Zdjęcia są automatycznie usuwane z Supabase przez frontend
-    
+    const exists = await Ad.findById(adId);
+    if (!exists)
+      return res
+        .status(404)
+        .json({ message: "Ogłoszenie nie zostało znalezione." });
+
     await Ad.findByIdAndDelete(adId);
-    
-    return res.status(200).json({ message: 'Ogłoszenie zostało usunięte.' });
+    res
+      .status(200)
+      .json({ success: true, message: "Ogłoszenie zostało usunięte." });
   } catch (error) {
-    console.error('Błąd podczas usuwania ogłoszenia:', error);
-    return res.status(500).json({ message: 'Błąd serwera podczas usuwania ogłoszenia.' });
+    console.error("Błąd usuwania ogłoszenia:", error);
+    res
+      .status(500)
+      .json({ message: "Błąd serwera podczas usuwania ogłoszenia." });
   }
 };
 
-/**
- * Ustawia zniżkę dla wielu ogłoszeń jednocześnie
- * Sets discount for multiple ads at once
- */
+/* ========================= BULK DISCOUNT ========================= */
 export const setBulkDiscount = async (req, res) => {
   try {
-    const { adIds, discount } = req.body;
-    
+    const { adIds = [], discount } = req.body || {};
+    const d = clampDiscount(discount);
+
     if (!Array.isArray(adIds) || adIds.length === 0) {
-      return res.status(400).json({ message: 'Nie podano poprawnej listy ogłoszeń.' });
+      return res.status(400).json({ message: "Nie podano listy ogłoszeń." });
     }
-    
-    if (discount === undefined || discount < 0 || discount > 99) {
-      return res.status(400).json({ message: 'Nieprawidłowa wartość zniżki. Podaj wartość od 0 do 99.' });
+
+    const docs = await Ad.find({ _id: { $in: adIds } });
+    for (const ad of docs) {
+      ad.discount = d;
+      ad.discountedPrice = discounted(ad.price, d);
+      await ad.save();
     }
-    
-    // Aktualizuj wszystkie ogłoszenia / Update all ads
-    const updatePromises = adIds.map(async (adId) => {
-      const ad = await Ad.findById(adId);
-      if (ad) {
-        ad.discount = discount;
-        
-        // Oblicz cenę po zniżce / Calculate discounted price
-        if (discount > 0) {
-          ad.discountedPrice = ad.price * (1 - discount / 100);
-        } else {
-          ad.discountedPrice = undefined;
-        }
-        
-        return ad.save();
-      }
-    });
-    
-    await Promise.all(updatePromises);
-    
-    return res.status(200).json({ 
-      message: `Zniżka ${discount}% została zastosowana dla ${adIds.length} ogłoszeń.`
+
+    res.status(200).json({
+      success: true,
+      message: `Zniżka ${d}% została zastosowana dla ${docs.length} ogłoszeń.`,
     });
   } catch (error) {
-    console.error('Błąd podczas ustawiania zniżek dla ogłoszeń:', error);
-    return res.status(500).json({ message: 'Błąd serwera podczas ustawiania zniżek dla ogłoszeń.' });
+    console.error("Błąd bulk-discount:", error);
+    res
+      .status(500)
+      .json({ message: "Błąd serwera podczas ustawiania zniżek." });
   }
 };
 
-/**
- * Pobiera listę oczekujących ogłoszeń do moderacji
- * Gets a list of pending ads for moderation
- */
+/* ========================= PENDING LIST ========================= */
 export const getPendingAds = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 10, 
-      sortBy = 'createdAt', 
-      sortOrder = 'desc' 
-    } = req.query;
-    
-    // Przygotuj zapytanie o oczekujące ogłoszenia / Prepare query for pending ads
-    const query = { status: 'pending' };
-    
-    // Przygotuj opcje sortowania / Prepare sort options
-    const sort = {};
-    sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
-    
-    // Pobierz całkowitą liczbę oczekujących ogłoszeń / Get total count of pending ads
+    const page = Number(req.query.page || 1);
+    const limit = Number(req.query.limit || 10);
+    const sortBy = req.query.sortBy || "createdAt";
+    const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
+
+    const query = { status: "pending" };
     const total = await Ad.countDocuments(query);
-    
-    // Pobierz oczekujące ogłoszenia z paginacją / Get pending ads with pagination
     const ads = await Ad.find(query)
-      .populate('owner', 'email name lastName')
-      .sort(sort)
+      .sort({ [sortBy]: sortOrder })
       .skip((page - 1) * limit)
-      .limit(parseInt(limit));
-    
-    return res.status(200).json({
-      ads,
-      pagination: {
-        total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        pages: Math.ceil(total / limit)
-      }
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        ads,
+        pagination: {
+          total,
+          page,
+          limit,
+          pages: Math.ceil(total / limit),
+        },
+      },
     });
   } catch (error) {
-    console.error('Błąd podczas pobierania listy oczekujących ogłoszeń:', error);
-    return res.status(500).json({ message: 'Błąd serwera podczas pobierania listy oczekujących ogłoszeń.' });
+    console.error("Błąd pobierania pending:", error);
+    res
+      .status(500)
+      .json({
+        message: "Błąd serwera podczas pobierania listy oczekujących ogłoszeń.",
+      });
   }
 };
 
-/**
- * Zatwierdza ogłoszenie
- * Approves an ad
- */
+/* ========================= APPROVE ========================= */
 export const approveAd = async (req, res) => {
   try {
     const { adId } = req.params;
-    const { comment } = req.body;
-    
-    // Sprawdź czy ogłoszenie istnieje / Check if ad exists
+    const { comment } = req.body || {};
+
     const ad = await Ad.findById(adId);
-    if (!ad) {
-      return res.status(404).json({ message: 'Ogłoszenie nie zostało znalezione.' });
+    if (!ad)
+      return res
+        .status(404)
+        .json({ message: "Ogłoszenie nie zostało znalezione." });
+    if (ad.status !== "pending") {
+      return res
+        .status(400)
+        .json({
+          message: `Ogłoszenie nie jest w statusie "pending" (obecnie: "${ad.status}").`,
+        });
     }
-    
-    // Sprawdź czy ogłoszenie jest w stanie oczekującym / Check if ad is pending
-    if (ad.status !== 'pending') {
-      return res.status(400).json({ message: `Ogłoszenie nie może zostać zatwierdzone, ponieważ ma status "${ad.status}".` });
-    }
-    
-    // Zatwierdź ogłoszenie / Approve ad
-    ad.status = 'active';
-    ad.moderationComment = comment || 'Zatwierdzone przez moderatora.';
-    ad.moderatedBy = req.user.userId;
-    ad.moderatedAt = new Date();
-    
+
+    ad.status = "approved";
+    ad.moderation = ad.moderation || {};
+    ad.moderation.approvedAt = new Date();
+    ad.moderation.approvedBy = req.user?.userId || req.user?._id;
+    ad.moderation.rejectReason = "";
     await ad.save();
-    
-    // Powiadom użytkownika o zatwierdzeniu ogłoszenia / Notify user about ad approval
+
     try {
       await Notification.create({
-        user: ad.owner,
-        type: 'ad_approved',
-        title: 'Ogłoszenie zostało zatwierdzone',
-        message: `Twoje ogłoszenie "${ad.headline}" zostało zatwierdzone przez moderatora i jest teraz widoczne na stronie.`,
-        data: {
-          adId: ad._id,
-          comment: ad.moderationComment
-        }
+        user: ad.user || ad.owner,
+        type: "ad_approved",
+        title: "Ogłoszenie zostało zatwierdzone",
+        message: `Twoje ogłoszenie "${
+          ad.title || ad.headline
+        }" zostało zatwierdzone.`,
+        data: { adId: ad._id, comment: comment || "" },
       });
-    } catch (notificationError) {
-      console.error('Błąd podczas wysyłania powiadomienia:', notificationError);
-      // Kontynuuj, nawet jeśli powiadomienie się nie powiodło / Continue even if notification failed
+    } catch (e) {
+      console.warn("Notification error (approve):", e.message);
     }
-    
-    return res.status(200).json({ 
-      message: 'Ogłoszenie zostało zatwierdzone.',
-      ad
-    });
+
+    res
+      .status(200)
+      .json({ success: true, message: "Ogłoszenie zatwierdzone.", data: ad });
   } catch (error) {
-    console.error('Błąd podczas zatwierdzania ogłoszenia:', error);
-    return res.status(500).json({ message: 'Błąd serwera podczas zatwierdzania ogłoszenia.' });
+    console.error("Błąd approve:", error);
+    res
+      .status(500)
+      .json({ message: "Błąd serwera podczas zatwierdzania ogłoszenia." });
   }
 };
 
-/**
- * Odrzuca ogłoszenie
- * Rejects an ad
- */
+/* ========================= REJECT ========================= */
 export const rejectAd = async (req, res) => {
   try {
     const { adId } = req.params;
-    const { reason, comment } = req.body;
-    
-    if (!reason) {
-      return res.status(400).json({ message: 'Należy podać powód odrzucenia ogłoszenia.' });
-    }
-    
-    // Sprawdź czy ogłoszenie istnieje / Check if ad exists
+    const { reason = "", comment = "" } = req.body || {};
+
+    if (!reason)
+      return res.status(400).json({ message: "Podaj powód odrzucenia." });
+
     const ad = await Ad.findById(adId);
-    if (!ad) {
-      return res.status(404).json({ message: 'Ogłoszenie nie zostało znalezione.' });
+    if (!ad)
+      return res
+        .status(404)
+        .json({ message: "Ogłoszenie nie zostało znalezione." });
+    if (ad.status !== "pending") {
+      return res
+        .status(400)
+        .json({
+          message: `Ogłoszenie nie jest w statusie "pending" (obecnie: "${ad.status}").`,
+        });
     }
-    
-    // Sprawdź czy ogłoszenie jest w stanie oczekującym / Check if ad is pending
-    if (ad.status !== 'pending') {
-      return res.status(400).json({ message: `Ogłoszenie nie może zostać odrzucone, ponieważ ma status "${ad.status}".` });
-    }
-    
-    // Odrzuć ogłoszenie / Reject ad
-    ad.status = 'rejected';
-    ad.rejectionReason = reason;
-    ad.moderationComment = comment || 'Odrzucone przez moderatora.';
-    ad.moderatedBy = req.user.userId;
-    ad.moderatedAt = new Date();
-    
+
+    ad.status = "rejected";
+    ad.moderation = ad.moderation || {};
+    ad.moderation.rejectedAt = new Date();
+    ad.moderation.rejectedBy = req.user?.userId || req.user?._id;
+    ad.moderation.rejectReason =
+      reason || comment || "Odrzucone przez moderatora";
     await ad.save();
-    
-    // Powiadom użytkownika o odrzuceniu ogłoszenia / Notify user about ad rejection
+
     try {
       await Notification.create({
-        user: ad.owner,
-        type: 'ad_rejected',
-        title: 'Ogłoszenie zostało odrzucone',
-        message: `Twoje ogłoszenie "${ad.headline}" zostało odrzucone przez moderatora. Powód: ${reason}`,
-        data: {
-          adId: ad._id,
-          reason: reason,
-          comment: ad.moderationComment
-        }
+        user: ad.user || ad.owner,
+        type: "ad_rejected",
+        title: "Ogłoszenie zostało odrzucone",
+        message: `Twoje ogłoszenie "${
+          ad.title || ad.headline
+        }" zostało odrzucone. Powód: ${reason}`,
+        data: { adId: ad._id, reason, comment },
       });
-    } catch (notificationError) {
-      console.error('Błąd podczas wysyłania powiadomienia:', notificationError);
-      // Kontynuuj, nawet jeśli powiadomienie się nie powiodło / Continue even if notification failed
+    } catch (e) {
+      console.warn("Notification error (reject):", e.message);
     }
-    
-    return res.status(200).json({ 
-      message: 'Ogłoszenie zostało odrzucone.',
-      ad
-    });
+
+    res
+      .status(200)
+      .json({ success: true, message: "Ogłoszenie odrzucone.", data: ad });
   } catch (error) {
-    console.error('Błąd podczas odrzucania ogłoszenia:', error);
-    return res.status(500).json({ message: 'Błąd serwera podczas odrzucania ogłoszenia.' });
+    console.error("Błąd reject:", error);
+    res
+      .status(500)
+      .json({ message: "Błąd serwera podczas odrzucania ogłoszenia." });
   }
 };
 
-/**
- * Aktualizuje ogłoszenie po moderacji (z komentarzem moderatora)
- * Updates an ad after moderation (with moderator comment)
- */
+/* ========================= MODERATE ========================= */
 export const moderateAd = async (req, res) => {
   try {
     const { adId } = req.params;
-    const { status, moderationComment, requiredChanges } = req.body;
-    
-    // Sprawdź czy ogłoszenie istnieje / Check if ad exists
+    const { status, moderationComment, requiredChanges } = req.body || {};
+    const valid = ["pending", "approved", "rejected", "active"];
+    if (status && !valid.includes(status)) {
+      return res
+        .status(400)
+        .json({ message: "Nieprawidłowy status ogłoszenia." });
+    }
+
     const ad = await Ad.findById(adId);
-    if (!ad) {
-      return res.status(404).json({ message: 'Ogłoszenie nie zostało znalezione.' });
-    }
-    
-    // Sprawdź poprawność statusu / Check status validity
-    const validStatuses = ['pending', 'active', 'rejected', 'needs_changes'];
-    if (status && !validStatuses.includes(status)) {
-      return res.status(400).json({ message: 'Nieprawidłowy status ogłoszenia.' });
-    }
-    
-    // Aktualizuj dane / Update data
+    if (!ad)
+      return res
+        .status(404)
+        .json({ message: "Ogłoszenie nie zostało znalezione." });
+
     if (status) ad.status = status;
-    if (moderationComment) ad.moderationComment = moderationComment;
+
+    ad.moderation = ad.moderation || {};
+    if (status === "approved" || status === "active") {
+      ad.moderation.approvedAt = new Date();
+      ad.moderation.approvedBy = req.user?.userId || req.user?._id;
+    }
+    if (status === "rejected") {
+      ad.moderation.rejectedAt = new Date();
+      ad.moderation.rejectedBy = req.user?.userId || req.user?._id;
+    }
+    if (moderationComment) ad.moderation.rejectReason = moderationComment;
     if (requiredChanges) ad.requiredChanges = requiredChanges;
-    
-    ad.moderatedBy = req.user.userId;
-    ad.moderatedAt = new Date();
-    
+
     await ad.save();
-    
-    // Powiadom użytkownika o zmianach / Notify user about changes
+
     try {
-      let notificationType, notificationTitle, notificationMessage;
-      
-      if (status === 'active') {
-        notificationType = 'ad_approved';
-        notificationTitle = 'Ogłoszenie zostało zatwierdzone';
-        notificationMessage = `Twoje ogłoszenie "${ad.headline}" zostało zatwierdzone przez moderatora i jest teraz widoczne na stronie.`;
-      } else if (status === 'rejected') {
-        notificationType = 'ad_rejected';
-        notificationTitle = 'Ogłoszenie zostało odrzucone';
-        notificationMessage = `Twoje ogłoszenie "${ad.headline}" zostało odrzucone przez moderatora.`;
-      } else if (status === 'needs_changes') {
-        notificationType = 'ad_needs_changes';
-        notificationTitle = 'Ogłoszenie wymaga zmian';
-        notificationMessage = `Twoje ogłoszenie "${ad.headline}" wymaga zmian przed zatwierdzeniem.`;
+      let type, title, message;
+      const t = ad.title || ad.headline;
+      if (status === "approved" || status === "active") {
+        type = "ad_approved";
+        title = "Ogłoszenie zatwierdzone";
+        message = `Twoje ogłoszenie "${t}" zostało zatwierdzone.`;
+      } else if (status === "rejected") {
+        type = "ad_rejected";
+        title = "Ogłoszenie odrzucone";
+        message = `Twoje ogłoszenie "${t}" zostało odrzucone.`;
       }
-      
-      if (notificationType) {
+      if (type) {
         await Notification.create({
-          user: ad.owner,
-          type: notificationType,
-          title: notificationTitle,
-          message: notificationMessage,
+          user: ad.user || ad.owner,
+          type,
+          title,
+          message,
           data: {
             adId: ad._id,
-            moderationComment: ad.moderationComment,
-            requiredChanges: ad.requiredChanges
-          }
+            moderationComment: ad.moderation?.rejectReason || "",
+            requiredChanges: ad.requiredChanges,
+          },
         });
       }
-    } catch (notificationError) {
-      console.error('Błąd podczas wysyłania powiadomienia:', notificationError);
-      // Kontynuuj, nawet jeśli powiadomienie się nie powiodło / Continue even if notification failed
+    } catch (e) {
+      console.warn("Notification error (moderate):", e.message);
     }
-    
-    return res.status(200).json({ 
-      message: `Ogłoszenie zostało zaktualizowane ze statusem "${status}".`,
-      ad
+
+    res.status(200).json({
+      success: true,
+      message: `Ogłoszenie zaktualizowane${
+        status ? ` (status: "${status}")` : ""
+      }.`,
+      data: ad,
     });
   } catch (error) {
-    console.error('Błąd podczas moderacji ogłoszenia:', error);
-    return res.status(500).json({ message: 'Błąd serwera podczas moderacji ogłoszenia.' });
+    console.error("Błąd moderacji:", error);
+    res
+      .status(500)
+      .json({ message: "Błąd serwera podczas moderacji ogłoszenia." });
   }
 };

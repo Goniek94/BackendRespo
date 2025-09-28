@@ -1,164 +1,157 @@
-import express from 'express';
-import userRoutes from './userRoutes.js';
-import dashboardRoutes from './dashboardRoutes.js';
-import authRoutes from './authRoutes.js';
-import listingRoutes from './listingRoutes.js';
-import reportRoutes from './reportRoutes.js';
-// import promotionRoutes from './promotionRoutes.js'; // TODO: Create this file
-import cleanupRoutes from './cleanupRoutes.js';
-import { requireAuth } from '../../middleware/auth.js';
-import { adminApiLimiter } from '../middleware/adminAuth.js';
+// admin/routes/index.js
+import express from "express";
 
-// USUNIĘTE: requireAdminRole - sprawdzanie roli przeniesione do kontrolerów
-// Każdy kontroler sam sprawdza czy użytkownik ma odpowiednią rolę
+// Sub-routes (wszystkie w tym samym katalogu: admin/routes)
+import authRoutes from "./authRoutes.js";
+import dashboardRoutes from "./dashboardRoutes.js";
+import userRoutes from "./userRoutes.js";
+import listingRoutes from "./listingRoutes.js";
+import reportRoutes from "./reportRoutes.js";
+import promotionRoutes from "./promotionRoutes.js";
+import statisticsRoutes from "./statistics/statisticsRoutes.js";
+import settingsRoutes from "./settingsRoutes.js";
+import cleanupRoutes from "./cleanupRoutes.js";
+
+// Middleware (jeden poziom wyżej: admin/middleware)
+import { adminApiLimiter, requireAdminAuth } from "../middleware/adminAuth.js";
 
 /**
  * Main Admin Routes Index
  * Central routing hub for all admin panel endpoints
- * Features: Modular routing, versioning, middleware organization
- * 
- * @author Senior Developer
- * @version 1.0.0
  */
-
 const router = express.Router();
 
-// Apply rate limiting to all admin API routes
+// Globalny rate limit dla admin API
 router.use(adminApiLimiter);
 
-// USUNIĘTE: Cache headers powodowały HTTP 431 - za duże nagłówki
-// Minimalne cache control tylko gdy potrzebne
+// Minimalne nagłówki cache (unikamy 431)
 router.use((req, res, next) => {
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader("Cache-Control", "no-cache");
   next();
 });
 
-/**
- * API versioning and health check (protected)
- * NAPRAWIONE: Tylko requireAuth - sprawdzanie roli w kontrolerze
- */
-router.get('/health', requireAuth, (req, res) => {
-  // Sprawdź rolę w kontrolerze
-  if (!req.user || !['admin', 'moderator'].includes(req.user.role)) {
-    return res.status(403).json({
-      success: false,
-      error: 'Brak uprawnień administratora',
-      code: 'INSUFFICIENT_PRIVILEGES'
-    });
-  }
-
+/** ===================== HEALTH ===================== */
+// Prosty health-check używany przez frontend przy starcie panelu.
+// Nie wymaga autoryzacji – jeżeli req.user jest ustawiony przez wyższe middleware,
+// zwrócimy podstawowe info o użytkowniku, w przeciwnym razie user=null.
+router.get("/health", (req, res) => {
   res.json({
     success: true,
-    service: 'Admin Panel API',
-    version: '1.0.0',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development',
-    user: {
-      id: req.user.userId || req.user._id,
-      role: req.user.role,
-      email: req.user.email
-    }
+    service: "Admin Panel",
+    version: "1.0.0",
+    user: req.user
+      ? { id: String(req.user._id || req.user.id), role: req.user.role }
+      : null,
   });
 });
 
-/**
- * Authentication routes
- * Admin login, logout, and auth check
- */
-router.use('/auth', authRoutes);
+/** ===================== ROUTES ===================== */
 
-/**
- * Dashboard routes (protected)
- * Dashboard statistics and data
- * NAPRAWIONE: Przywrócono requireAuth
- */
-router.use('/dashboard', requireAuth, dashboardRoutes);
+/** Auth (public) */
+router.use("/auth", authRoutes);
 
-/**
- * User management routes (protected)
- * All user-related admin operations
- * NAPRAWIONE: Tylko requireAuth - sprawdzanie roli w kontrolerach
- */
-router.use('/users', requireAuth, userRoutes);
+/** Dashboard (wymagana autoryzacja admin) */
+router.use("/dashboard", requireAdminAuth, dashboardRoutes);
 
-/**
- * Listing management routes (protected)
- * All listing-related admin operations
- * NAPRAWIONE: Tylko requireAuth - sprawdzanie roli w kontrolerach
- */
-router.use('/listings', requireAuth, listingRoutes);
+/** Users (wymagana autoryzacja admin) */
+router.use("/users", requireAdminAuth, userRoutes);
 
-/**
- * Report management routes (protected)
- * All report-related admin operations
- * NAPRAWIONE: Tylko requireAuth - sprawdzanie roli w kontrolerach
- */
-router.use('/reports', requireAuth, reportRoutes);
+/** Listings (wymagana autoryzacja admin) */
+router.use("/listings", requireAdminAuth, listingRoutes);
 
-/**
- * Promotion management routes (protected)
- * All promotion-related admin operations
- * TODO: Uncomment when promotionRoutes.js is created
- */
-// router.use('/promotions', requireAdminAuth, promotionRoutes);
+/** Reports (wymagana autoryzacja admin) */
+router.use("/reports", requireAdminAuth, reportRoutes);
 
-/**
- * Cleanup and session management routes
- * Cookie cleanup and session management (some public for fixing HTTP 431)
- */
-router.use('/', cleanupRoutes);
+/** Promotions (wymagana autoryzacja admin) */
+router.use("/promotions", requireAdminAuth, promotionRoutes);
 
-/**
- * Future route modules will be added here:
- * 
- * router.use('/comments', commentRoutes);
- * router.use('/analytics', analyticsRoutes);
- * router.use('/settings', settingsRoutes);
- */
+/** Settings (wymagana autoryzacja admin) */
+router.use("/settings", requireAdminAuth, settingsRoutes);
 
-/**
- * 404 handler for admin routes
- */
-router.use('*', (req, res) => {
+/** Statistics (wymagana autoryzacja admin) */
+router.use("/statistics", requireAdminAuth, statisticsRoutes);
+
+/** Cleanup / helpers (wymagana autoryzacja admin) */
+router.use("/", requireAdminAuth, cleanupRoutes);
+
+/** 404 */
+router.use("*", (req, res) => {
   res.status(404).json({
     success: false,
-    error: 'Admin endpoint not found',
-    code: 'ADMIN_ENDPOINT_NOT_FOUND',
+    error: "Admin endpoint not found",
+    code: "ADMIN_ENDPOINT_NOT_FOUND",
     path: req.originalUrl,
     method: req.method,
     availableEndpoints: [
-      'GET /admin-panel/health',
-      'POST /admin-panel/auth/login',
-      'POST /admin-panel/auth/logout',
-      'GET /admin-panel/auth/check',
-      'GET /admin-panel/dashboard',
-      'GET /admin-panel/dashboard/stats',
-      'GET /admin-panel/users',
-      'GET /admin-panel/users/analytics',
-      'GET /admin-panel/users/export',
-      'POST /admin-panel/users/bulk-update',
-      'GET /admin-panel/users/:id',
-      'PUT /admin-panel/users/:id',
-      'POST /admin-panel/users/:id/block',
-      'DELETE /admin-panel/users/:id',
-      'GET /admin-panel/listings',
-      'POST /admin-panel/listings',
-      'GET /admin-panel/listings/stats',
-      'GET /admin-panel/listings/pending',
-      'GET /admin-panel/listings/:id',
-      'PUT /admin-panel/listings/:id',
-      'DELETE /admin-panel/listings/:id',
-      'POST /admin-panel/listings/:id/approve',
-      'POST /admin-panel/listings/:id/reject',
-      'POST /admin-panel/listings/:id/moderate',
-      'POST /admin-panel/listings/bulk-discount',
-      'GET /admin-panel/reports',
-      'GET /admin-panel/clear-cookies',
-      'POST /admin-panel/clear-cookies',
-      'POST /admin-panel/cleanup-session',
-      'GET /admin-panel/session-info'
-    ]
+      // health
+      "GET /admin-panel/health",
+
+      // auth
+      "POST /admin-panel/auth/login",
+      "POST /admin-panel/auth/logout",
+      "GET /admin-panel/auth/check",
+
+      // dashboard
+      "GET /admin-panel/dashboard",
+      "GET /admin-panel/dashboard/stats",
+
+      // users
+      "GET /admin-panel/users",
+      "GET /admin-panel/users/analytics",
+      "GET /admin-panel/users/export",
+      "POST /admin-panel/users/bulk-update",
+      "GET /admin-panel/users/:id",
+      "PUT /admin-panel/users/:id",
+      "POST /admin-panel/users/:id/block",
+      "DELETE /admin-panel/users/:id",
+
+      // listings
+      "GET /admin-panel/listings",
+      "POST /admin-panel/listings",
+      "GET /admin-panel/listings/stats",
+      "GET /admin-panel/listings/pending",
+      "GET /admin-panel/listings/:id",
+      "PUT /admin-panel/listings/:id",
+      "DELETE /admin-panel/listings/:id",
+      "POST /admin-panel/listings/:id/approve",
+      "POST /admin-panel/listings/:id/reject",
+      "POST /admin-panel/listings/:id/moderate",
+      "POST /admin-panel/listings/bulk-discount",
+
+      // reports
+      "GET /admin-panel/reports",
+
+      // promotions (CRUD + tools)
+      "GET /admin-panel/promotions",
+      "POST /admin-panel/promotions",
+      "PUT /admin-panel/promotions/:id",
+      "DELETE /admin-panel/promotions/:id",
+      "POST /admin-panel/promotions/:id/activate",
+      "POST /admin-panel/promotions/:id/deactivate",
+      "GET /admin-panel/promotions/discounts",
+      "POST /admin-panel/promotions/ads/:adId/discount",
+      "POST /admin-panel/promotions/bulk-discount",
+      "POST /admin-panel/promotions/users/:userId/discount",
+      "POST /admin-panel/promotions/categories/:category/discount",
+      "POST /admin-panel/promotions/users/:userId/bonus",
+      "GET /admin-panel/promotions/users/:userId/bonuses",
+      "DELETE /admin-panel/promotions/users/:userId/bonuses/:bonusId",
+
+      // settings
+      "GET /admin-panel/settings",
+      "PUT /admin-panel/settings",
+
+      // statistics
+      "GET /admin-panel/statistics/overview",
+      "GET /admin-panel/statistics/timeseries",
+      "GET /admin-panel/statistics/export",
+
+      // cleanup / session tools
+      "GET /admin-panel/clear-cookies",
+      "POST /admin-panel/clear-cookies",
+      "POST /admin-panel/cleanup-session",
+      "GET /admin-panel/session-info",
+    ],
   });
 });
 

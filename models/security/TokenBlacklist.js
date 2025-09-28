@@ -1,112 +1,97 @@
-/**
- * Token blacklist for JWT rotation using MongoDB.
- * Provides persistent storage for blacklisted tokens with automatic cleanup.
- */
-import TokenBlacklistDB from './TokenBlacklistDB.js';
+// models/security/TokenBlacklist.js
+import mongoose from "mongoose";
 
-// Sprawdź czy połączenie z bazą danych jest aktywne
-const isDbConnected = () => {
-  return !!TokenBlacklistDB.db && TokenBlacklistDB.db.readyState === 1;
-};
-
-// Fallback in-memory cache dla szybszego sprawdzania (bez ciągłego odpytywania DB)
+// --- fallback in-memory cache (szybkie sprawdzanie) ---
 const memoryCache = new Set();
 
-/**
- * Dodaje token do blacklisty
- * @param {string} token - Token JWT do unieważnienia
- * @param {Object} options - Opcje dodatkowe
- * @param {string} options.reason - Powód unieważnienia tokenu
- * @param {string} options.userId - ID użytkownika, którego dotyczy token
- * @returns {Promise} - Promise rozwiązywane po dodaniu tokenu
- */
-export const addToBlacklist = async (token, options = {}) => {
+// --- opcjonalny model w Mongo (jeśli DB jest podłączona) ---
+const TokenBlacklistSchema = new mongoose.Schema(
+  {
+    token: { type: String, required: true, index: true, unique: true },
+    reason: { type: String, default: "OTHER" },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    expiresAt: { type: Date }, // opcjonalnie TTL (jeżeli tworzysz z exp)
+  },
+  { timestamps: true }
+);
+
+// unikamy redefinicji w nodemon
+const TokenBlacklistModel =
+  mongoose.models.TokenBlacklist ||
+  mongoose.model("TokenBlacklist", TokenBlacklistSchema);
+
+// sprawdź czy Mongoose ma aktywne połączenie
+const isDbConnected = () => mongoose.connection?.readyState === 1;
+
+/** Dodaj token do blacklisty */
+export const addToBlacklist = async (
+  token,
+  { reason = "OTHER", userId = null, expiresAt = null } = {}
+) => {
   try {
-    // Dodaj do pamięci podręcznej
+    // zawsze wrzucamy do pamięci
     memoryCache.add(token);
-    
-    // Sprawdź czy baza danych jest podłączona
+
     if (isDbConnected()) {
-      // Dodaj do bazy danych
-      await TokenBlacklistDB.create({
-        token,
-        reason: options.reason || 'OTHER',
-        userId: options.userId || null
-      });
-    } else {
-      console.warn('Baza danych nie jest podłączona. Token dodany tylko do pamięci podręcznej.');
+      // zabezpieczenie: uniknij E11000
+      await TokenBlacklistModel.updateOne(
+        { token },
+        {
+          $set: { token, reason, userId, ...(expiresAt ? { expiresAt } : {}) },
+        },
+        { upsert: true }
+      );
     }
-    
     return true;
-  } catch (error) {
-    console.error('Błąd podczas dodawania tokenu do blacklisty:', error);
-    // Nawet jeśli DB zawiedzie, token jest w pamięci
+  } catch (err) {
+    console.error("addToBlacklist error:", err.message);
     return false;
   }
 };
 
-/**
- * Sprawdza czy token jest na blackliście
- * @param {string} token - Token JWT do sprawdzenia
- * @returns {Promise<boolean>} - Promise rozwiązywane wartością boolean
- */
+/** Sprawdź czy token jest zablokowany */
 export const isBlacklisted = async (token) => {
-  // Szybkie sprawdzenie w pamięci
-  if (memoryCache.has(token)) {
-    return true;
-  }
-  
-  // Jeśli baza danych nie jest podłączona, zwróć wynik z pamięci
+  if (!token) return false;
+
+  // szybka ścieżka (RAM)
+  if (memoryCache.has(token)) return true;
+
   if (!isDbConnected()) {
-    console.warn('Baza danych nie jest podłączona. Sprawdzanie tokenu tylko w pamięci podręcznej.');
+    // bez DB opieramy się wyłącznie na RAM
     return memoryCache.has(token);
   }
-  
+
   try {
-    // Sprawdzenie w bazie danych
-    const blacklistedToken = await TokenBlacklistDB.findOne({ token });
-    
-    // Jeśli token jest w DB, dodaj go do pamięci podręcznej
-    if (blacklistedToken) {
+    const doc = await TokenBlacklistModel.findOne({ token }).lean();
+    if (doc) {
+      // dopisz do cache, by kolejne sprawdzenia były szybkie
       memoryCache.add(token);
       return true;
     }
-    
     return false;
-  } catch (error) {
-    console.error('Błąd podczas sprawdzania tokenu w blackliście:', error);
-    // W przypadku błędu DB, zwracamy wynik z pamięci
+  } catch (err) {
+    console.error("isBlacklisted error:", err.message);
+    // w razie błędu DB – nie blokuj (albo oprzyj się na RAM)
     return memoryCache.has(token);
   }
 };
 
-/**
- * Czyści blacklistę (tylko do celów testowych)
- * @returns {Promise} - Promise rozwiązywane po wyczyszczeniu blacklisty
- */
+/** Wyczyść blacklistę (do testów) */
 export const clearBlacklist = async () => {
   try {
-    // Czyścimy pamięć podręczną
     memoryCache.clear();
-    
-    // Sprawdź czy baza danych jest podłączona
     if (isDbConnected()) {
-      // Czyścimy bazę danych
-      await TokenBlacklistDB.deleteMany({});
-    } else {
-      console.warn('Baza danych nie jest podłączona. Wyczyszczono tylko pamięć podręczną.');
+      await TokenBlacklistModel.deleteMany({});
     }
-    
     return true;
-  } catch (error) {
-    console.error('Błąd podczas czyszczenia blacklisty:', error);
+  } catch (err) {
+    console.error("clearBlacklist error:", err.message);
     return false;
   }
 };
 
-// Dla zachowania kompatybilności wstecznej
-export default {
-  addToBlacklist,
-  isBlacklisted,
-  clearBlacklist,
-};
+export default { addToBlacklist, isBlacklisted, clearBlacklist };

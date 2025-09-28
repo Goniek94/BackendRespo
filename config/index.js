@@ -1,322 +1,301 @@
-/**
- * MAIN CONFIGURATION LOADER
- * 
- * Automatycznie ładuje odpowiednią konfigurację środowiska na podstawie NODE_ENV
- * - Waliduje zmienne środowiskowe
- * - Zapewnia fallback do development
- * - Eksportuje zunifikowaną konfigurację
- * - Loguje informacje o załadowanym środowisku
- * 
- * UŻYCIE:
- * import config from '../config/index.js';
- * console.log(config.environment); // 'development', 'staging', 'production'
- */
-
-// Załadowanie zmiennych środowiskowych - MUSI BYĆ NA SAMEJ GÓRZE
-import dotenv from 'dotenv';
+// src/config/index.js
+import dotenv from "dotenv";
 dotenv.config();
 
-import developmentConfig from './environments/development-minimal.js';
-import stagingConfig from './environments/staging.js';
-import productionConfig from './environments/production.js';
+import { randomBytes } from "node:crypto";
 
-/**
- * Determine current environment
- * Priority: NODE_ENV -> fallback to 'development'
- */
+import developmentConfig from "./environments/development-minimal.js";
+import stagingConfig from "./environments/staging.js";
+import productionConfig from "./environments/production.js";
+
+// --- Helpers ---------------------------------------------------------------
+
+const validEnvironments = ["development", "staging", "production"];
+
 const getCurrentEnvironment = () => {
-  const env = process.env.NODE_ENV?.toLowerCase().trim();
-  
-  // Validate environment value
-  const validEnvironments = ['development', 'staging', 'production'];
-  
-  if (!env) {
-    console.warn('⚠️  NODE_ENV not set, defaulting to development');
-    return 'development';
-  }
-  
+  const env = (process.env.NODE_ENV || "").toLowerCase().trim();
   if (!validEnvironments.includes(env)) {
-    console.warn(`⚠️  Invalid NODE_ENV: "${env}", defaulting to development`);
-    return 'development';
+    console.warn("⚠️  NODE_ENV not set/invalid, defaulting to 'development'");
+    return "development";
   }
-  
   return env;
 };
 
-/**
- * Load environment-specific configuration
- */
 const loadEnvironmentConfig = (environment) => {
   switch (environment) {
-    case 'production':
-      console.log('🚀 Loading PRODUCTION configuration - Maximum security enabled');
+    case "production":
+      console.log("🚀 Loading PRODUCTION configuration");
       return productionConfig;
-      
-    case 'staging':
-      console.log('🧪 Loading STAGING configuration - Testing environment');
+    case "staging":
+      console.log("🧪 Loading STAGING configuration");
       return stagingConfig;
-      
-    case 'development':
+    case "development":
     default:
-      console.log('🛠️  Loading DEVELOPMENT configuration - Developer-friendly settings');
+      console.log("🛠️  Loading DEVELOPMENT configuration");
       return developmentConfig;
   }
 };
 
-/**
- * Validate critical environment variables
- */
-const validateEnvironmentVariables = (config) => {
+const parseOrigins = (v) => {
+  if (!v) return undefined;
+  const trimmed = v.trim();
+  if (trimmed === "*") return "*";
+  return trimmed
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+};
+
+// --- Validation ------------------------------------------------------------
+
+const validateEnvironmentVariables = (cfg) => {
   const errors = [];
   const warnings = [];
-  
-  // Critical variables that must be set
-  const criticalVars = [
-    'JWT_SECRET',
-    'MONGODB_URI'
-  ];
-  
-  // Production-specific critical variables
-  if (config.isProduction) {
-    criticalVars.push(
-      'JWT_REFRESH_SECRET',
-      'COOKIE_DOMAIN',
-      'ALLOWED_ORIGINS'
-    );
+
+  const must = ["JWT_SECRET", "MONGODB_URI"];
+  if (cfg.isProduction || cfg.isStaging) {
+    must.push("JWT_REFRESH_SECRET", "COOKIE_DOMAIN", "ALLOWED_ORIGINS");
   }
-  
-  // Check critical variables
-  criticalVars.forEach(varName => {
-    if (!process.env[varName]) {
-      errors.push(`Missing critical environment variable: ${varName}`);
+
+  for (const name of must) {
+    if (!process.env[name]) errors.push(`Missing critical ENV: ${name}`);
+  }
+
+  // Strength & defaults
+  if ((cfg.isProduction || cfg.isStaging) && process.env.JWT_SECRET) {
+    if (process.env.JWT_SECRET.length < 32) {
+      errors.push("JWT_SECRET must be at least 32 characters in prod/staging");
     }
-  });
-  
-  // Recommended variables
-  const recommendedVars = [
-    'PORT',
-    'SESSION_SECRET'
-  ];
-  
-  recommendedVars.forEach(varName => {
-    if (!process.env[varName]) {
-      warnings.push(`Recommended environment variable not set: ${varName}`);
-    }
-  });
-  
-  // Production-specific security checks
-  if (config.isProduction) {
-    // Check JWT secret strength
-    if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
-      errors.push('JWT_SECRET must be at least 32 characters long in production');
-    }
-    
-    // Check if using default secrets (security risk)
     const dangerousDefaults = [
-      'your-secret-key',
-      'default-secret',
-      'change-me',
-      'secret',
-      '123456'
+      "your-secret-key",
+      "default-secret",
+      "change-me",
+      "secret",
+      "123456",
     ];
-    
-    if (process.env.JWT_SECRET && dangerousDefaults.includes(process.env.JWT_SECRET.toLowerCase())) {
-      errors.push('JWT_SECRET appears to be a default value - this is a security risk!');
-    }
-    
-    // Check HTTPS requirement
-    if (!process.env.FORCE_HTTPS && !process.env.HTTPS_ENABLED) {
-      warnings.push('HTTPS not explicitly enabled in production environment');
+    const js = process.env.JWT_SECRET;
+    if (dangerousDefaults.includes(js.toLowerCase?.())) {
+      errors.push("JWT_SECRET appears to be a default value");
     }
   }
-  
-  // Log validation results
-  if (errors.length > 0) {
-    console.error('❌ Environment validation FAILED:');
-    errors.forEach(error => console.error(`   • ${error}`));
-    
-    if (config.isProduction) {
-      console.error('🚨 CRITICAL: Cannot start in production with missing variables!');
+
+  if (
+    (cfg.isProduction || cfg.isStaging) &&
+    !process.env.FORCE_HTTPS &&
+    !process.env.HTTPS_ENABLED
+  ) {
+    warnings.push("HTTPS not explicitly enabled (FORCE_HTTPS/HTTPS_ENABLED)");
+  }
+
+  if (errors.length) {
+    console.error("❌ Environment validation FAILED:");
+    for (const e of errors) console.error("   •", e);
+    if (cfg.isProduction || cfg.isStaging) {
+      console.error("🚨 Cannot start without required ENV in prod/staging");
       process.exit(1);
     } else {
-      console.warn('⚠️  Continuing with missing variables (non-production environment)');
+      console.warn("⚠️  Continuing (non-production/staging env)");
     }
   }
-  
-  if (warnings.length > 0) {
-    console.warn('⚠️  Environment validation warnings:');
-    warnings.forEach(warning => console.warn(`   • ${warning}`));
+
+  if (warnings.length) {
+    console.warn("⚠️  Environment warnings:");
+    for (const w of warnings) console.warn("   •", w);
   }
-  
-  if (errors.length === 0 && warnings.length === 0) {
-    console.log('✅ Environment validation passed');
+
+  if (!errors.length && !warnings.length) {
+    console.log("✅ Environment validation passed");
   }
-  
+
   return { errors, warnings };
 };
 
-/**
- * Generate runtime configuration with environment variable overrides
- */
-const generateRuntimeConfig = (baseConfig) => {
-  const runtimeConfig = { ...baseConfig };
-  
-  // Override with environment variables where applicable
-  if (process.env.PORT) {
-    runtimeConfig.server = runtimeConfig.server || {};
-    runtimeConfig.server.port = parseInt(process.env.PORT, 10);
+// --- Runtime overrides -----------------------------------------------------
+
+const ensure = (obj, path, initVal) => {
+  // ensures nested path exists (mutates obj)
+  const keys = path.split(".");
+  let cur = obj;
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i];
+    if (cur[k] == null) cur[k] = i === keys.length - 1 ? initVal ?? {} : {};
+    cur = cur[k];
   }
-  
-  if (process.env.MONGODB_URI) {
-    runtimeConfig.database = runtimeConfig.database || {};
-    runtimeConfig.database.uri = process.env.MONGODB_URI;
-  }
-  
-  if (process.env.REDIS_URL && runtimeConfig.cache?.redis) {
-    runtimeConfig.cache.redis.url = process.env.REDIS_URL;
-  }
-  
-  // Security overrides
-  if (process.env.JWT_SECRET) {
-    runtimeConfig.security = runtimeConfig.security || {};
-    runtimeConfig.security.jwt = runtimeConfig.security.jwt || {};
-    runtimeConfig.security.jwt.secret = process.env.JWT_SECRET;
-  }
-  
-  if (process.env.JWT_REFRESH_SECRET) {
-    runtimeConfig.security.jwt.refreshSecret = process.env.JWT_REFRESH_SECRET;
-  }
-  
-  if (process.env.COOKIE_DOMAIN) {
-    runtimeConfig.security.cookies.domain = process.env.COOKIE_DOMAIN;
-  }
-  
-  if (process.env.ALLOWED_ORIGINS) {
-    runtimeConfig.security.cors.origin = process.env.ALLOWED_ORIGINS.split(',');
-  }
-  
-  // Logging overrides
-  if (process.env.LOG_LEVEL) {
-    runtimeConfig.logging.level = process.env.LOG_LEVEL.toLowerCase();
-  }
-  
-  return runtimeConfig;
+  return cur;
 };
 
-/**
- * Add computed properties to configuration
- */
-const addComputedProperties = (config) => {
-  return {
-    ...config,
-    
-    // Server configuration
+const generateRuntimeConfig = (baseConfig) => {
+  const rc = { ...baseConfig };
+
+  if (process.env.PORT) {
+    ensure(rc, "server");
+    rc.server.port = parseInt(process.env.PORT, 10);
+  }
+
+  if (process.env.MONGODB_URI) {
+    ensure(rc, "database");
+    rc.database.uri = process.env.MONGODB_URI;
+  }
+
+  if (process.env.REDIS_URL) {
+    ensure(rc, "cache.redis");
+    rc.cache.redis.url = process.env.REDIS_URL;
+  }
+
+  if (process.env.JWT_SECRET) {
+    ensure(rc, "security.jwt");
+    rc.security.jwt.secret = process.env.JWT_SECRET;
+  }
+  if (process.env.JWT_REFRESH_SECRET) {
+    ensure(rc, "security.jwt");
+    rc.security.jwt.refreshSecret = process.env.JWT_REFRESH_SECRET;
+  }
+
+  if (process.env.COOKIE_DOMAIN) {
+    ensure(rc, "security.cookies");
+    rc.security.cookies.domain = process.env.COOKIE_DOMAIN;
+  }
+
+  if (process.env.ALLOWED_ORIGINS) {
+    ensure(rc, "security.cors");
+    rc.security.cors.origin = parseOrigins(process.env.ALLOWED_ORIGINS);
+  }
+
+  if (process.env.LOG_LEVEL) {
+    ensure(rc, "logging");
+    rc.logging.level = String(process.env.LOG_LEVEL).toLowerCase();
+  }
+
+  return rc;
+};
+
+// --- Computed config -------------------------------------------------------
+
+const addComputedProperties = (cfg) => {
+  const computed = {
+    ...cfg,
     server: {
+      host: process.env.HOST || "0.0.0.0",
       port: process.env.PORT || 5000,
-      host: process.env.HOST || '0.0.0.0',
-      ...config.server
+      ...cfg.server,
     },
-    
-    // Computed security properties
     security: {
-      ...config.security,
-      
-      // JWT secrets with fallbacks
+      ...cfg.security,
       jwt: {
-        ...config.security.jwt,
-        secret: process.env.JWT_SECRET || 'your-jwt-secret-change-in-production',
-        refreshSecret: process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'your-refresh-secret-change-in-production'
+        ...cfg.security?.jwt,
+        secret:
+          process.env.JWT_SECRET ||
+          (() => {
+            if (cfg.isProduction || cfg.isStaging) {
+              console.error("🚨 JWT_SECRET not set (prod/staging)");
+              process.exit(1);
+            }
+            return randomBytes(64).toString("hex"); // dev-only
+          })(),
+        refreshSecret:
+          process.env.JWT_REFRESH_SECRET ||
+          (() => {
+            if (cfg.isProduction || cfg.isStaging) {
+              console.error("🚨 JWT_REFRESH_SECRET not set (prod/staging)");
+              process.exit(1);
+            }
+            return randomBytes(64).toString("hex"); // dev-only
+          })(),
       },
-      
-      // Cookie configuration with environment overrides
       cookies: {
-        ...config.security.cookies,
-        domain: process.env.COOKIE_DOMAIN || config.security.cookies.domain,
-        // NAPRAWIONE: W development ZAWSZE secure: false (HTTP localhost)
-        secure: config.isProduction ? true : false
+        ...cfg.security?.cookies,
+        domain: process.env.COOKIE_DOMAIN || cfg.security?.cookies?.domain,
+        secure: cfg.isProduction ? true : process.env.DEV_HTTPS === "1",
       },
-      
-      // CORS with environment overrides
       cors: {
-        ...config.security.cors,
-        origin: process.env.ALLOWED_ORIGINS ? 
-          process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim()) : 
-          config.security.cors.origin
-      }
+        ...cfg.security?.cors,
+        origin:
+          parseOrigins(process.env.ALLOWED_ORIGINS) ??
+          cfg.security?.cors?.origin,
+      },
+      rateLimiting: {
+        enabled: cfg.security?.rateLimiting?.enabled ?? true,
+        ...cfg.security?.rateLimiting,
+      },
     },
-    
-    // Database configuration
     database: {
-      ...config.database,
-      uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/marketplace'
+      uri: process.env.MONGODB_URI || "mongodb://localhost:27017/marketplace",
+      ...cfg.database,
     },
-    
-    // Computed paths
+    logging: {
+      level: (cfg.logging?.level || "info").toLowerCase(),
+      ...cfg.logging,
+    },
     paths: {
       root: process.cwd(),
-      logs: process.env.LOG_DIR || 'logs',
-      uploads: process.env.UPLOAD_DIR || 'uploads',
-      temp: process.env.TEMP_DIR || 'temp'
+      logs: process.env.LOG_DIR || "logs",
+      uploads: process.env.UPLOAD_DIR || "uploads",
+      temp: process.env.TEMP_DIR || "temp",
+      ...cfg.paths,
     },
-    
-    // Runtime information
     runtime: {
       nodeVersion: process.version,
       platform: process.platform,
       arch: process.arch,
       pid: process.pid,
       startTime: new Date().toISOString(),
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
-    }
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      ...cfg.runtime,
+    },
   };
+
+  return computed;
 };
 
-/**
- * Main configuration loading and initialization
- */
+// --- Bootstrap -------------------------------------------------------------
+
 const initializeConfiguration = () => {
-  console.log('🔧 Initializing application configuration...');
-  
-  // Step 1: Determine environment
+  console.log("🔧 Initializing application configuration...");
   const environment = getCurrentEnvironment();
-  
-  // Step 2: Load base configuration
   const baseConfig = loadEnvironmentConfig(environment);
-  
-  // Step 3: Generate runtime configuration
   const runtimeConfig = generateRuntimeConfig(baseConfig);
-  
-  // Step 4: Add computed properties
   const finalConfig = addComputedProperties(runtimeConfig);
-  
-  // Step 5: Validate environment variables
+
   const validation = validateEnvironmentVariables(finalConfig);
-  
-  // Step 6: Log configuration summary
-  console.log(`📋 Configuration loaded successfully:`);
+
+  console.log("📋 Configuration loaded:");
   console.log(`   Environment: ${finalConfig.environment}`);
-  console.log(`   Security Level: ${finalConfig.isProduction ? 'MAXIMUM' : finalConfig.isStaging ? 'MEDIUM' : 'DEVELOPMENT'}`);
-  console.log(`   Rate Limiting: ${finalConfig.security.rateLimiting.enabled ? 'ENABLED' : 'DISABLED'}`);
-  console.log(`   Logging Level: ${finalConfig.logging.level.toUpperCase()}`);
-  console.log(`   Database: ${finalConfig.database.uri.replace(/\/\/.*@/, '//***:***@')}`); // Hide credentials
-  
+  console.log(
+    `   Security Level: ${
+      finalConfig.isProduction
+        ? "MAXIMUM"
+        : finalConfig.isStaging
+        ? "MEDIUM"
+        : "DEVELOPMENT"
+    }`
+  );
+  const rlEnabled = finalConfig.security?.rateLimiting?.enabled
+    ? "ENABLED"
+    : "DISABLED";
+  console.log(`   Rate Limiting: ${rlEnabled}`);
+  console.log(
+    `   Logging Level: ${(finalConfig.logging.level || "info").toUpperCase()}`
+  );
+  const safeDb = String(finalConfig.database.uri || "").replace(
+    /\/\/.*@/,
+    "//***:***@"
+  );
+  console.log(`   Database: ${safeDb}`);
+
   if (finalConfig.isProduction) {
-    console.log('🔒 Production mode: Maximum security measures active');
+    console.log("🔒 Production mode: Maximum security measures active");
   } else if (finalConfig.isStaging) {
-    console.log('🧪 Staging mode: Testing production-like environment');
+    console.log("🧪 Staging mode: Production-like testing");
   } else {
-    console.log('🛠️  Development mode: Developer-friendly settings active');
+    console.log("🛠️  Development mode: Dev-friendly settings");
   }
-  
+
   return finalConfig;
 };
 
-// Initialize and export configuration
 const config = initializeConfiguration();
-
 export default config;
 
-// Named exports for convenience
 export const {
   environment,
   isDevelopment,
@@ -327,25 +306,20 @@ export const {
   database,
   server,
   paths,
-  runtime
+  runtime,
 } = config;
 
-// Utility functions
 export const isEnvironment = (env) => config.environment === env;
-export const getConfig = (path) => {
-  return path.split('.').reduce((obj, key) => obj?.[key], config);
-};
+export const getConfig = (path) =>
+  path.split(".").reduce((obj, k) => obj?.[k], config);
 
-// Configuration validation function for runtime checks
-export const validateConfig = () => {
-  return validateEnvironmentVariables(config);
-};
+export const validateConfig = () => validateEnvironmentVariables(config);
 
-// Export configuration for testing
+// For testing
 export const __testing__ = {
   getCurrentEnvironment,
   loadEnvironmentConfig,
   validateEnvironmentVariables,
   generateRuntimeConfig,
-  addComputedProperties
+  addComputedProperties,
 };

@@ -126,20 +126,17 @@ export const registerUser = async (req, res) => {
       });
     }
 
-    // Hash password with high security
-    const saltRounds = 12;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-
     // Generate secure verification tokens using cryptographic functions
     const emailVerificationToken = generateEmailVerificationToken();
     const smsVerificationCode = generateSecureCode(6);
 
     // Create new user with email verification required
+    // Password will be automatically hashed by User model middleware
     const newUser = new User({
       name: name.trim(),
       lastName: lastName?.trim(),
       email: email.toLowerCase().trim(),
-      password: hashedPassword,
+      password: password, // Raw password - will be hashed by model middleware
       phoneNumber: formattedPhone,
       dob: new Date(dob),
       termsAccepted: true,
@@ -154,12 +151,12 @@ export const registerUser = async (req, res) => {
       smsVerificationCode: smsVerificationCode,
       smsVerificationCodeExpires: new Date(Date.now() + 10 * 60 * 1000),
       
-      // Verification status - email not verified by default
+      // Verification status - both email and phone require verification
       isEmailVerified: false,
       emailVerified: false,
-      isPhoneVerified: true, // Phone verification can be skipped for now
-      phoneVerified: true,
-      isVerified: false, // User is not fully verified until email is confirmed
+      isPhoneVerified: false, // Phone must be verified
+      phoneVerified: false,   // Phone must be verified
+      isVerified: false, // User is not fully verified until both email and phone are confirmed
       
       role: 'user',
       status: 'active',
@@ -784,12 +781,9 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    // Hash new password
-    const saltRounds = 12;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-
     // Update user password and clear reset token
-    user.password = hashedPassword;
+    // Password will be automatically hashed by User model middleware
+    user.password = password; // Raw password - will be hashed by model middleware
     user.passwordResetToken = undefined;
     user.passwordResetTokenExpires = undefined;
     user.failedLoginAttempts = 0; // Reset failed attempts

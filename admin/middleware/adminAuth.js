@@ -1,17 +1,19 @@
-import jwt from 'jsonwebtoken';
-import rateLimit from 'express-rate-limit';
-import User from '../../models/user/user.js';
-import AdminActivity from '../models/AdminActivity.js';
-import { isBlacklisted } from '../../models/security/TokenBlacklist.js';
-import logger from '../../utils/logger.js';
-import { refreshUserSession } from '../../middleware/auth.js';
-import { generateSecureToken } from '../../utils/securityTokens.js';
+// admin/middleware/adminAuth.js
+import jwt from "jsonwebtoken";
+import rateLimit from "express-rate-limit";
+import User from "../../models/user/user.js";
+import AdminActivity from "../models/AdminActivity.js";
+import { isBlacklisted } from "../../models/security/TokenBlacklist.js";
+import logger from "../../utils/logger.js";
+import { refreshUserSession } from "../../middleware/auth.js";
+import { generateSecureToken } from "../../utils/securityTokens.js";
+import config from "../../config/index.js";
 
 /**
  * Professional Admin Authentication Middleware
  * Enterprise-grade security for admin panel access
  * Features: JWT validation, rate limiting, activity logging
- * 
+ *
  * @author Senior Developer
  * @version 1.0.0
  */
@@ -25,42 +27,51 @@ export const adminLoginLimiter = rateLimit({
   max: 5, // Max 5 attempts per window
   message: {
     success: false,
-    error: 'Too many login attempts. Try again in 15 minutes.',
-    code: 'RATE_LIMIT_EXCEEDED'
+    error: "Too many login attempts. Try again in 15 minutes.",
+    code: "RATE_LIMIT_EXCEEDED",
   },
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => `admin_login:${req.ip}:${req.body.email || 'unknown'}`,
+  keyGenerator: (req) => `admin_login:${req.ip}:${req.body.email || "unknown"}`,
   skipSuccessfulRequests: true,
   handler: async (req, res) => {
-    await logSecurityEvent(req, 'rate_limit_exceeded', {
+    await logSecurityEvent(req, "rate_limit_exceeded", {
       attempts: req.rateLimit.current,
-      windowMs: req.rateLimit.windowMs
+      windowMs: req.rateLimit.windowMs,
     });
-    
+
     res.status(429).json({
       success: false,
-      error: 'Too many login attempts. Please try again later.',
-      code: 'RATE_LIMIT_EXCEEDED',
-      retryAfter: Math.ceil(req.rateLimit.resetTime / 1000)
+      error: "Too many login attempts. Please try again later.",
+      code: "RATE_LIMIT_EXCEEDED",
+      retryAfter: Math.ceil(req.rateLimit.resetTime / 1000),
     });
-  }
+  },
 });
 
 /**
  * Rate limiter for admin API requests
  * Prevents API abuse and ensures system stability
+ *
+ * ✅ ZMIANA: w środowisku innym niż 'production' limiter jest wyłączony (przepuszcza żądania),
+ *            żeby na DEV nie było 429. Na produkcji ustawiony wyższy próg.
  */
-export const adminApiLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 100, // Max 100 requests per minute
-  message: {
-    success: false,
-    error: 'Too many API requests. Please slow down.',
-    code: 'API_RATE_LIMIT_EXCEEDED'
-  },
-  keyGenerator: (req) => `admin_api:${req.ip}:${req.user?.id || 'anonymous'}`
-});
+export const adminApiLimiter =
+  process.env.NODE_ENV !== "production"
+    ? (req, res, next) => next() // DEV / STAGING: brak limitu
+    : rateLimit({
+        windowMs: 60 * 1000, // 1 minuta
+        max: 300, // wyższy próg na produkcji
+        message: {
+          success: false,
+          error: "Too many API requests. Please slow down.",
+          code: "API_RATE_LIMIT_EXCEEDED",
+        },
+        standardHeaders: true,
+        legacyHeaders: false,
+        keyGenerator: (req) =>
+          `admin_api:${req.ip}:${req.user?.id || "anonymous"}`,
+      });
 
 /**
  * Validates JWT token and extracts admin user information
@@ -71,30 +82,37 @@ export const adminApiLimiter = rateLimit({
  */
 const validateJwtToken = (token) => {
   try {
-    // Używamy tego samego JWT_SECRET co zwykłe logowanie
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+    // NAPRAWIONE: Używamy spójnej konfiguracji JWT z config.security.jwt
+    const jwtCfg = config.security?.jwt || {};
+
+    // Weryfikacja z issuer/audience dla spójności z Socket.IO
+    const decoded = jwt.verify(token, jwtCfg.secret || process.env.JWT_SECRET, {
+      issuer: jwtCfg.issuer || "marketplace-app",
+      audience: jwtCfg.audience || "marketplace-users",
+      algorithms: [jwtCfg.algorithm || "HS256"],
+    });
+
     // Validate basic token structure - obsługuje minimalne tokeny z polem 'u'
     const userId = decoded.u || decoded.userId || decoded.id; // 'u' to nowe ultra-minimalne pole
     if (!userId) {
-      throw new Error('Invalid token structure - missing user ID');
+      throw new Error("Invalid token structure - missing user ID");
     }
-    
+
     // Obsługuj skróconą rolę 'r' lub pełną 'role'
     const role = decoded.r || decoded.role;
-    
+
     return {
       ...decoded,
       userId: userId, // Normalizujemy do userId
       id: userId, // Zachowujemy też id dla kompatybilności
       u: userId, // Zachowujemy też u dla kompatybilności
-      role: role // Dodajemy rolę jeśli jest dostępna
+      role: role, // Dodajemy rolę jeśli jest dostępna
     };
   } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      throw new Error('Token has expired');
-    } else if (error.name === 'JsonWebTokenError') {
-      throw new Error('Invalid token');
+    if (error.name === "TokenExpiredError") {
+      throw new Error("Token has expired");
+    } else if (error.name === "JsonWebTokenError") {
+      throw new Error("Invalid token");
     }
     throw error;
   }
@@ -110,39 +128,47 @@ const validateAdminSession = async (sessionId, userId) => {
   try {
     // Check if user still exists and has admin privileges
     const user = await User.findById(userId);
-    if (!user || !['admin', 'moderator'].includes(user.role)) {
-      logger.warn('Admin session validation failed - user not found or insufficient role', {
-        userId,
-        userExists: !!user,
-        userRole: user?.role
-      });
+    if (!user || !["admin", "moderator"].includes(user.role)) {
+      logger.warn(
+        "Admin session validation failed - user not found or insufficient role",
+        {
+          userId,
+          userExists: !!user,
+          userRole: user?.role,
+        }
+      );
       return false;
     }
-    
+
     // Check if user account is active - poprawione nazwy statusów
-    if (user.status === 'suspended' || user.status === 'banned' || user.status === 'blocked' || user.status === 'deleted') {
-      logger.warn('Admin session validation failed - account inactive', {
+    if (
+      user.status === "suspended" ||
+      user.status === "banned" ||
+      user.status === "blocked" ||
+      user.status === "deleted"
+    ) {
+      logger.warn("Admin session validation failed - account inactive", {
         userId,
-        status: user.status
+        status: user.status,
       });
       return false;
     }
-    
+
     // Additional session validation could be implemented here
     // e.g., checking against Redis session store, database session table, etc.
-    
-    logger.debug('Admin session validation successful', {
+
+    logger.debug("Admin session validation successful", {
       userId,
       userRole: user.role,
-      sessionId
+      sessionId,
     });
-    
+
     return true;
   } catch (error) {
-    logger.error('Admin session validation error', {
+    logger.error("Admin session validation error", {
       error: error.message,
       userId,
-      sessionId
+      sessionId,
     });
     return false;
   }
@@ -159,10 +185,10 @@ const logSecurityEvent = async (req, eventType, details = {}) => {
     // NAPRAWIONE: Minimalne logowanie aby uniknąć HTTP 431
     logger.warn(`Admin security: ${eventType}`, {
       ip: req.ip,
-      userId: details.userId || 'unknown'
+      userId: details.userId || "unknown",
     });
-  } catch (error) {
-    // Ignore logging errors to prevent cascading failures
+  } catch {
+    // ignore
   }
 };
 
@@ -172,182 +198,203 @@ const logSecurityEvent = async (req, eventType, details = {}) => {
  */
 export const requireAdminAuth = async (req, res, next) => {
   const startTime = Date.now();
-  
+
   try {
     // Używamy standardowych cookies jak w kontrolerze admina
     let token = req.cookies?.token; // Używamy tylko standardowego 'token'
-    
+
     // Fallback do Authorization header (dla kompatybilności wstecznej)
     if (!token) {
-      const authHeader = req.get('Authorization');
-      if (authHeader && authHeader.startsWith('Bearer ')) {
+      const authHeader = req.get("Authorization");
+      if (authHeader && authHeader.startsWith("Bearer ")) {
         token = authHeader.substring(7);
       }
     }
-    
+
     if (!token) {
-      await logSecurityEvent(req, 'auth_missing_token');
+      await logSecurityEvent(req, "auth_missing_token");
       return res.status(401).json({
         success: false,
-        error: 'Brak tokenu uwierzytelniania',
-        code: 'MISSING_TOKEN'
+        error: "Brak tokenu uwierzytelniania",
+        code: "MISSING_TOKEN",
       });
     }
-    
+
     // Check if token is blacklisted
     const isTokenBlacklisted = await isBlacklisted(token);
     if (isTokenBlacklisted) {
-      await logSecurityEvent(req, 'auth_blacklisted_token', { 
-        tokenPrefix: token.substring(0, 20) 
+      await logSecurityEvent(req, "auth_blacklisted_token", {
+        tokenPrefix: token.substring(0, 20),
       });
-      
+
       // Clear the cookies if token is blacklisted - używa standardowej konfiguracji
-      const { clearAuthCookies } = await import('../../config/cookieConfig.js');
+      const { clearAuthCookies } = await import("../../config/cookieConfig.js");
       clearAuthCookies(res);
-      
+
       return res.status(401).json({
         success: false,
-        error: 'Token został unieważniony. Zaloguj się ponownie.',
-        code: 'TOKEN_BLACKLISTED'
+        error: "Token został unieważniony. Zaloguj się ponownie.",
+        code: "TOKEN_BLACKLISTED",
       });
     }
-    
+
     // Validate JWT token (with graceful refresh on expiry)
     let decoded;
     try {
       decoded = validateJwtToken(token);
     } catch (e) {
-      if (e.message === 'Token has expired' || e.name === 'TokenExpiredError') {
+      if (e.message === "Token has expired" || e.name === "TokenExpiredError") {
         const refreshToken = req.cookies?.refreshToken;
         if (!refreshToken) {
-          await logSecurityEvent(req, 'auth_token_expired_no_refresh');
-          const { clearAuthCookies } = await import('../../config/cookieConfig.js');
+          await logSecurityEvent(req, "auth_token_expired_no_refresh");
+          const { clearAuthCookies } = await import(
+            "../../config/cookieConfig.js"
+          );
           clearAuthCookies(res);
-          return res.status(401).json({ success: false, error: 'Session expired', code: 'SESSION_EXPIRED' });
+          return res.status(401).json({
+            success: false,
+            error: "Session expired",
+            code: "SESSION_EXPIRED",
+          });
         }
         try {
           const userData = await refreshUserSession(refreshToken, req, res);
           // Recreate a minimal decoded-like structure for downstream checks
-          decoded = { userId: userData.userId, role: userData.role, sessionId: userData.sessionId };
-          await logSecurityEvent(req, 'auth_refreshed_after_expiry', { userId: userData.userId });
+          decoded = {
+            userId: userData.userId,
+            role: userData.role,
+            sessionId: userData.sessionId,
+          };
+          await logSecurityEvent(req, "auth_refreshed_after_expiry", {
+            userId: userData.userId,
+          });
         } catch (refreshErr) {
-          const { clearAuthCookies } = await import('../../config/cookieConfig.js');
+          const { clearAuthCookies } = await import(
+            "../../config/cookieConfig.js"
+          );
           clearAuthCookies(res);
-          return res.status(401).json({ success: false, error: 'Session refresh failed', code: 'REFRESH_FAILED' });
+          return res.status(401).json({
+            success: false,
+            error: "Session refresh failed",
+            code: "REFRESH_FAILED",
+          });
         }
       } else {
         throw e;
       }
     }
-    
+
     // Validate session - używamy jti jako sessionId jeśli sessionId nie istnieje
     const sessionId = decoded.sessionId || decoded.jti || decoded.j; // 'j' to nowe ultra-minimalne pole
     const userId = decoded.userId || decoded.u || decoded.id; // 'u' to nowe ultra-minimalne pole
     const isSessionValid = await validateAdminSession(sessionId, userId);
     if (!isSessionValid) {
-      await logSecurityEvent(req, 'auth_invalid_session', { userId: userId });
+      await logSecurityEvent(req, "auth_invalid_session", { userId: userId });
       return res.status(401).json({
         success: false,
-        error: 'Sesja wygasła lub jest nieprawidłowa',
-        code: 'INVALID_SESSION'
+        error: "Sesja wygasła lub jest nieprawidłowa",
+        code: "INVALID_SESSION",
       });
     }
-    
+
     // Fetch current user data
-    const user = await User.findById(userId).select('-password');
+    const user = await User.findById(userId).select("-password");
     if (!user) {
-      await logSecurityEvent(req, 'auth_user_not_found', { userId: userId });
+      await logSecurityEvent(req, "auth_user_not_found", { userId: userId });
       return res.status(401).json({
         success: false,
-        error: 'Użytkownik nie został znaleziony',
-        code: 'USER_NOT_FOUND'
+        error: "Użytkownik nie został znaleziony",
+        code: "USER_NOT_FOUND",
       });
     }
 
     // Sprawdź czy użytkownik ma uprawnienia administratora
-    if (!['admin', 'moderator'].includes(user.role)) {
-      await logSecurityEvent(req, 'auth_insufficient_privileges', { 
+    if (!["admin", "moderator"].includes(user.role)) {
+      await logSecurityEvent(req, "auth_insufficient_privileges", {
         userId: user._id,
         userRole: user.role,
-        endpoint: req.originalUrl
+        endpoint: req.originalUrl,
       });
-      
+
       return res.status(403).json({
         success: false,
-        error: 'Brak uprawnień administratora',
-        code: 'INSUFFICIENT_PRIVILEGES'
+        error: "Brak uprawnień administratora",
+        code: "INSUFFICIENT_PRIVILEGES",
       });
     }
 
     // Sprawdź czy konto nie jest zablokowane
-    if (user.status === 'suspended' || user.status === 'banned' || user.accountLocked) {
-      await logSecurityEvent(req, 'auth_account_blocked', {
+    if (
+      user.status === "suspended" ||
+      user.status === "banned" ||
+      user.accountLocked
+    ) {
+      await logSecurityEvent(req, "auth_account_blocked", {
         userId: user._id,
         status: user.status,
-        accountLocked: user.accountLocked
+        accountLocked: user.accountLocked,
       });
-      
+
       return res.status(403).json({
         success: false,
-        error: 'Konto zostało zablokowane lub zawieszone',
-        code: 'ACCOUNT_BLOCKED'
+        error: "Konto zostało zablokowane lub zawieszone",
+        code: "ACCOUNT_BLOCKED",
       });
     }
-    
+
     // Set user context for subsequent middleware/controllers
     req.user = user;
     req.sessionId = sessionId; // Używamy sessionId z wcześniejszej walidacji
     req.authStartTime = startTime;
-    
+
     // TYMCZASOWO WYŁĄCZONE: AdminActivity logging może powodować duże nagłówki
-    // Log successful authentication for audit trail (non-blocking)
-    if (false) { // WYŁĄCZONE dla debugowania HTTP 431
+    if (false) {
       try {
         await AdminActivity.create({
           adminId: user._id,
-          actionType: 'login_attempt',
+          actionType: "login_attempt",
           targetResource: {
-            resourceType: 'system',
-            resourceIdentifier: 'admin_panel'
+            resourceType: "system",
+            resourceIdentifier: "admin_panel",
           },
           actionDetails: {
             metadata: {
               endpoint: req.originalUrl,
-              method: req.method
-            }
+              method: req.method,
+            },
           },
           requestContext: {
             ipAddress: req.ip,
-            userAgent: req.get('User-Agent'),
+            userAgent: req.get("User-Agent"),
             sessionId: sessionId,
-            requestId: req.id || `req_${Date.now()}_${generateSecureToken(9)}`
+            requestId: req.id || `req_${Date.now()}_${generateSecureToken(9)}`,
           },
           result: {
-            status: 'success',
-            executionTime: Date.now() - startTime
-          }
+            status: "success",
+            executionTime: Date.now() - startTime,
+          },
         });
       } catch (activityLogError) {
-        // Don't block authentication if activity logging fails
-        logger.warn('Failed to log admin activity', {
+        logger.warn("Failed to log admin activity", {
           error: activityLogError.message,
-          userId: user._id
+          userId: user._id,
         });
       }
     }
-    
+
     next();
   } catch (error) {
-    await logSecurityEvent(req, 'auth_error', { 
+    await logSecurityEvent(req, "auth_error", {
       error: error.message,
-      stack: error.stack 
+      stack: error.stack,
     });
-    
+
     return res.status(401).json({
       success: false,
-      error: 'Uwierzytelnianie nie powiodło się',
-      code: 'AUTH_FAILED',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: "Uwierzytelnianie nie powiodło się",
+      code: "AUTH_FAILED",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
@@ -357,43 +404,43 @@ export const requireAdminAuth = async (req, res, next) => {
  * @param {Array} requiredRoles - Array of roles that can access the resource
  * @returns {Function} Express middleware function
  */
-export const requireAdminRole = (requiredRoles = ['admin']) => {
+export const requireAdminRole = (requiredRoles = ["admin"]) => {
   return async (req, res, next) => {
     try {
       if (!req.user) {
         return res.status(401).json({
           success: false,
-          error: 'Authentication required',
-          code: 'NOT_AUTHENTICATED'
+          error: "Authentication required",
+          code: "NOT_AUTHENTICATED",
         });
       }
-      
+
       if (!requiredRoles.includes(req.user.role)) {
-        await logSecurityEvent(req, 'access_denied', {
+        await logSecurityEvent(req, "access_denied", {
           userId: req.user._id,
           userRole: req.user.role,
           requiredRoles,
-          endpoint: req.originalUrl
+          endpoint: req.originalUrl,
         });
-        
+
         return res.status(403).json({
           success: false,
-          error: 'Insufficient permissions',
-          code: 'INSUFFICIENT_PERMISSIONS'
+          error: "Insufficient permissions",
+          code: "INSUFFICIENT_PERMISSIONS",
         });
       }
-      
+
       next();
     } catch (error) {
-      logger.error('Role check error', {
+      logger.error("Role check error", {
         error: error.message,
         stack: error.stack,
-        userId: req.user?._id
+        userId: req.user?._id,
       });
       return res.status(500).json({
         success: false,
-        error: 'Permission check failed',
-        code: 'PERMISSION_CHECK_FAILED'
+        error: "Permission check failed",
+        code: "PERMISSION_CHECK_FAILED",
       });
     }
   };
@@ -408,58 +455,88 @@ export const logAdminActivity = (actionType) => {
   return async (req, res, next) => {
     const originalSend = res.send;
     const startTime = Date.now();
-    
+
     // Override res.send to capture response
-    res.send = function(data) {
+    res.send = function (data) {
       const executionTime = Date.now() - startTime;
-      
+
       // Log activity after response is sent
       setImmediate(async () => {
         try {
           const isSuccess = res.statusCode >= 200 && res.statusCode < 300;
-          
+
+          // Determine resource type based on action type or URL
+          let resourceType = "system";
+          if (
+            actionType.includes("user") ||
+            req.originalUrl.includes("/users")
+          ) {
+            resourceType = "user";
+          } else if (
+            actionType.includes("listing") ||
+            req.originalUrl.includes("/listings")
+          ) {
+            resourceType = "listing";
+          } else if (
+            actionType.includes("promotion") ||
+            req.originalUrl.includes("/promotions")
+          ) {
+            resourceType = "promotion";
+          } else if (
+            actionType.includes("report") ||
+            req.originalUrl.includes("/reports")
+          ) {
+            resourceType = "report";
+          } else if (actionType.includes("bulk")) {
+            resourceType = "bulk";
+          }
+
           await AdminActivity.create({
             adminId: req.user._id,
             actionType,
             targetResource: {
-              resourceType: req.params.resourceType || 'unknown',
-              resourceId: req.params.id || req.params.resourceId,
-              resourceIdentifier: req.params.identifier || req.body.identifier
+              resourceType,
+              resourceId: req.params.id || req.params.resourceId || null,
+              resourceIdentifier:
+                req.params.identifier || req.body.identifier || req.originalUrl,
             },
             actionDetails: {
               metadata: {
                 endpoint: req.originalUrl,
                 method: req.method,
                 params: req.params,
-                query: req.query
+                query: req.query,
               },
-              reason: req.body.reason || req.query.reason
+              reason: req.body.reason || req.query.reason,
             },
             requestContext: {
-              ipAddress: req.ip,
-              userAgent: req.get('User-Agent'),
-              sessionId: req.sessionId,
-              requestId: req.id || `req_${Date.now()}_${generateSecureToken(9)}`
+              ipAddress: req.ip || req.connection.remoteAddress || "127.0.0.1",
+              userAgent: req.get("User-Agent") || "Unknown",
+              sessionId: req.sessionId || req.user._id.toString(),
+              requestId:
+                req.id || `req_${Date.now()}_${generateSecureToken(9)}`,
             },
             result: {
-              status: isSuccess ? 'success' : 'failure',
-              message: isSuccess ? 'Operation completed successfully' : 'Operation failed',
-              executionTime
-            }
+              status: isSuccess ? "success" : "failure",
+              message: isSuccess
+                ? "Operation completed successfully"
+                : "Operation failed",
+              executionTime,
+            },
           });
         } catch (error) {
-          logger.error('Failed to log admin activity', {
+          logger.error("Failed to log admin activity", {
             error: error.message,
             stack: error.stack,
             adminId: req.user?._id,
-            actionType
+            actionType,
           });
         }
       });
-      
+
       originalSend.call(this, data);
     };
-    
+
     next();
   };
 };

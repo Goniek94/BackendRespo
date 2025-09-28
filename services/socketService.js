@@ -1,26 +1,28 @@
-import { Server } from 'socket.io';
-import jwt from 'jsonwebtoken';
-import logger from '../utils/logger.js';
+import { Server } from "socket.io";
+import logger from "../utils/logger.js";
+import config from "../config/index.js";
+
+// Import modularnych komponentów
+import SocketAuth from "./socket/SocketAuth.js";
+import SocketConnectionManager from "./socket/SocketConnectionManager.js";
+import SocketConversationManager from "./socket/SocketConversationManager.js";
+import SocketNotificationManager from "./socket/SocketNotificationManager.js";
+import SocketHeartbeatManager from "./socket/SocketHeartbeatManager.js";
 
 /**
- * Klasa SocketService - zarządza połączeniami WebSocket i powiadomieniami w czasie rzeczywistym
+ * Klasa SocketService - główny serwis zarządzający Socket.IO
+ * Zrefaktoryzowany na modularne komponenty dla lepszej czytelności i utrzymania
  * @class
  */
 class SocketService {
   constructor() {
     this.io = null;
-    this.userSockets = new Map(); // Mapa przechowująca połączenia użytkowników: userId -> Set of socket.id
-    this.socketUsers = new Map(); // Mapa przechowująca użytkowników dla socketów: socket.id -> userId
-    this.activeConversations = new Map(); // Mapa aktywnych konwersacji: userId -> Set of conversationId/participantId
-    this.conversationNotificationState = new Map(); // Mapa stanu powiadomień dla konwersacji: "userId:participantId" -> lastNotificationTime
-    this.heartbeatInterval = null; // Interval dla heartbeat
-    this.userLastSeen = new Map(); // Mapa ostatniego widzenia użytkowników: userId -> timestamp
-    this.connectionStats = {
-      totalConnections: 0,
-      totalDisconnections: 0,
-      currentConnections: 0,
-      startTime: Date.now()
-    };
+
+    // Inicjalizacja menedżerów
+    this.connectionManager = new SocketConnectionManager();
+    this.conversationManager = new SocketConversationManager();
+    this.notificationManager = null; // Inicjalizowany po utworzeniu io
+    this.heartbeatManager = null; // Inicjalizowany po utworzeniu io
   }
 
   /**
@@ -30,136 +32,49 @@ class SocketService {
    */
   initialize(server) {
     if (this.io) {
-      logger.info('Socket.IO już zainicjalizowany');
+      logger.info("Socket.IO już zainicjalizowany");
       return this.io;
     }
 
     this.io = new Server(server, {
       cors: {
-        origin: [
-          'http://localhost:3000',
-          'http://localhost:3001',
-          process.env.FRONTEND_URL || 'http://localhost:3000'
+        origin: config.security?.cors?.origin || [
+          "http://localhost:3000",
+          "http://localhost:3001",
         ],
-        methods: ['GET', 'POST'],
-        credentials: true
+        methods: ["GET", "POST"],
+        credentials: true,
       },
       pingTimeout: 60000, // 60 sekund timeout dla ping
+      connectionStateRecovery: {
+        // Włącz connection state recovery zamiast custom heartbeat
+        maxDisconnectionDuration: 2 * 60 * 1000, // 2 minuty
+        skipMiddlewares: true,
+      },
     });
 
+    // Inicjalizacja menedżerów z referencją do io
+    this.notificationManager = new SocketNotificationManager(
+      this.io,
+      this.connectionManager
+    );
+    this.heartbeatManager = new SocketHeartbeatManager(
+      this.io,
+      this.connectionManager,
+      this.conversationManager
+    );
+
     // Middleware do uwierzytelniania połączeń
-    this.io.use(this.authMiddleware.bind(this));
+    this.io.use(SocketAuth.authMiddleware);
 
     // Obsługa połączeń
-    this.io.on('connection', this.handleConnection.bind(this));
+    this.io.on("connection", this.handleConnection.bind(this));
 
     // Uruchom mechanizm heartbeat
-    this.startHeartbeat();
+    this.heartbeatManager.startHeartbeat();
 
-    logger.info('Socket.IO initialized successfully');
+    logger.info("Socket.IO initialized successfully");
     return this.io;
-  }
-
-  /**
-   * Middleware do uwierzytelniania połączeń Socket.IO
-   * Obsługuje cookies zamiast localStorage - bezpieczniejsze rozwiązanie
-   * @param {Object} socket - Socket klienta
-   * @param {Function} next - Funkcja next
-   */
-  authMiddleware(socket, next) {
-    try {
-      let token = null;
-
-      // Priorytet 1: Token z cookie (bezpieczne, HttpOnly)
-      const cookies = socket.handshake.headers.cookie;
-      if (cookies) {
-        const cookieArray = cookies.split(';');
-        for (let cookie of cookieArray) {
-          const [name, value] = cookie.trim().split('=');
-          if (name === 'token') {
-            token = value;
-            break;
-          }
-        }
-      }
-
-      // Priorytet 2: Token z auth object (dla kompatybilności wstecznej)
-      if (!token) {
-        token = socket.handshake.auth.token;
-      }
-
-      // Priorytet 3: Token z Authorization header (fallback)
-      if (!token) {
-        const authHeader = socket.handshake.headers.authorization;
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-          token = authHeader.split(' ')[1];
-        }
-      }
-
-      // TRYB DEVELOPMENT: Pozwól na połączenia bez tokenu dla testów
-      if (!token && process.env.NODE_ENV === 'development') {
-        logger.warn('Socket.IO development mode - allowing connection without token', {
-          ip: socket.handshake.address,
-          userAgent: socket.handshake.headers['user-agent']
-        });
-        
-        // Utwórz użytkownika testowego
-        socket.user = {
-          userId: '688b4aba9c0f2fecd035b20a', // Test user ID z logów
-          email: 'test@example.com',
-          role: 'admin'
-        };
-        
-        logger.info('Socket.IO development user created', {
-          userId: socket.user.userId,
-          email: socket.user.email,
-          ip: socket.handshake.address
-        });
-        return next();
-      }
-
-      if (!token) {
-        logger.warn('Socket.IO authentication failed - missing token', {
-          ip: socket.handshake.address,
-          userAgent: socket.handshake.headers['user-agent']
-        });
-        return next(new Error('Brak tokenu uwierzytelniającego'));
-      }
-
-      // Weryfikacja tokenu JWT
-      jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-        if (err) {
-          logger.warn('Socket.IO authentication failed - invalid token', {
-            error: err.message,
-            ip: socket.handshake.address,
-            userAgent: socket.handshake.headers['user-agent']
-          });
-          return next(new Error('Nieprawidłowy token'));
-        }
-
-        // Zapisanie danych użytkownika w obiekcie socket
-        // Obsługa różnych formatów payload (userId vs id)
-        socket.user = {
-          userId: decoded.userId || decoded.id,
-          email: decoded.email,
-          role: decoded.role
-        };
-
-        logger.info('Socket.IO user authenticated', {
-          userId: socket.user.userId,
-          email: socket.user.email,
-          ip: socket.handshake.address
-        });
-        next();
-      });
-    } catch (error) {
-      logger.error('Socket.IO authentication error', {
-        error: error.message,
-        stack: error.stack,
-        ip: socket.handshake.address
-      });
-      next(new Error('Błąd uwierzytelniania'));
-    }
   }
 
   /**
@@ -167,119 +82,65 @@ class SocketService {
    * @param {Object} socket - Socket klienta
    */
   handleConnection(socket) {
-    const userId = socket.user?.userId;
+    // Dodaj połączenie przez ConnectionManager
+    const connectionAdded = this.connectionManager.addConnection(
+      socket,
+      this.io
+    );
 
-    if (!userId) {
-      logger.warn('Socket connection without user ID', {
-        socketId: socket.id,
-        ip: socket.handshake.address
-      });
-      socket.disconnect();
-      return;
+    if (!connectionAdded) {
+      return; // Połączenie zostało odrzucone
     }
-
-    logger.info('New Socket.IO connection', {
-      socketId: socket.id,
-      userId: userId,
-      ip: socket.handshake.address
-    });
-
-    // Zapisanie połączenia w mapach
-    if (!this.userSockets.has(userId)) {
-      this.userSockets.set(userId, new Set());
-    }
-    this.userSockets.get(userId).add(socket.id);
-    this.socketUsers.set(socket.id, userId);
-
-    // Dołączenie do pokoju specyficznego dla użytkownika
-    socket.join(`user:${userId}`);
-
-    // Logowanie połączenia bez wysyłania powiadomienia
-    logger.info('[NotificationManager] Użytkownik ' + userId + ' połączył się');
 
     // Obsługa rozłączenia
-    socket.on('disconnect', () => {
-      logger.info('Socket.IO disconnection', {
-        socketId: socket.id,
-        userId: userId,
-        ip: socket.handshake.address
-      });
-      
-      // Usunięcie połączenia z map
-      if (this.userSockets.has(userId)) {
-        this.userSockets.get(userId).delete(socket.id);
-        if (this.userSockets.get(userId).size === 0) {
-          this.userSockets.delete(userId);
-        }
-      }
-      this.socketUsers.delete(socket.id);
+    socket.on("disconnect", () => {
+      this.connectionManager.removeConnection(socket);
     });
 
     // Obsługa żądania oznaczenia powiadomienia jako przeczytane
-    socket.on('mark_notification_read', async (data) => {
-      try {
-        const { notificationId } = data;
-        if (!notificationId) return;
-
-        // Tutaj można dodać kod do oznaczenia powiadomienia jako przeczytane
-        // np. wywołanie metody z notificationService
-        
-        // Emitowanie potwierdzenia
-        socket.emit('notification_marked_read', { notificationId });
-      } catch (error) {
-        logger.error('Error marking notification as read', {
-          error: error.message,
-          stack: error.stack,
-          userId: userId,
-          socketId: socket.id
+    socket.on("mark_notification_read", async (data) => {
+      // Walidacja payloadu
+      if (!this.connectionManager.validateEventPayload(data)) {
+        logger.warn("Invalid payload for mark_notification_read", {
+          userId: socket.user?.userId,
+          socketId: socket.id,
         });
+        return;
       }
+
+      await this.notificationManager.handleMarkNotificationRead(socket, data);
     });
 
     // Obsługa wejścia do konwersacji
-    socket.on('enter_conversation', (data) => {
-      try {
-        const { participantId, conversationId } = data;
-        if (!participantId) return;
-
-        logger.debug('User entered conversation', {
-          userId: userId,
-          participantId: participantId,
-          conversationId: conversationId
+    socket.on("enter_conversation", (data) => {
+      // Walidacja payloadu
+      if (!this.connectionManager.validateEventPayload(data)) {
+        logger.warn("Invalid payload for enter_conversation", {
+          userId: socket.user?.userId,
+          socketId: socket.id,
         });
-        this.setUserInActiveConversation(userId, participantId, conversationId);
-      } catch (error) {
-        logger.error('Error handling conversation entry', {
-          error: error.message,
-          stack: error.stack,
-          userId: userId,
-          socketId: socket.id
-        });
+        return;
       }
+
+      this.conversationManager.handleEnterConversation(socket, data);
     });
 
     // Obsługa wyjścia z konwersacji
-    socket.on('leave_conversation', (data) => {
-      try {
-        const { participantId, conversationId } = data;
-        if (!participantId) return;
-
-        logger.debug('User left conversation', {
-          userId: userId,
-          participantId: participantId,
-          conversationId: conversationId
+    socket.on("leave_conversation", (data) => {
+      // Walidacja payloadu
+      if (!this.connectionManager.validateEventPayload(data)) {
+        logger.warn("Invalid payload for leave_conversation", {
+          userId: socket.user?.userId,
+          socketId: socket.id,
         });
-        this.removeUserFromActiveConversation(userId, participantId, conversationId);
-      } catch (error) {
-        logger.error('Error handling conversation exit', {
-          error: error.message,
-          stack: error.stack,
-          userId: userId,
-          socketId: socket.id
-        });
+        return;
       }
+
+      this.conversationManager.handleLeaveConversation(socket, data);
     });
   }
+
+  // ========== DELEGACJA METOD DO MENEDŻERÓW ==========
 
   /**
    * Wysyła powiadomienie do konkretnego użytkownika
@@ -287,25 +148,7 @@ class SocketService {
    * @param {Object} notification - Obiekt powiadomienia
    */
   sendNotification(userId, notification) {
-    if (!this.io) {
-      logger.warn('Socket.IO not initialized');
-      return;
-    }
-
-    try {
-      // Wysłanie powiadomienia do wszystkich połączeń użytkownika
-      this.io.to(`user:${userId}`).emit('new_notification', notification);
-      logger.info('Notification sent to user', {
-        userId: userId,
-        notificationType: notification.type
-      });
-    } catch (error) {
-      logger.error('Error sending notification to user', {
-        error: error.message,
-        stack: error.stack,
-        userId: userId
-      });
-    }
+    return this.notificationManager?.sendNotification(userId, notification);
   }
 
   /**
@@ -314,13 +157,10 @@ class SocketService {
    * @param {Object} notification - Obiekt powiadomienia
    */
   sendNotificationToMany(userIds, notification) {
-    if (!this.io || !userIds || !Array.isArray(userIds)) {
-      return;
-    }
-
-    userIds.forEach(userId => {
-      this.sendNotification(userId, notification);
-    });
+    return this.notificationManager?.sendNotificationToMany(
+      userIds,
+      notification
+    );
   }
 
   /**
@@ -328,22 +168,7 @@ class SocketService {
    * @param {Object} notification - Obiekt powiadomienia
    */
   sendNotificationToAll(notification) {
-    if (!this.io) {
-      logger.warn('Socket.IO not initialized');
-      return;
-    }
-
-    try {
-      this.io.emit('new_notification', notification);
-      logger.info('Notification sent to all users', {
-        notificationType: notification.type
-      });
-    } catch (error) {
-      logger.error('Error sending notification to all users', {
-        error: error.message,
-        stack: error.stack
-      });
-    }
+    return this.notificationManager?.sendNotificationToAll(notification);
   }
 
   /**
@@ -352,7 +177,7 @@ class SocketService {
    * @returns {boolean} - Czy użytkownik jest online
    */
   isUserOnline(userId) {
-    return this.userSockets.has(userId) && this.userSockets.get(userId).size > 0;
+    return this.connectionManager.isUserOnline(userId);
   }
 
   /**
@@ -361,10 +186,7 @@ class SocketService {
    * @returns {number} - Liczba aktywnych połączeń
    */
   getUserConnectionCount(userId) {
-    if (!this.userSockets.has(userId)) {
-      return 0;
-    }
-    return this.userSockets.get(userId).size;
+    return this.connectionManager.getUserConnectionCount(userId);
   }
 
   /**
@@ -372,7 +194,7 @@ class SocketService {
    * @returns {number} - Liczba aktywnych połączeń
    */
   getTotalConnectionCount() {
-    return this.socketUsers.size;
+    return this.connectionManager.getTotalConnectionCount();
   }
 
   /**
@@ -382,18 +204,11 @@ class SocketService {
    * @param {string} conversationId - ID konwersacji (opcjonalne)
    */
   setUserInActiveConversation(userId, participantId, conversationId = null) {
-    if (!this.activeConversations.has(userId)) {
-      this.activeConversations.set(userId, new Set());
-    }
-    
-    // Dodaj identyfikator konwersacji (używamy participantId jako główny identyfikator)
-    this.activeConversations.get(userId).add(participantId);
-    
-    logger.debug('User set as active in conversation', {
-      userId: userId,
-      participantId: participantId,
-      conversationId: conversationId
-    });
+    return this.conversationManager.setUserInActiveConversation(
+      userId,
+      participantId,
+      conversationId
+    );
   }
 
   /**
@@ -402,21 +217,16 @@ class SocketService {
    * @param {string} participantId - ID uczestnika konwersacji
    * @param {string} conversationId - ID konwersacji (opcjonalne)
    */
-  removeUserFromActiveConversation(userId, participantId, conversationId = null) {
-    if (this.activeConversations.has(userId)) {
-      this.activeConversations.get(userId).delete(participantId);
-      
-      // Jeśli użytkownik nie ma już aktywnych konwersacji, usuń go z mapy
-      if (this.activeConversations.get(userId).size === 0) {
-        this.activeConversations.delete(userId);
-      }
-    }
-    
-    logger.debug('User removed from active conversation', {
-      userId: userId,
-      participantId: participantId,
-      conversationId: conversationId
-    });
+  removeUserFromActiveConversation(
+    userId,
+    participantId,
+    conversationId = null
+  ) {
+    return this.conversationManager.removeUserFromActiveConversation(
+      userId,
+      participantId,
+      conversationId
+    );
   }
 
   /**
@@ -426,186 +236,35 @@ class SocketService {
    * @returns {boolean} - Czy użytkownik jest aktywny w konwersacji
    */
   isUserInActiveConversation(userId, participantId) {
-    if (!this.activeConversations.has(userId)) {
-      return false;
-    }
-    
-    return this.activeConversations.get(userId).has(participantId);
+    return this.conversationManager.isUserInActiveConversation(
+      userId,
+      participantId
+    );
   }
 
   /**
    * Sprawdza, czy należy wysłać powiadomienie o nowej wiadomości
-   * Implementuje logikę "tylko pierwsze powiadomienie w konwersacji"
    * @param {string} userId - ID odbiorcy
    * @param {string} senderId - ID nadawcy
    * @returns {boolean} - Czy wysłać powiadomienie
    */
   shouldSendMessageNotification(userId, senderId) {
-    // Jeśli użytkownik jest aktywny w konwersacji z nadawcą, nie wysyłaj powiadomienia
-    if (this.isUserInActiveConversation(userId, senderId)) {
-      logger.debug('User is active in conversation - skipping notification', {
-        userId: userId,
-        senderId: senderId
-      });
-      return false;
-    }
-
-    // Sprawdź, czy to pierwsze powiadomienie w tej konwersacji
-    const conversationKey = `${userId}:${senderId}`;
-    const now = Date.now();
-    const lastNotificationTime = this.conversationNotificationState.get(conversationKey);
-    
-    // Jeśli nie było wcześniejszego powiadomienia lub minęło więcej niż 5 minut, wyślij powiadomienie
-    const shouldSend = !lastNotificationTime || (now - lastNotificationTime) > 5 * 60 * 1000; // 5 minut
-    
-    if (shouldSend) {
-      // Zapisz czas wysłania powiadomienia
-      this.conversationNotificationState.set(conversationKey, now);
-      logger.debug('Sending first notification in conversation', {
-        conversationKey: conversationKey
-      });
-    } else {
-      logger.debug('Skipping duplicate notification in conversation', {
-        conversationKey: conversationKey,
-        timeSinceLastNotification: Math.round((now - lastNotificationTime) / 1000)
-      });
-    }
-    
-    return shouldSend;
+    return this.conversationManager.shouldSendMessageNotification(
+      userId,
+      senderId
+    );
   }
 
   /**
-   * Resetuje stan powiadomień dla konwersacji (np. gdy użytkownik przeczyta wiadomości)
+   * Resetuje stan powiadomień dla konwersacji
    * @param {string} userId - ID użytkownika
    * @param {string} participantId - ID uczestnika konwersacji
    */
   resetConversationNotificationState(userId, participantId) {
-    const conversationKey = `${userId}:${participantId}`;
-    this.conversationNotificationState.delete(conversationKey);
-    logger.debug('Conversation notification state reset', {
-      conversationKey: conversationKey
-    });
-  }
-
-  /**
-   * Uruchamia mechanizm heartbeat do monitorowania połączeń
-   */
-  startHeartbeat() {
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-    }
-
-    this.heartbeatInterval = setInterval(() => {
-      this.performHeartbeat();
-    }, 30000); // Co 30 sekund
-
-    logger.info('Heartbeat mechanism started');
-  }
-
-  /**
-   * Zatrzymuje mechanizm heartbeat
-   */
-  stopHeartbeat() {
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = null;
-      logger.info('Heartbeat mechanism stopped');
-    }
-  }
-
-  /**
-   * Wykonuje heartbeat - sprawdza aktywne połączenia
-   */
-  performHeartbeat() {
-    if (!this.io) return;
-
-    const now = Date.now();
-    let activeConnections = 0;
-    let staleConnections = 0;
-
-    // Sprawdź wszystkie połączenia
-    this.socketUsers.forEach((userId, socketId) => {
-      const socket = this.io.sockets.sockets.get(socketId);
-      
-      if (!socket || !socket.connected) {
-        // Połączenie nie istnieje lub jest nieaktywne
-        this.cleanupStaleConnection(socketId, userId);
-        staleConnections++;
-      } else {
-        // Aktualizuj ostatnie widzenie użytkownika
-        this.userLastSeen.set(userId, now);
-        activeConnections++;
-        
-        // Wyślij ping do klienta
-        socket.emit('ping', { timestamp: now });
-      }
-    });
-
-    // Aktualizuj statystyki
-    this.connectionStats.currentConnections = activeConnections;
-
-    if (staleConnections > 0) {
-      logger.info(`Heartbeat: Cleaned up ${staleConnections} stale connections, ${activeConnections} active`);
-    }
-
-    // Wyczyść stare stany konwersacji (starsze niż 1 godzina)
-    this.cleanupOldConversationStates(now);
-  }
-
-  /**
-   * Czyści nieaktywne połączenie
-   * @param {string} socketId - ID socketa
-   * @param {string} userId - ID użytkownika
-   */
-  cleanupStaleConnection(socketId, userId) {
-    // Usuń z map
-    this.socketUsers.delete(socketId);
-    
-    if (this.userSockets.has(userId)) {
-      this.userSockets.get(userId).delete(socketId);
-      if (this.userSockets.get(userId).size === 0) {
-        this.userSockets.delete(userId);
-      }
-    }
-
-    logger.debug('Cleaned up stale connection', {
-      socketId: socketId,
-      userId: userId
-    });
-  }
-
-  /**
-   * Czyści stare stany konwersacji
-   * @param {number} now - Aktualny timestamp
-   */
-  cleanupOldConversationStates(now) {
-    const oneHourAgo = now - (60 * 60 * 1000); // 1 godzina
-    let cleanedCount = 0;
-
-    this.conversationNotificationState.forEach((timestamp, key) => {
-      if (timestamp < oneHourAgo) {
-        this.conversationNotificationState.delete(key);
-        cleanedCount++;
-      }
-    });
-
-    if (cleanedCount > 0) {
-      logger.debug(`Cleaned up ${cleanedCount} old conversation states`);
-    }
-  }
-
-  /**
-   * Aktualizuje statystyki połączeń
-   * @param {string} event - Typ zdarzenia ('connect' lub 'disconnect')
-   */
-  updateConnectionStats(event) {
-    if (event === 'connect') {
-      this.connectionStats.totalConnections++;
-      this.connectionStats.currentConnections++;
-    } else if (event === 'disconnect') {
-      this.connectionStats.totalDisconnections++;
-      this.connectionStats.currentConnections = Math.max(0, this.connectionStats.currentConnections - 1);
-    }
+    return this.conversationManager.resetConversationNotificationState(
+      userId,
+      participantId
+    );
   }
 
   /**
@@ -613,38 +272,15 @@ class SocketService {
    * @returns {Object} - Statystyki połączeń
    */
   getConnectionStats() {
-    const uptime = Date.now() - this.connectionStats.startTime;
-    
+    const connectionStats = this.connectionManager.getConnectionStats();
+    const conversationStats = this.conversationManager.getConversationStats();
+    const heartbeatStatus = this.heartbeatManager?.getHeartbeatStatus();
+
     return {
-      ...this.connectionStats,
-      uptime: uptime,
-      uptimeFormatted: this.formatUptime(uptime),
-      onlineUsers: this.userSockets.size,
-      activeConversations: this.activeConversations.size,
-      conversationStates: this.conversationNotificationState.size
+      ...connectionStats,
+      ...conversationStats,
+      heartbeat: heartbeatStatus,
     };
-  }
-
-  /**
-   * Formatuje czas działania
-   * @param {number} uptime - Czas w milisekundach
-   * @returns {string} - Sformatowany czas
-   */
-  formatUptime(uptime) {
-    const seconds = Math.floor(uptime / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-
-    if (days > 0) {
-      return `${days}d ${hours % 24}h ${minutes % 60}m`;
-    } else if (hours > 0) {
-      return `${hours}h ${minutes % 60}m`;
-    } else if (minutes > 0) {
-      return `${minutes}m ${seconds % 60}s`;
-    } else {
-      return `${seconds}s`;
-    }
   }
 
   /**
@@ -652,7 +288,7 @@ class SocketService {
    * @returns {Array} - Lista ID użytkowników online
    */
   getOnlineUsers() {
-    return Array.from(this.userSockets.keys());
+    return this.connectionManager.getOnlineUsers();
   }
 
   /**
@@ -661,7 +297,7 @@ class SocketService {
    * @returns {number|null} - Timestamp ostatniego widzenia lub null
    */
   getUserLastSeen(userId) {
-    return this.userLastSeen.get(userId) || null;
+    return this.connectionManager.getUserLastSeen(userId);
   }
 
   /**
@@ -671,12 +307,7 @@ class SocketService {
    * @param {Object} data - Dane do wysłania
    */
   sendToSocket(socketId, event, data) {
-    if (!this.io) return;
-
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (socket && socket.connected) {
-      socket.emit(event, data);
-    }
+    return this.notificationManager?.sendToSocket(socketId, event, data);
   }
 
   /**
@@ -685,38 +316,29 @@ class SocketService {
   disconnectAll() {
     if (!this.io) return;
 
-    logger.info('Disconnecting all Socket.IO connections');
-    
-    this.io.sockets.sockets.forEach(socket => {
-      socket.emit('server_shutdown', { 
-        message: 'Serwer jest restartowany. Połączenie zostanie przywrócone automatycznie.' 
-      });
-      socket.disconnect(true);
-    });
-
-    // Wyczyść wszystkie mapy
-    this.userSockets.clear();
-    this.socketUsers.clear();
-    this.activeConversations.clear();
-    this.conversationNotificationState.clear();
-    this.userLastSeen.clear();
+    this.connectionManager.disconnectAll(this.io);
+    this.conversationManager.clear();
 
     // Zatrzymaj heartbeat
-    this.stopHeartbeat();
+    this.heartbeatManager?.stopHeartbeat();
   }
 
   /**
    * Zamyka serwis Socket.IO
    */
   shutdown() {
-    logger.info('Shutting down Socket.IO service');
-    
+    logger.info("Shutting down Socket.IO service");
+
     this.disconnectAll();
-    
+
     if (this.io) {
       this.io.close();
       this.io = null;
     }
+
+    // Reset menedżerów
+    this.notificationManager = null;
+    this.heartbeatManager = null;
   }
 }
 

@@ -1,5 +1,12 @@
-import express from 'express';
+// admin/routes/promotionRoutes.js
+import express from "express";
 import {
+  listPromotions,
+  createPromotion,
+  updatePromotion,
+  deletePromotion,
+  activatePromotion,
+  deactivatePromotion,
   getDiscounts,
   setDiscount,
   setBulkDiscount,
@@ -7,43 +14,37 @@ import {
   setCategoryDiscount,
   addUserBonus,
   getUserBonuses,
-  removeUserBonus
-} from '../controllers/promotions/discountController.js';
-import { requireAdminAuth } from '../middleware/adminAuth.js';
+  removeUserBonus,
+} from "../controllers/promotions/discountController.js";
+
+// jeśli masz middleware admin – użyj właściwej ścieżki
+// (ten plik jest w admin/routes, więc middleware zwykle jest w ../middleware )
+import { requireAdminAuth } from "../middleware/adminAuth.js";
 
 const router = express.Router();
 
-/**
- * Promotion Management Routes
- * Endpoints for admin promotion and discount management
- * All routes protected by adminAuth middleware
- */
-
-// Apply admin authentication to all routes
+// CAŁY router zaautoryzowany (jeśli nie chcesz – usuń tę linię)
 router.use(requireAdminAuth);
 
-// GET /admin/promotions - Get all discounts with filtering
-router.get('/', getDiscounts);
+/* ====== PROMOTIONS – CRUD ====== */
+router.get("/", listPromotions);
+router.post("/", createPromotion);
+router.put("/:id", updatePromotion);
+router.delete("/:id", deletePromotion);
 
-// POST /admin/promotions/ads/:adId/discount - Set discount for single ad
-router.post('/ads/:adId/discount', setDiscount);
+/* ====== PROMOTIONS – akcje ====== */
+router.post("/:id/activate", activatePromotion);
+router.post("/:id/deactivate", deactivatePromotion);
 
-// POST /admin/promotions/bulk-discount - Set bulk discount for multiple ads
-router.post('/bulk-discount', setBulkDiscount);
+/* ====== DISCOUNTS / BONUSES ====== */
+router.get("/discounts", getDiscounts);
+router.post("/ads/:adId/discount", setDiscount);
+router.post("/bulk-discount", setBulkDiscount);
+router.post("/users/:userId/discount", setUserDiscount);
+router.post("/categories/:category/discount", setCategoryDiscount);
 
-// POST /admin/promotions/users/:userId/discount - Set discount for all user's ads
-router.post('/users/:userId/discount', setUserDiscount);
-
-// POST /admin/promotions/categories/:category/discount - Set discount for category
-router.post('/categories/:category/discount', setCategoryDiscount);
-
-// POST /admin/promotions/users/:userId/bonus - Add bonus for user
-router.post('/users/:userId/bonus', addUserBonus);
-
-// GET /admin/promotions/users/:userId/bonuses - Get user's bonuses
-router.get('/users/:userId/bonuses', getUserBonuses);
-
-// DELETE /admin/promotions/users/:userId/bonuses/:bonusId - Remove user's bonus
-router.delete('/users/:userId/bonuses/:bonusId', removeUserBonus);
+router.post("/users/:userId/bonus", addUserBonus);
+router.get("/users/:userId/bonuses", getUserBonuses);
+router.delete("/users/:userId/bonuses/:bonusId", removeUserBonus);
 
 export default router;

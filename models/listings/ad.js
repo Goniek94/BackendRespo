@@ -3,11 +3,11 @@ import mongoose from "mongoose";
 const AdSchema = new mongoose.Schema(
   {
     // Tytuł (stare rekordy mogą mieć 'headline' – obsługujemy w kontrolerze)
-    title: { type: String, required: false, index: true }, // nie wymagamy, bo stare rekordy mogły nie mieć
+    title: { type: String, required: false, index: true },
 
     description: { type: String, default: "" },
 
-    // Autor – nowe rekordy 'user', stare mogły mieć 'owner' (kontroler robi fallback)
+    // Autor – nowe rekordy 'user', stare mogły mieć 'owner'
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -15,7 +15,7 @@ const AdSchema = new mongoose.Schema(
       index: true,
     },
 
-    // Legacy: część danych w starych rekordach
+    // Legacy
     headline: { type: String, default: "" },
     owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true },
 
@@ -42,10 +42,16 @@ const AdSchema = new mongoose.Schema(
     // Status moderacji
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected", "active"], // 'active' legacy
+      enum: ["pending", "approved", "rejected", "active", "hidden"], // + hidden
       default: "pending",
       index: true,
     },
+
+    // Wyróżnienia & ekspozycja
+    featured: { type: Boolean, default: false, index: true },
+    featuredAt: { type: Date, default: null },
+    expiresAt: { type: Date, default: null, index: true }, // do „przedłuż”
+
     moderation: {
       approvedAt: { type: Date },
       approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
@@ -57,10 +63,13 @@ const AdSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+/* ----------------------------- Metody rabatów ----------------------------- */
 AdSchema.methods.applyPercentDiscount = function (pct) {
   const p = Number(pct) || 0;
-  this.discount = Math.max(0, Math.min(99, p));
-  this.discountedPrice = p > 0 ? Math.round(this.price * (1 - p / 100)) : null;
+  const clamped = Math.max(0, Math.min(99, p));
+  this.discount = clamped;
+  this.discountedPrice =
+    clamped > 0 ? Math.round(this.price * (1 - clamped / 100)) : null;
 };
 
 AdSchema.methods.applyFlatDiscount = function (amount) {
@@ -75,6 +84,28 @@ AdSchema.methods.clearDiscount = function () {
   this.discount = 0;
   this.discountedPrice = null;
 };
+
+/* --------------------------- Przedłużanie ekspozycji --------------------------- */
+AdSchema.methods.extendDays = function (days = 30) {
+  const d = Math.max(1, Number(days) || 30);
+  const base =
+    this.expiresAt && this.expiresAt > new Date() ? this.expiresAt : new Date();
+  const next = new Date(base);
+  next.setDate(next.getDate() + d);
+  this.expiresAt = next;
+};
+
+/* ---------------------- Spójność rabatu przy zapisie ---------------------- */
+AdSchema.pre("save", function (next) {
+  if (typeof this.discount !== "number") this.discount = 0;
+  this.discount = Math.max(0, Math.min(99, this.discount));
+  if (this.discount > 0) {
+    this.discountedPrice = Math.round(this.price * (1 - this.discount / 100));
+  } else {
+    this.discountedPrice = null;
+  }
+  next();
+});
 
 const Ad = mongoose.model("Ad", AdSchema);
 export default Ad;

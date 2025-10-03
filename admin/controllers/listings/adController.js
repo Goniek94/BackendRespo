@@ -6,6 +6,7 @@
 import Ad from "../../../models/listings/ad.js";
 import User from "../../../models/user/user.js";
 import Notification from "../../../models/communication/notification.js";
+import { publicActiveFilter } from "../../../filters/adVisibility.js";
 
 /* Helpers */
 const clampDiscount = (d) => Math.max(0, Math.min(99, Number(d) || 0));
@@ -96,6 +97,28 @@ export const createAd = async (req, res) => {
       images,
       mainImage,
       discount: clampDiscount(b.discount),
+      featured: !!b.featured,
+      featuredAt: b.featured ? new Date() : null,
+
+      // Vehicle details
+      brand: b.brand,
+      model: b.model,
+      generation: b.generation,
+      version: b.version,
+      year: b.year,
+      mileage: b.mileage,
+      fuelType: b.fuelType,
+      transmission: b.transmission,
+      bodyType: b.bodyType,
+      color: b.color,
+      power: b.power,
+      engineSize: b.engineSize,
+      drive: b.drive,
+      seats: b.seats,
+
+      // Location
+      city: b.city,
+      voivodeship: b.voivodeship,
     });
     newAd.discountedPrice = discounted(newAd.price, newAd.discount);
 
@@ -131,11 +154,31 @@ export const getAds = async (req, res) => {
     const userId = req.query.userId;
 
     const query = {};
-    if (status) query.status = status;
+
+    // Obsługa statusów z przycisków-tabów
+    if (status && status !== "all") {
+      if (status === "active") {
+        // Use shared visibility filter for consistency
+        Object.assign(query, publicActiveFilter());
+      } else if (status === "expired") {
+        // Zakończone = expiresAt < now
+        const now = new Date();
+        query.expiresAt = { $lte: now };
+      } else {
+        // pending, rejected, itp. - standardowe
+        query.status = status;
+      }
+    }
+    // Jeśli status === "all" lub brak - nie dodajemy filtra statusu
 
     // user albo owner (legacy)
     if (userId) {
-      query.$or = [{ user: userId }, { owner: userId }];
+      const userFilter = { $or: [{ user: userId }, { owner: userId }] };
+      if (query.$and) {
+        query.$and.push(userFilter);
+      } else {
+        query.$or = userFilter.$or;
+      }
     }
 
     if (search) {
@@ -205,6 +248,36 @@ export const getAds = async (req, res) => {
           ? d.photoUrls
           : [],
         author,
+        // Vehicle details
+        brand: d.brand,
+        model: d.model,
+        make: d.brand, // alias for compatibility
+        generation: d.generation,
+        version: d.version,
+        year: d.year,
+        mileage: d.mileage,
+        fuel: d.fuelType,
+        fuelType: d.fuelType,
+        transmission: d.transmission,
+        gearbox: d.transmission, // alias
+        bodyType: d.bodyType,
+        color: d.color,
+        power: d.power,
+        engineSize: d.engineSize,
+        engineCapacity: d.engineSize, // alias
+        drive: d.drive,
+        seats: d.seats,
+        // Location
+        city: d.city,
+        voivodeship: d.voivodeship,
+        location: d.city, // alias
+        // Other
+        featured: d.featured || false,
+        featuredAt: d.featuredAt,
+        sellerType: d.sellerType,
+        countryOfOrigin: d.countryOfOrigin,
+        imported: d.imported,
+        headline: d.headline, // legacy field
       };
     });
 
@@ -248,11 +321,9 @@ export const getAdDetails = async (req, res) => {
     res.status(200).json({ success: true, data: ad });
   } catch (error) {
     console.error("Błąd szczegółów ogłoszenia:", error);
-    res
-      .status(500)
-      .json({
-        message: "Błąd serwera podczas pobierania szczegółów ogłoszenia.",
-      });
+    res.status(500).json({
+      message: "Błąd serwera podczas pobierania szczegółów ogłoszenia.",
+    });
   }
 };
 
@@ -260,8 +331,16 @@ export const getAdDetails = async (req, res) => {
 export const updateAd = async (req, res) => {
   try {
     const { adId } = req.params;
-    const { status, discount, title, description, price, images, mainImage } =
-      req.body || {};
+    const {
+      status,
+      discount,
+      title,
+      description,
+      price,
+      images,
+      mainImage,
+      featured,
+    } = req.body || {};
 
     const ad = await Ad.findById(adId);
     if (!ad)
@@ -279,6 +358,12 @@ export const updateAd = async (req, res) => {
 
     if (discount !== undefined) ad.discount = clampDiscount(discount);
     ad.discountedPrice = discounted(ad.price, ad.discount);
+
+    // Handle featured field
+    if (featured !== undefined) {
+      ad.featured = !!featured;
+      ad.featuredAt = featured ? new Date() : null;
+    }
 
     await ad.save();
 
@@ -373,11 +458,9 @@ export const getPendingAds = async (req, res) => {
     });
   } catch (error) {
     console.error("Błąd pobierania pending:", error);
-    res
-      .status(500)
-      .json({
-        message: "Błąd serwera podczas pobierania listy oczekujących ogłoszeń.",
-      });
+    res.status(500).json({
+      message: "Błąd serwera podczas pobierania listy oczekujących ogłoszeń.",
+    });
   }
 };
 
@@ -393,11 +476,9 @@ export const approveAd = async (req, res) => {
         .status(404)
         .json({ message: "Ogłoszenie nie zostało znalezione." });
     if (ad.status !== "pending") {
-      return res
-        .status(400)
-        .json({
-          message: `Ogłoszenie nie jest w statusie "pending" (obecnie: "${ad.status}").`,
-        });
+      return res.status(400).json({
+        message: `Ogłoszenie nie jest w statusie "pending" (obecnie: "${ad.status}").`,
+      });
     }
 
     ad.status = "approved";
@@ -447,11 +528,9 @@ export const rejectAd = async (req, res) => {
         .status(404)
         .json({ message: "Ogłoszenie nie zostało znalezione." });
     if (ad.status !== "pending") {
-      return res
-        .status(400)
-        .json({
-          message: `Ogłoszenie nie jest w statusie "pending" (obecnie: "${ad.status}").`,
-        });
+      return res.status(400).json({
+        message: `Ogłoszenie nie jest w statusie "pending" (obecnie: "${ad.status}").`,
+      });
     }
 
     ad.status = "rejected";

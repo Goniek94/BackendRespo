@@ -18,6 +18,11 @@ const AdSchema = new mongoose.Schema(
     // Legacy
     headline: { type: String, default: "" },
     owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true },
+    ownerName: { type: String, default: "" },
+    ownerLastName: { type: String, default: "" },
+    ownerEmail: { type: String, default: "" },
+    ownerPhone: { type: String, default: "" },
+    ownerRole: { type: String, default: "user" },
 
     // Dane katalogowe (opcjonalne)
     brand: { type: String, default: "" },
@@ -25,12 +30,59 @@ const AdSchema = new mongoose.Schema(
     generation: { type: String, default: "" },
     version: { type: String, default: "" },
     year: { type: Number, default: null },
+    productionYear: { type: Number, default: null }, // alias for year
     mileage: { type: Number, default: null },
     fuelType: { type: String, default: "" },
     transmission: { type: String, default: "" },
 
+    // Vehicle identification
+    vin: { type: String, default: "" },
+    registrationNumber: { type: String, default: "" },
+    firstRegistrationDate: { type: Date, default: null },
+
+    // Technical data
+    power: { type: Number, default: null }, // Engine power in KM
+    engineSize: { type: Number, default: null }, // Engine capacity in cm³
+    drive: { type: String, default: "" }, // FWD, RWD, AWD/4x4
+    weight: { type: Number, default: null }, // Vehicle weight in kg
+    lastOfficialMileage: { type: Number, default: null }, // CEPiK mileage
+    paintFinish: { type: String, default: "" }, // Metalik, Perła, Mat, Połysk, Inne
+
+    // Body and interior
+    bodyType: { type: String, default: "" }, // Sedan, Hatchback, Kombi, SUV, etc.
+    color: { type: String, default: "" },
+    doors: { type: Number, default: null }, // 1-6
+    seats: { type: Number, default: null }, // 2-9+
+
+    // Vehicle condition
+    condition: { type: String, default: "" }, // Nowy, Używany
+    accidentStatus: { type: String, default: "" }, // Bezwypadkowy, Powypadkowy
+    damageStatus: { type: String, default: "" }, // Nieuszkodzony, Uszkodzony
+    tuning: { type: String, default: "" }, // Tak, Nie
+    countryOfOrigin: { type: String, default: "" },
+    imported: { type: String, default: "Nie" }, // Tak, Nie
+    registeredInPL: { type: String, default: "Tak" }, // Tak, Nie
+    firstOwner: { type: String, default: "Nie" }, // Tak, Nie
+    disabledAdapted: { type: String, default: "Nie" }, // Tak, Nie
+
+    // Seller information
+    sellerType: { type: String, default: "Prywatny" }, // Prywatny, Firma
+
+    // Location
+    voivodeship: { type: String, default: "" },
+    city: { type: String, default: "" },
+
+    // Purchase options
+    purchaseOptions: { type: String, default: "Sprzedaż" }, // Sprzedaż, Faktura VAT, Inne
+    listingType: { type: String, default: "standardowe" }, // standardowe, wyróżnione
+    negotiable: { type: String, default: "Nie" }, // Tak, Nie
+    rentalPrice: { type: Number, default: null }, // Monthly rental price
+
+    // Descriptions
+    shortDescription: { type: String, default: "" }, // Up to 120 characters
+
     // Ceny / promocje
-    price: { type: Number, required: true, min: 0 },
+    price: { type: Number, required: false, min: 0, default: 0 },
     discount: { type: Number, default: 0, min: 0, max: 99 },
     discountedPrice: { type: Number, default: null },
 
@@ -42,7 +94,7 @@ const AdSchema = new mongoose.Schema(
     // Status moderacji
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected", "active", "hidden"], // + hidden
+      enum: ["pending", "approved", "rejected", "active", "hidden"],
       default: "pending",
       index: true,
     },
@@ -50,7 +102,7 @@ const AdSchema = new mongoose.Schema(
     // Wyróżnienia & ekspozycja
     featured: { type: Boolean, default: false, index: true },
     featuredAt: { type: Date, default: null },
-    expiresAt: { type: Date, default: null, index: true }, // do „przedłuż”
+    expiresAt: { type: Date, default: null, index: true }, // do „przedłuż"
 
     moderation: {
       approvedAt: { type: Date },

@@ -5,7 +5,23 @@
 import Ad from "../../../models/listings/ad.js";
 
 const isStr = (v) => typeof v === "string";
-const asStr = (v) => (isStr(v) ? v.trim() : undefined);
+const asStr = (v) => {
+  // Handle arrays (from frontend checkboxes)
+  if (Array.isArray(v)) {
+    return v.length > 0 ? v[0].trim() : undefined;
+  }
+  return isStr(v) ? v.trim() : undefined;
+};
+const asStrArray = (v) => {
+  // Handle arrays (from frontend checkboxes) or single values
+  if (Array.isArray(v)) {
+    return v.filter((item) => item && item.trim()).map((item) => item.trim());
+  }
+  if (isStr(v) && v.trim()) {
+    return [v.trim()];
+  }
+  return undefined;
+};
 const asBool = (v) =>
   v === true || v === "true"
     ? true
@@ -28,43 +44,96 @@ const asNum = (v) => {
 export const createAdFilter = (query = {}) => {
   const filter = {};
 
-  // Basic text filters
-  const brand = asStr(query.brand);
-  if (brand) filter.brand = brand;
-  const model = asStr(query.model);
-  if (model) filter.model = model;
-  const generation = asStr(query.generation);
-  if (generation) filter.generation = generation;
+  // Basic text filters - support arrays from frontend
+  const brands = asStrArray(query.brand || query.make);
+  if (brands && brands.length > 0) {
+    filter.brand = brands.length === 1 ? brands[0] : { $in: brands };
+  }
+
+  const models = asStrArray(query.model);
+  if (models && models.length > 0) {
+    filter.model = models.length === 1 ? models[0] : { $in: models };
+  }
+
+  const generations = asStrArray(query.generation);
+  if (generations && generations.length > 0) {
+    filter.generation =
+      generations.length === 1 ? generations[0] : { $in: generations };
+  }
+
   const version = asStr(query.version);
   if (version) filter.version = version;
 
-  // Technical data
-  const fuelType = asStr(query.fuelType);
-  if (fuelType) filter.fuelType = fuelType;
-  const transmission = asStr(query.transmission);
-  if (transmission) filter.transmission = transmission;
-  const driveType = asStr(query.driveType);
-  if (driveType) filter.drive = driveType;
-  const bodyType = asStr(query.bodyType);
-  if (bodyType) filter.bodyType = bodyType;
-  const color = asStr(query.color);
-  if (color) filter.color = color;
-  const finish = asStr(query.finish);
-  if (finish) filter.paintFinish = finish;
+  // Technical data - support arrays
+  const fuelTypes = asStrArray(query.fuelType);
+  if (fuelTypes && fuelTypes.length > 0) {
+    filter.fuelType =
+      fuelTypes.length === 1 ? fuelTypes[0] : { $in: fuelTypes };
+  }
 
-  // Vehicle condition
-  const condition = asStr(query.condition);
-  if (condition) filter.condition = condition;
-  const accidentStatus = asStr(query.accidentStatus);
-  if (accidentStatus) filter.accidentStatus = accidentStatus;
+  const transmissions = asStrArray(query.transmission);
+  if (transmissions && transmissions.length > 0) {
+    filter.transmission =
+      transmissions.length === 1 ? transmissions[0] : { $in: transmissions };
+  }
+
+  const driveTypes = asStrArray(query.driveType);
+  if (driveTypes && driveTypes.length > 0) {
+    filter.drive =
+      driveTypes.length === 1 ? driveTypes[0] : { $in: driveTypes };
+  }
+
+  const bodyTypes = asStrArray(query.bodyType);
+  if (bodyTypes && bodyTypes.length > 0) {
+    if (bodyTypes.length === 1) {
+      filter.bodyType = { $regex: new RegExp(`^${bodyTypes[0]}$`, "i") };
+    } else {
+      filter.bodyType = {
+        $in: bodyTypes.map((bt) => new RegExp(`^${bt}$`, "i")),
+      };
+    }
+  }
+
+  const colors = asStrArray(query.color);
+  if (colors && colors.length > 0) {
+    filter.color = colors.length === 1 ? colors[0] : { $in: colors };
+  }
+
+  const finishes = asStrArray(query.finish);
+  if (finishes && finishes.length > 0) {
+    filter.paintFinish =
+      finishes.length === 1 ? finishes[0] : { $in: finishes };
+  }
+
+  // Vehicle condition - support arrays
+  const conditions = asStrArray(query.condition);
+  if (conditions && conditions.length > 0) {
+    filter.condition =
+      conditions.length === 1 ? conditions[0] : { $in: conditions };
+  }
+
+  const accidentStatuses = asStrArray(query.accidentStatus);
+  if (accidentStatuses && accidentStatuses.length > 0) {
+    filter.accidentStatus =
+      accidentStatuses.length === 1
+        ? accidentStatuses[0]
+        : { $in: accidentStatuses };
+  }
+
   const damageStatus = asStr(query.damageStatus);
   if (damageStatus) filter.damageStatus = damageStatus;
   const tuning = asStr(query.tuning);
   if (tuning) filter.tuning = tuning;
 
-  // Origin and seller
-  const countryOfOrigin = asStr(query.countryOfOrigin);
-  if (countryOfOrigin) filter.countryOfOrigin = countryOfOrigin;
+  // Origin and seller - support arrays
+  const countriesOfOrigin = asStrArray(query.countryOfOrigin);
+  if (countriesOfOrigin && countriesOfOrigin.length > 0) {
+    filter.countryOfOrigin =
+      countriesOfOrigin.length === 1
+        ? countriesOfOrigin[0]
+        : { $in: countriesOfOrigin };
+  }
+
   const sellerType = asStr(query.sellerType);
   if (sellerType) filter.sellerType = sellerType;
 
@@ -80,17 +149,32 @@ export const createAdFilter = (query = {}) => {
   if (typeof disabledAdapted === "boolean")
     filter.disabledAdapted = disabledAdapted;
 
-  // Door and seat count
-  const doorCount = asInt(query.doorCount);
-  if (doorCount !== undefined) filter.doors = doorCount;
+  // Door and seat count - support arrays
+  const doorCounts = asStrArray(query.doorCount);
+  if (doorCounts && doorCounts.length > 0) {
+    const doorNumbers = doorCounts
+      .map((d) => parseInt(d, 10))
+      .filter((d) => !isNaN(d));
+    if (doorNumbers.length > 0) {
+      filter.doors =
+        doorNumbers.length === 1 ? doorNumbers[0] : { $in: doorNumbers };
+    }
+  }
+
   const seats = asInt(query.seats);
   if (seats !== undefined) filter.seats = seats;
 
-  // Location
-  const voivodeship = asStr(query.voivodeship);
-  if (voivodeship) filter.voivodeship = voivodeship;
-  const city = asStr(query.city);
-  if (city) filter.city = city;
+  // Location - support arrays
+  const voivodeships = asStrArray(query.voivodeship || query.region);
+  if (voivodeships && voivodeships.length > 0) {
+    filter.voivodeship =
+      voivodeships.length === 1 ? voivodeships[0] : { $in: voivodeships };
+  }
+
+  const cities = asStrArray(query.city);
+  if (cities && cities.length > 0) {
+    filter.city = cities.length === 1 ? cities[0] : { $in: cities };
+  }
 
   // Range filters
   // Price
@@ -188,6 +272,96 @@ export const createAdFilter = (query = {}) => {
 };
 
 /**
+ * Formats technical abbreviations to uppercase
+ * Example: "2.4 tdi awd" -> "2.4 TDI AWD"
+ */
+const formatTechnicalAbbreviations = (text) => {
+  if (!text || typeof text !== "string") return text;
+
+  // List of common technical abbreviations that should be uppercase
+  const abbreviations = [
+    // Engine types
+    "tdi",
+    "tfsi",
+    "tsi",
+    "fsi",
+    "hdi",
+    "cdi",
+    "crdi",
+    "cdti",
+    "ddis",
+    "d4d",
+    "vtec",
+    "ivtec",
+    "vvti",
+    "gdi",
+    "sdi",
+    "pd",
+    "cr",
+    "mpi",
+    "gti",
+    "gtd",
+    "vti",
+    "hpi",
+    "jts",
+    "jtd",
+    "multijet",
+    "ecoboost",
+    "digt",
+    "skyactiv",
+    "bluehdi",
+    "bluemotion",
+    "ecoblue",
+    // Drive types
+    "awd",
+    "rwd",
+    "fwd",
+    "4wd",
+    "4x4",
+    "quattro",
+    "xdrive",
+    "4matic",
+    // Transmission
+    "dsg",
+    "cvt",
+    "amt",
+    "dct",
+    "pdk",
+    "smg",
+    "sst",
+    "edc",
+    "tiptronic",
+    // Other
+    "abs",
+    "esp",
+    "asr",
+    "ebd",
+    "bas",
+    "dpf",
+    "fap",
+    "scr",
+    "adblue",
+    "lpg",
+    "cng",
+    "ev",
+    "phev",
+    "mhev",
+    "hev",
+  ];
+
+  let result = text;
+
+  // Replace each abbreviation with uppercase version
+  abbreviations.forEach((abbr) => {
+    // Use word boundary to match whole words only
+    const regex = new RegExp(`\\b${abbr}\\b`, "gi");
+    result = result.replace(regex, abbr.toUpperCase());
+  });
+
+  return result;
+};
+
+/**
  * Maps form data from frontend to backend format
  */
 export const mapFormDataToBackend = (data) => {
@@ -233,6 +407,9 @@ export const mapFormDataToBackend = (data) => {
       data.purchaseOptions ||
       "Sprzedaż",
     countryOfOrigin: data.countryOfOrigin || data.country || "",
+    // Format technical fields with uppercase abbreviations
+    version: formatTechnicalAbbreviations(data.version),
+    drive: formatTechnicalAbbreviations(data.drive),
   };
 };
 

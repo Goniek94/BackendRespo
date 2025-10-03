@@ -143,8 +143,9 @@ const createApp = () => {
   // --- 404 ---
   app.use((_req, res) => res.status(404).json({ error: "Not found" }));
 
-  // --- Error handler ---
-  app.use((err, req, res, _next) => {
+  // --- Global Error Handler ---
+  app.use((err, req, res, next) => {
+    // Log the error
     logger.error("Unhandled error", {
       msg: err?.message,
       stack: err?.stack,
@@ -152,7 +153,22 @@ const createApp = () => {
       ip: req.ip,
       method: req.method,
     });
-    res.status(500).json({ error: "Server error" });
+
+    // If headers were already sent, delegate to Express default error handler
+    if (res.headersSent) {
+      return next(err);
+    }
+
+    // Send error response
+    const status = err.status || err.statusCode || 500;
+    const message =
+      isProd && status === 500 ? "Internal Server Error" : err.message;
+
+    res.status(status).json({
+      success: false,
+      error: message,
+      ...(isProd ? {} : { stack: err.stack }),
+    });
   });
 
   return app;

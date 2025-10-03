@@ -13,26 +13,25 @@ export {
   send2FACode,
   checkAuth,
   requestPasswordReset,
-  resetPassword
-} from './authController.js';
+  resetPassword,
+} from "./authController.js";
 
 // Profile Controller
 export {
   getUserProfile,
   updateUserProfile,
   getRecentlyViewed,
-  getUserDashboard
-} from './profileController.js';
+} from "./profileController.js";
+
+// Dashboard Controller
+export { getUserDashboard } from "./dashboardController.js";
 
 // Password Controller
-export {
-  changePassword,
-  verifyResetToken
-} from './passwordController.js';
+export { changePassword, verifyResetToken } from "./passwordController.js";
 
 // Validation Controller
 export {
   checkEmailExists,
   checkPhoneExists,
-  verifyEmailCode
-} from './validationController.js';
+  verifyEmailCode,
+} from "./validationController.js";

@@ -1,19 +1,20 @@
-import bcrypt from 'bcryptjs';
-import { validationResult } from 'express-validator';
-import User from '../../models/user/user.js';
-import { addToBlacklist } from '../../models/security/TokenBlacklist.js';
-import { 
-  generateAccessToken, 
-  generateRefreshToken, 
-  setAuthCookies, 
-  clearAuthCookies 
-} from '../../middleware/auth.js';
-import logger from '../../utils/logger.js';
-import { 
-  generateEmailVerificationToken, 
-  generateSecureCode, 
-  generatePasswordResetToken 
-} from '../../utils/securityTokens.js';
+import bcrypt from "bcryptjs";
+import { validationResult } from "express-validator";
+import User from "../../models/user/user.js";
+import { addToBlacklist } from "../../models/security/TokenBlacklist.js";
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  setAuthCookies,
+  clearAuthCookies,
+  refreshUserSession,
+} from "../../middleware/auth.js";
+import logger from "../../utils/logger.js";
+import {
+  generateEmailVerificationToken,
+  generateSecureCode,
+  generatePasswordResetToken,
+} from "../../utils/securityTokens.js";
 
 /**
  * ENTERPRISE-LEVEL AUTH CONTROLLER
@@ -40,48 +41,48 @@ export const registerUser = async (req, res) => {
     // Validate input
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      logger.warn('Registration validation failed', {
+      logger.warn("Registration validation failed", {
         errors: errors.array(),
         ip: req.ip,
-        userAgent: req.get('User-Agent')
+        userAgent: req.get("User-Agent"),
       });
-      
+
       return res.status(400).json({
         success: false,
-        message: 'Błędy walidacji',
-        errors: errors.array()
+        message: "Błędy walidacji",
+        errors: errors.array(),
       });
     }
 
-    const { 
-      name, 
-      lastName, 
-      email, 
-      password, 
-      phone, 
-      dob, 
+    const {
+      name,
+      lastName,
+      email,
+      password,
+      phone,
+      dob,
       termsAccepted,
       emailVerified,
-      phoneVerified
+      phoneVerified,
     } = req.body;
 
     // Validate terms acceptance
     if (!termsAccepted) {
       return res.status(400).json({
         success: false,
-        message: 'Musisz zaakceptować regulamin, aby się zarejestrować'
+        message: "Musisz zaakceptować regulamin, aby się zarejestrować",
       });
     }
 
     // Format phone number to ensure +48 prefix for Polish numbers
     let formattedPhone = phone;
-    if (phone.startsWith('48') && !phone.startsWith('+48')) {
-      formattedPhone = '+' + phone;
+    if (phone.startsWith("48") && !phone.startsWith("+48")) {
+      formattedPhone = "+" + phone;
     } else if (phone.match(/^[0-9]{9}$/)) {
       // If it's 9 digits, assume it's Polish number without prefix
-      formattedPhone = '+48' + phone;
-    } else if (!phone.startsWith('+')) {
-      formattedPhone = '+48' + phone.replace(/^0+/, ''); // Remove leading zeros
+      formattedPhone = "+48" + phone;
+    } else if (!phone.startsWith("+")) {
+      formattedPhone = "+48" + phone.replace(/^0+/, ""); // Remove leading zeros
     }
 
     // Validate age (minimum 16 years)
@@ -89,40 +90,45 @@ export const registerUser = async (req, res) => {
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birthDate.getDate())
+    ) {
       age--;
     }
-    
+
     if (age < 16) {
       return res.status(400).json({
         success: false,
-        message: 'Musisz mieć co najmniej 16 lat, aby się zarejestrować'
+        message: "Musisz mieć co najmniej 16 lat, aby się zarejestrować",
       });
     }
 
     // Check if user already exists
     const existingUser = await User.findOne({
       $or: [
-        { email: email.toLowerCase().trim() }, 
-        { phoneNumber: formattedPhone }
-      ]
+        { email: email.toLowerCase().trim() },
+        { phoneNumber: formattedPhone },
+      ],
     });
 
     if (existingUser) {
-      logger.warn('Registration attempt with existing credentials', {
+      logger.warn("Registration attempt with existing credentials", {
         email: email.toLowerCase().trim(),
         phone: formattedPhone,
-        existingField: existingUser.email === email.toLowerCase().trim() ? 'email' : 'phone',
+        existingField:
+          existingUser.email === email.toLowerCase().trim() ? "email" : "phone",
         ip: req.ip,
-        userAgent: req.get('User-Agent')
+        userAgent: req.get("User-Agent"),
       });
-      
+
       return res.status(400).json({
         success: false,
-        message: existingUser.email === email.toLowerCase().trim() 
-          ? 'Użytkownik z tym adresem email już istnieje'
-          : 'Użytkownik z tym numerem telefonu już istnieje'
+        message:
+          existingUser.email === email.toLowerCase().trim()
+            ? "Użytkownik z tym adresem email już istnieje"
+            : "Użytkownik z tym numerem telefonu już istnieje",
       });
     }
 
@@ -141,59 +147,69 @@ export const registerUser = async (req, res) => {
       dob: new Date(dob),
       termsAccepted: true,
       termsAcceptedAt: new Date(),
-      registrationStep: 'email_verification',
-      
+      registrationStep: "email_verification",
+
       // Email verification token (24 hours validity)
       emailVerificationToken: emailVerificationToken,
       emailVerificationTokenExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      
+
       // SMS verification code (10 minutes validity)
       smsVerificationCode: smsVerificationCode,
       smsVerificationCodeExpires: new Date(Date.now() + 10 * 60 * 1000),
-      
+
       // Verification status - both email and phone require verification
       isEmailVerified: false,
       emailVerified: false,
       isPhoneVerified: false, // Phone must be verified
-      phoneVerified: false,   // Phone must be verified
+      phoneVerified: false, // Phone must be verified
       isVerified: false, // User is not fully verified until both email and phone are confirmed
-      
-      role: 'user',
-      status: 'active',
+
+      role: "user",
+      status: "active",
       createdAt: new Date(),
       lastActivity: new Date(),
       lastIP: req.ip,
       failedLoginAttempts: 0,
-      accountLocked: false
+      accountLocked: false,
     });
 
     await newUser.save();
 
     // Send email verification link
     try {
-      const { sendVerificationLinkEmail } = await import('../../config/nodemailer.js');
-      const verificationLink = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/verify-email?token=${emailVerificationToken}&email=${encodeURIComponent(email)}`;
-      
-      const emailSent = await sendVerificationLinkEmail(newUser.email, verificationLink, newUser.name);
-      
+      const { sendVerificationLinkEmail } = await import(
+        "../../config/nodemailer.js"
+      );
+      const verificationLink = `${
+        process.env.FRONTEND_URL || "http://localhost:3001"
+      }/verify-email?token=${emailVerificationToken}&email=${encodeURIComponent(
+        email
+      )}`;
+
+      const emailSent = await sendVerificationLinkEmail(
+        newUser.email,
+        verificationLink,
+        newUser.name
+      );
+
       if (emailSent) {
-        logger.info('Email verification link sent successfully', {
+        logger.info("Email verification link sent successfully", {
           userId: newUser._id,
           email: newUser.email,
-          tokenLength: emailVerificationToken.length
+          tokenLength: emailVerificationToken.length,
         });
       } else {
-        logger.error('Failed to send email verification link', {
+        logger.error("Failed to send email verification link", {
           userId: newUser._id,
-          email: newUser.email
+          email: newUser.email,
         });
       }
     } catch (emailError) {
-      logger.error('Error sending email verification link', {
+      logger.error("Error sending email verification link", {
         userId: newUser._id,
         email: newUser.email,
         error: emailError.message,
-        stack: emailError.stack
+        stack: emailError.stack,
       });
     }
 
@@ -209,40 +225,40 @@ export const registerUser = async (req, res) => {
       isPhoneVerified: newUser.isPhoneVerified,
       isVerified: newUser.isVerified,
       role: newUser.role,
-      createdAt: newUser.createdAt
+      createdAt: newUser.createdAt,
     };
 
-    logger.info('Advanced user registration initiated', {
+    logger.info("Advanced user registration initiated", {
       userId: newUser._id,
       email: newUser.email,
       phone: newUser.phoneNumber,
       ip: req.ip,
-      userAgent: req.get('User-Agent')
+      userAgent: req.get("User-Agent"),
     });
 
     res.status(201).json({
       success: true,
-      message: 'Rejestracja rozpoczęta pomyślnie! Sprawdź swój email, aby otrzymać link weryfikacyjny.',
+      message:
+        "Rejestracja rozpoczęta pomyślnie! Sprawdź swój email, aby otrzymać link weryfikacyjny.",
       user: userData,
-      nextStep: 'email_verification',
+      nextStep: "email_verification",
       verificationInfo: {
         emailSent: true,
         emailAddress: newUser.email,
-        tokenExpires: newUser.emailVerificationTokenExpires
-      }
+        tokenExpires: newUser.emailVerificationTokenExpires,
+      },
     });
-
   } catch (error) {
-    logger.error('Registration error', {
+    logger.error("Registration error", {
       error: error.message,
       stack: error.stack,
       ip: req.ip,
-      userAgent: req.get('User-Agent')
+      userAgent: req.get("User-Agent"),
     });
-    
+
     res.status(500).json({
       success: false,
-      message: 'Błąd serwera podczas rejestracji'
+      message: "Błąd serwera podczas rejestracji",
     });
   }
 };
@@ -255,36 +271,36 @@ export const loginUser = async (req, res) => {
     // Validate input
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      logger.warn('Login validation failed', {
+      logger.warn("Login validation failed", {
         errors: errors.array(),
         ip: req.ip,
-        userAgent: req.get('User-Agent')
+        userAgent: req.get("User-Agent"),
       });
-      
+
       return res.status(400).json({
         success: false,
-        message: 'Błędy walidacji',
-        errors: errors.array()
+        message: "Błędy walidacji",
+        errors: errors.array(),
       });
     }
 
     const { email, password } = req.body;
 
     // Find user by email
-    const user = await User.findOne({ 
-      email: email.toLowerCase().trim() 
+    const user = await User.findOne({
+      email: email.toLowerCase().trim(),
     });
 
     if (!user) {
-      logger.warn('Login attempt with non-existent email', {
+      logger.warn("Login attempt with non-existent email", {
         email: email.toLowerCase().trim(),
         ip: req.ip,
-        userAgent: req.get('User-Agent')
+        userAgent: req.get("User-Agent"),
       });
-      
+
       return res.status(401).json({
         success: false,
-        message: 'Nieprawidłowy email lub hasło'
+        message: "Nieprawidłowy email lub hasło",
       });
     }
 
@@ -293,18 +309,18 @@ export const loginUser = async (req, res) => {
       const lockTime = user.lockUntil;
       if (lockTime && lockTime > Date.now()) {
         const remainingTime = Math.ceil((lockTime - Date.now()) / (1000 * 60));
-        
-        logger.warn('Login attempt on locked account', {
+
+        logger.warn("Login attempt on locked account", {
           userId: user._id,
           email: user.email,
           remainingLockTime: remainingTime,
           ip: req.ip,
-          userAgent: req.get('User-Agent')
+          userAgent: req.get("User-Agent"),
         });
-        
+
         return res.status(423).json({
           success: false,
-          message: `Konto jest zablokowane. Spróbuj ponownie za ${remainingTime} minut.`
+          message: `Konto jest zablokowane. Spróbuj ponownie za ${remainingTime} minut.`,
         });
       } else {
         // Unlock account if lock time has passed
@@ -312,28 +328,28 @@ export const loginUser = async (req, res) => {
         user.failedLoginAttempts = 0;
         user.lockUntil = undefined;
         await user.save();
-        
-        logger.info('Account automatically unlocked', {
+
+        logger.info("Account automatically unlocked", {
           userId: user._id,
           email: user.email,
-          ip: req.ip
+          ip: req.ip,
         });
       }
     }
 
     // Check account status
-    if (user.status === 'suspended' || user.status === 'banned') {
-      logger.warn('Login attempt on suspended/banned account', {
+    if (user.status === "suspended" || user.status === "banned") {
+      logger.warn("Login attempt on suspended/banned account", {
         userId: user._id,
         email: user.email,
         status: user.status,
         ip: req.ip,
-        userAgent: req.get('User-Agent')
+        userAgent: req.get("User-Agent"),
       });
-      
+
       return res.status(403).json({
         success: false,
-        message: 'Konto zostało zawieszone. Skontaktuj się z administratorem.'
+        message: "Konto zostało zawieszone. Skontaktuj się z administratorem.",
       });
     }
 
@@ -350,40 +366,43 @@ export const loginUser = async (req, res) => {
         user.lockUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
         await user.save();
 
-        logger.warn('Account locked due to failed login attempts', {
+        logger.warn("Account locked due to failed login attempts", {
           userId: user._id,
           email: user.email,
           failedAttempts: user.failedLoginAttempts,
           ip: req.ip,
-          userAgent: req.get('User-Agent')
+          userAgent: req.get("User-Agent"),
         });
 
         return res.status(423).json({
           success: false,
-          message: 'Konto zostało zablokowane na 15 minut z powodu zbyt wielu nieudanych prób logowania.',
+          message:
+            "Konto zostało zablokowane na 15 minut z powodu zbyt wielu nieudanych prób logowania.",
           isBlocked: true,
-          blockDuration: 15 * 60 * 1000
+          blockDuration: 15 * 60 * 1000,
         });
       }
 
       await user.save();
 
-      logger.warn('Failed login attempt', {
+      logger.warn("Failed login attempt", {
         userId: user._id,
         email: user.email,
         failedAttempts: user.failedLoginAttempts,
         attemptsLeft: 4 - user.failedLoginAttempts,
         ip: req.ip,
-        userAgent: req.get('User-Agent')
+        userAgent: req.get("User-Agent"),
       });
 
       const attemptsLeft = 4 - user.failedLoginAttempts;
       return res.status(401).json({
         success: false,
-        message: `Błędny login lub hasło. Pozostało ${attemptsLeft} ${attemptsLeft === 1 ? 'próba' : attemptsLeft < 4 ? 'próby' : 'prób'}.`,
+        message: `Błędny login lub hasło. Pozostało ${attemptsLeft} ${
+          attemptsLeft === 1 ? "próba" : attemptsLeft < 4 ? "próby" : "prób"
+        }.`,
         attemptsLeft: attemptsLeft,
         failedAttempts: user.failedLoginAttempts,
-        maxAttempts: 4
+        maxAttempts: 4,
       });
     }
 
@@ -400,7 +419,7 @@ export const loginUser = async (req, res) => {
     // OPTIMIZED: Minimal payload for security and performance
     const tokenPayload = {
       userId: user._id,
-      role: user.role
+      role: user.role,
       // REMOVED: email, userAgent, ipAddress for security optimization
       // These are now handled in middleware/database for better security
     };
@@ -420,33 +439,32 @@ export const loginUser = async (req, res) => {
       phoneNumber: user.phoneNumber,
       role: user.role,
       isVerified: user.isVerified,
-      lastLogin: user.lastLogin
+      lastLogin: user.lastLogin,
     };
 
-    logger.info('User logged in successfully', {
+    logger.info("User logged in successfully", {
       userId: user._id,
       email: user.email,
       ip: req.ip,
-      userAgent: req.get('User-Agent')
+      userAgent: req.get("User-Agent"),
     });
 
     res.status(200).json({
       success: true,
-      message: 'Logowanie przebiegło pomyślnie',
-      user: userData
+      message: "Logowanie przebiegło pomyślnie",
+      user: userData,
     });
-
   } catch (error) {
-    logger.error('Login error', {
+    logger.error("Login error", {
       error: error.message,
       stack: error.stack,
       ip: req.ip,
-      userAgent: req.get('User-Agent')
+      userAgent: req.get("User-Agent"),
     });
-    
+
     res.status(500).json({
       success: false,
-      message: 'Błąd serwera podczas logowania'
+      message: "Błąd serwera podczas logowania",
     });
   }
 };
@@ -466,20 +484,20 @@ export const logoutUser = async (req, res) => {
     if (accessToken) {
       try {
         await addToBlacklist(accessToken, {
-          reason: 'LOGOUT',
+          reason: "LOGOUT",
           userId: userId,
-          ip: req.ip
+          ip: req.ip,
         });
-        
-        logger.debug('Access token blacklisted on logout', {
+
+        logger.debug("Access token blacklisted on logout", {
           userId,
-          ip: req.ip
+          ip: req.ip,
         });
       } catch (error) {
-        logger.warn('Failed to blacklist access token on logout', {
+        logger.warn("Failed to blacklist access token on logout", {
           error: error.message,
           userId,
-          ip: req.ip
+          ip: req.ip,
         });
       }
     }
@@ -487,20 +505,20 @@ export const logoutUser = async (req, res) => {
     if (refreshToken) {
       try {
         await addToBlacklist(refreshToken, {
-          reason: 'LOGOUT',
+          reason: "LOGOUT",
           userId: userId,
-          ip: req.ip
+          ip: req.ip,
         });
-        
-        logger.debug('Refresh token blacklisted on logout', {
+
+        logger.debug("Refresh token blacklisted on logout", {
           userId,
-          ip: req.ip
+          ip: req.ip,
         });
       } catch (error) {
-        logger.warn('Failed to blacklist refresh token on logout', {
+        logger.warn("Failed to blacklist refresh token on logout", {
           error: error.message,
           userId,
-          ip: req.ip
+          ip: req.ip,
         });
       }
     }
@@ -508,29 +526,28 @@ export const logoutUser = async (req, res) => {
     // Clear secure cookies
     clearAuthCookies(res);
 
-    logger.info('User logged out successfully', {
+    logger.info("User logged out successfully", {
       userId,
       ip: req.ip,
-      userAgent: req.get('User-Agent')
+      userAgent: req.get("User-Agent"),
     });
 
     res.status(200).json({
       success: true,
-      message: 'Wylogowanie przebiegło pomyślnie'
+      message: "Wylogowanie przebiegło pomyślnie",
     });
-
   } catch (error) {
-    logger.error('Logout error', {
+    logger.error("Logout error", {
       error: error.message,
       stack: error.stack,
       userId: req.user?.userId,
       ip: req.ip,
-      userAgent: req.get('User-Agent')
+      userAgent: req.get("User-Agent"),
     });
-    
+
     res.status(500).json({
       success: false,
-      message: 'Błąd serwera podczas wylogowania'
+      message: "Błąd serwera podczas wylogowania",
     });
   }
 };
@@ -546,39 +563,39 @@ export const checkAuth = async (req, res) => {
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'Nie jesteś zalogowany'
+        message: "Nie jesteś zalogowany",
       });
     }
 
     // Get fresh user data from database
-    const dbUser = await User.findById(user.userId).select('-password');
-    
+    const dbUser = await User.findById(user.userId).select("-password");
+
     if (!dbUser) {
-      logger.warn('Auth check failed - user not found in database', {
+      logger.warn("Auth check failed - user not found in database", {
         userId: user.userId,
-        ip: req.ip
+        ip: req.ip,
       });
-      
+
       return res.status(401).json({
         success: false,
-        message: 'Użytkownik nie został znaleziony'
+        message: "Użytkownik nie został znaleziony",
       });
     }
 
     // Check if account is still active
-    if (dbUser.status === 'suspended' || dbUser.status === 'banned') {
-      logger.warn('Auth check failed - account suspended/banned', {
+    if (dbUser.status === "suspended" || dbUser.status === "banned") {
+      logger.warn("Auth check failed - account suspended/banned", {
         userId: user.userId,
         status: dbUser.status,
-        ip: req.ip
+        ip: req.ip,
       });
-      
+
       // Clear cookies and blacklist tokens
       clearAuthCookies(res);
-      
+
       return res.status(403).json({
         success: false,
-        message: 'Konto zostało zawieszone'
+        message: "Konto zostało zawieszone",
       });
     }
 
@@ -591,32 +608,31 @@ export const checkAuth = async (req, res) => {
       phoneNumber: dbUser.phoneNumber,
       role: dbUser.role,
       isVerified: dbUser.isVerified,
-      lastLogin: dbUser.lastLogin
+      lastLogin: dbUser.lastLogin,
     };
 
-    logger.debug('Auth check successful', {
+    logger.debug("Auth check successful", {
       userId: user.userId,
-      ip: req.ip
+      ip: req.ip,
     });
 
     res.status(200).json({
       success: true,
-      message: 'Użytkownik jest zalogowany',
-      user: userData
+      message: "Użytkownik jest zalogowany",
+      user: userData,
     });
-
   } catch (error) {
-    logger.error('Check auth error', {
+    logger.error("Check auth error", {
       error: error.message,
       stack: error.stack,
       userId: req.user?.userId,
       ip: req.ip,
-      userAgent: req.get('User-Agent')
+      userAgent: req.get("User-Agent"),
     });
-    
+
     res.status(500).json({
       success: false,
-      message: 'Błąd serwera podczas sprawdzania autoryzacji'
+      message: "Błąd serwera podczas sprawdzania autoryzacji",
     });
   }
 };
@@ -630,8 +646,8 @@ export const requestPasswordReset = async (req, res) => {
     if (!errors.isEmpty()) {
       return res.status(400).json({
         success: false,
-        message: 'Błędy walidacji',
-        errors: errors.array()
+        message: "Błędy walidacji",
+        errors: errors.array(),
       });
     }
 
@@ -640,7 +656,7 @@ export const requestPasswordReset = async (req, res) => {
     if (!email || !email.trim()) {
       return res.status(400).json({
         success: false,
-        message: 'Email jest wymagany'
+        message: "Email jest wymagany",
       });
     }
 
@@ -649,28 +665,29 @@ export const requestPasswordReset = async (req, res) => {
     if (!emailRegex.test(email)) {
       return res.status(400).json({
         success: false,
-        message: 'Podaj prawidłowy adres email'
+        message: "Podaj prawidłowy adres email",
       });
     }
 
     // Find user by email
-    const user = await User.findOne({ 
-      email: email.toLowerCase().trim() 
+    const user = await User.findOne({
+      email: email.toLowerCase().trim(),
     });
 
     // Always return success for security (don't reveal if email exists)
-    const successMessage = 'Jeśli podany adres email istnieje w naszej bazie, wysłaliśmy instrukcje resetowania hasła';
+    const successMessage =
+      "Jeśli podany adres email istnieje w naszej bazie, wysłaliśmy instrukcje resetowania hasła";
 
     if (!user) {
-      logger.info('Password reset requested for non-existent email', {
+      logger.info("Password reset requested for non-existent email", {
         email: email.toLowerCase().trim(),
         ip: req.ip,
-        userAgent: req.get('User-Agent')
+        userAgent: req.get("User-Agent"),
       });
 
       return res.status(200).json({
         success: true,
-        message: successMessage
+        message: successMessage,
       });
     }
 
@@ -684,49 +701,56 @@ export const requestPasswordReset = async (req, res) => {
 
     // Send password reset email
     try {
-      const { sendPasswordResetEmail } = await import('../../config/nodemailer.js');
-      const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
-      
-      const emailSent = await sendPasswordResetEmail(user.email, resetLink, user.name);
-      
+      const { sendPasswordResetEmail } = await import(
+        "../../config/nodemailer.js"
+      );
+      const resetLink = `${
+        process.env.FRONTEND_URL || "http://localhost:3001"
+      }/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+
+      const emailSent = await sendPasswordResetEmail(
+        user.email,
+        resetLink,
+        user.name
+      );
+
       if (emailSent) {
-        logger.info('Password reset email sent successfully', {
+        logger.info("Password reset email sent successfully", {
           userId: user._id,
           email: user.email,
-          ip: req.ip
+          ip: req.ip,
         });
       } else {
-        logger.error('Failed to send password reset email', {
+        logger.error("Failed to send password reset email", {
           userId: user._id,
           email: user.email,
-          ip: req.ip
+          ip: req.ip,
         });
       }
     } catch (emailError) {
-      logger.error('Error sending password reset email', {
+      logger.error("Error sending password reset email", {
         userId: user._id,
         email: user.email,
         error: emailError.message,
-        ip: req.ip
+        ip: req.ip,
       });
     }
 
     res.status(200).json({
       success: true,
-      message: successMessage
+      message: successMessage,
     });
-
   } catch (error) {
-    logger.error('Request password reset error', {
+    logger.error("Request password reset error", {
       error: error.message,
       stack: error.stack,
       ip: req.ip,
-      userAgent: req.get('User-Agent')
+      userAgent: req.get("User-Agent"),
     });
-    
+
     res.status(500).json({
       success: false,
-      message: 'Błąd serwera podczas żądania resetowania hasła'
+      message: "Błąd serwera podczas żądania resetowania hasła",
     });
   }
 };
@@ -740,8 +764,8 @@ export const resetPassword = async (req, res) => {
     if (!errors.isEmpty()) {
       return res.status(400).json({
         success: false,
-        message: 'Błędy walidacji',
-        errors: errors.array()
+        message: "Błędy walidacji",
+        errors: errors.array(),
       });
     }
 
@@ -750,7 +774,7 @@ export const resetPassword = async (req, res) => {
     if (!token || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Token i nowe hasło są wymagane'
+        message: "Token i nowe hasło są wymagane",
       });
     }
 
@@ -758,26 +782,26 @@ export const resetPassword = async (req, res) => {
     if (password.length < 8) {
       return res.status(400).json({
         success: false,
-        message: 'Hasło musi mieć co najmniej 8 znaków'
+        message: "Hasło musi mieć co najmniej 8 znaków",
       });
     }
 
     // Find user by reset token
     const user = await User.findOne({
       passwordResetToken: token,
-      passwordResetTokenExpires: { $gt: new Date() }
+      passwordResetTokenExpires: { $gt: new Date() },
     });
 
     if (!user) {
-      logger.warn('Invalid or expired password reset token used', {
-        token: token.substring(0, 10) + '...',
+      logger.warn("Invalid or expired password reset token used", {
+        token: token.substring(0, 10) + "...",
         ip: req.ip,
-        userAgent: req.get('User-Agent')
+        userAgent: req.get("User-Agent"),
       });
 
       return res.status(400).json({
         success: false,
-        message: 'Token resetowania hasła jest nieprawidłowy lub wygasł'
+        message: "Token resetowania hasła jest nieprawidłowy lub wygasł",
       });
     }
 
@@ -791,29 +815,29 @@ export const resetPassword = async (req, res) => {
     user.lockUntil = undefined;
     await user.save();
 
-    logger.info('Password reset successful', {
+    logger.info("Password reset successful", {
       userId: user._id,
       email: user.email,
       ip: req.ip,
-      userAgent: req.get('User-Agent')
+      userAgent: req.get("User-Agent"),
     });
 
     res.status(200).json({
       success: true,
-      message: 'Hasło zostało pomyślnie zresetowane. Możesz się teraz zalogować.'
+      message:
+        "Hasło zostało pomyślnie zresetowane. Możesz się teraz zalogować.",
     });
-
   } catch (error) {
-    logger.error('Reset password error', {
+    logger.error("Reset password error", {
       error: error.message,
       stack: error.stack,
       ip: req.ip,
-      userAgent: req.get('User-Agent')
+      userAgent: req.get("User-Agent"),
     });
-    
+
     res.status(500).json({
       success: false,
-      message: 'Błąd serwera podczas resetowania hasła'
+      message: "Błąd serwera podczas resetowania hasła",
     });
   }
 };
@@ -824,25 +848,25 @@ export const resetPassword = async (req, res) => {
 export const send2FACode = async (req, res) => {
   try {
     // TODO: Implement 2FA code sending with SMS/Email
-    logger.info('2FA code send requested', {
+    logger.info("2FA code send requested", {
       userId: req.user?.userId,
-      ip: req.ip
+      ip: req.ip,
     });
-    
+
     res.status(200).json({
       success: true,
-      message: 'Funkcja 2FA będzie dostępna wkrótce'
+      message: "Funkcja 2FA będzie dostępna wkrótce",
     });
   } catch (error) {
-    logger.error('Send 2FA error', {
+    logger.error("Send 2FA error", {
       error: error.message,
       userId: req.user?.userId,
-      ip: req.ip
+      ip: req.ip,
     });
-    
+
     res.status(500).json({
       success: false,
-      message: 'Błąd serwera'
+      message: "Błąd serwera",
     });
   }
 };
@@ -853,25 +877,75 @@ export const send2FACode = async (req, res) => {
 export const verify2FACode = async (req, res) => {
   try {
     // TODO: Implement 2FA code verification
-    logger.info('2FA code verification requested', {
+    logger.info("2FA code verification requested", {
       userId: req.user?.userId,
-      ip: req.ip
+      ip: req.ip,
     });
-    
+
     res.status(200).json({
       success: true,
-      message: 'Funkcja 2FA będzie dostępna wkrótce'
+      message: "Funkcja 2FA będzie dostępna wkrótce",
     });
   } catch (error) {
-    logger.error('Verify 2FA error', {
+    logger.error("Verify 2FA error", {
       error: error.message,
       userId: req.user?.userId,
-      ip: req.ip
+      ip: req.ip,
     });
-    
+
     res.status(500).json({
       success: false,
-      message: 'Błąd serwera'
+      message: "Błąd serwera",
+    });
+  }
+};
+
+/**
+ * Refresh authentication tokens
+ * Uses refreshToken from HttpOnly cookie to generate new access and refresh tokens
+ */
+export const refreshToken = async (req, res) => {
+  try {
+    const refreshToken = req.cookies?.refreshToken;
+
+    if (!refreshToken) {
+      logger.warn("Refresh token missing", {
+        ip: req.ip,
+        userAgent: req.get("User-Agent"),
+      });
+
+      return res.status(401).json({
+        success: false,
+        message: "Refresh token jest wymagany",
+      });
+    }
+
+    // Use refreshUserSession from middleware
+    const userData = await refreshUserSession(refreshToken, req, res);
+
+    logger.info("Token refreshed successfully", {
+      userId: userData.userId,
+      ip: req.ip,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Token odświeżony pomyślnie",
+      accessToken: "Set in HttpOnly cookie",
+    });
+  } catch (error) {
+    logger.error("Token refresh error", {
+      error: error.message,
+      stack: error.stack,
+      ip: req.ip,
+      userAgent: req.get("User-Agent"),
+    });
+
+    clearAuthCookies(res);
+
+    res.status(401).json({
+      success: false,
+      message: "Nie udało się odświeżyć tokenu. Zaloguj się ponownie.",
     });
   }
 };

@@ -12,8 +12,16 @@ import statisticsRoutes from "./statistics/statisticsRoutes.js";
 import settingsRoutes from "./settingsRoutes.js";
 import cleanupRoutes from "./cleanupRoutes.js";
 
+// 🔹 NOWE: aktywne ogłoszenia
+import activeListingsRoutes from "./activeListingsRoutes.js";
+import analyticsRoutes from "./analyticsRoutes.js";
+import activityRoutes from "./activityRoutes.js";
+import paymentRoutes from "./paymentRoutes.js";
+import notificationRoutes from "./notificationRoutes.js";
+
 // Middleware (jeden poziom wyżej: admin/middleware)
 import { adminApiLimiter, requireAdminAuth } from "../middleware/adminAuth.js";
+import trackDailyActive from "../../middleware/analytics/trackDailyActive.js";
 
 /**
  * Main Admin Routes Index
@@ -31,9 +39,6 @@ router.use((req, res, next) => {
 });
 
 /** ===================== HEALTH ===================== */
-// Prosty health-check używany przez frontend przy starcie panelu.
-// Nie wymaga autoryzacji – jeżeli req.user jest ustawiony przez wyższe middleware,
-// zwrócimy podstawowe info o użytkowniku, w przeciwnym razie user=null.
 router.get("/health", (req, res) => {
   res.json({
     success: true,
@@ -50,26 +55,52 @@ router.get("/health", (req, res) => {
 /** Auth (public) */
 router.use("/auth", authRoutes);
 
-/** Dashboard (wymagana autoryzacja admin) */
-router.use("/dashboard", requireAdminAuth, dashboardRoutes);
+/** Dashboard (wymagana autoryzacja admin + tracking) */
+router.use("/dashboard", requireAdminAuth, trackDailyActive, dashboardRoutes);
 
-/** Users (wymagana autoryzacja admin) */
-router.use("/users", requireAdminAuth, userRoutes);
+/** Users (wymagana autoryzacja admin + tracking) */
+router.use("/users", requireAdminAuth, trackDailyActive, userRoutes);
 
-/** Listings (wymagana autoryzacja admin) */
-router.use("/listings", requireAdminAuth, listingRoutes);
+/** Listings (wymagana autoryzacja admin + tracking) */
+router.use(
+  "/listings",
+  requireAdminAuth,
+  trackDailyActive,
+  activeListingsRoutes
+); // 🔹 najpierw nasze /active
+router.use("/listings", requireAdminAuth, trackDailyActive, listingRoutes);
 
-/** Reports (wymagana autoryzacja admin) */
-router.use("/reports", requireAdminAuth, reportRoutes);
+/** Payments (wymagana autoryzacja admin + tracking) */
+router.use("/payments", requireAdminAuth, trackDailyActive, paymentRoutes);
 
-/** Promotions (wymagana autoryzacja admin) */
-router.use("/promotions", requireAdminAuth, promotionRoutes);
+/** Reports - ALIAS do /payments dla zgodności wstecznej (308 zachowuje query) */
+router.use("/reports", (req, res) => {
+  const q = req.url || "";
+  res.redirect(308, `/admin/payments${q}`);
+});
 
-/** Settings (wymagana autoryzacja admin) */
-router.use("/settings", requireAdminAuth, settingsRoutes);
+/** Promotions (wymagana autoryzacja admin + tracking) */
+router.use("/promotions", requireAdminAuth, trackDailyActive, promotionRoutes);
 
-/** Statistics (wymagana autoryzacja admin) */
-router.use("/statistics", requireAdminAuth, statisticsRoutes);
+/** Settings (wymagana autoryzacja admin + tracking) */
+router.use("/settings", requireAdminAuth, trackDailyActive, settingsRoutes);
+
+/** Statistics (wymagana autoryzacja admin + tracking) */
+router.use("/statistics", requireAdminAuth, trackDailyActive, statisticsRoutes);
+
+/** Analytics (wymagana autoryzacja admin + tracking) */
+router.use("/analytics", requireAdminAuth, trackDailyActive, analyticsRoutes);
+
+/** Activity logs (wymagana autoryzacja admin + tracking) */
+router.use("/activity", requireAdminAuth, trackDailyActive, activityRoutes);
+
+/** Notifications (wymagana autoryzacja admin + tracking) */
+router.use(
+  "/notifications",
+  requireAdminAuth,
+  trackDailyActive,
+  notificationRoutes
+);
 
 /** Cleanup / helpers (wymagana autoryzacja admin) */
 router.use("/", requireAdminAuth, cleanupRoutes);
@@ -107,6 +138,11 @@ router.use("*", (req, res) => {
 
       // listings
       "GET /admin-panel/listings",
+      "GET /admin-panel/listings/active",
+      "GET /admin-panel/listings/active/count",
+      "GET /admin-panel/listings/active/featured",
+      "GET /admin-panel/listings/active/featured/count",
+      "GET /admin-panel/listings/active/featured/debug",
       "POST /admin-panel/listings",
       "GET /admin-panel/listings/stats",
       "GET /admin-panel/listings/pending",
@@ -118,10 +154,16 @@ router.use("*", (req, res) => {
       "POST /admin-panel/listings/:id/moderate",
       "POST /admin-panel/listings/bulk-discount",
 
-      // reports
-      "GET /admin-panel/reports",
+      // payments
+      "GET /admin-panel/payments",
+      "GET /admin-panel/payments/stats",
+      "GET /admin-panel/payments/stats/users",
+      "GET /admin-panel/payments/export",
 
-      // promotions (CRUD + tools)
+      // reports (deprecated - redirects to /payments)
+      "GET /admin-panel/reports (redirects to /payments)",
+
+      // promotions
       "GET /admin-panel/promotions",
       "POST /admin-panel/promotions",
       "PUT /admin-panel/promotions/:id",
@@ -145,6 +187,18 @@ router.use("*", (req, res) => {
       "GET /admin-panel/statistics/overview",
       "GET /admin-panel/statistics/timeseries",
       "GET /admin-panel/statistics/export",
+
+      // analytics
+      "GET /admin-panel/analytics/active-users/today",
+      "GET /admin-panel/analytics/active-users/range",
+
+      // activity logs
+      "GET /admin-panel/activity?type=all|listings|users|reports&limit=50",
+      "DELETE /admin-panel/activity/:id",
+      "DELETE /admin-panel/activity (bulk: {ids:[], olderThanDays:number})",
+
+      // notifications
+      "POST /admin-panel/notifications/send",
 
       // cleanup / session tools
       "GET /admin-panel/clear-cookies",

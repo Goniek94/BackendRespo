@@ -43,7 +43,7 @@ export default (app) => {
 
   const coreRoutes = {
     users: userRoutes,
-    ads: adCrudRoutes, // UŻYWAJ TYLKO NOWEGO SYSTEMU MODULARNEGO
+    ads: adRoutes, // POPRAWIONE: używamy pełnego routera z featured/rotated
     comments: commentRoutes,
     images: imageRoutes,
     "car-brands": carBrandsRoutes,

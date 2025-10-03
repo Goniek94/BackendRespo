@@ -1,6 +1,7 @@
 // admin/controllers/dashboard/dashboardController.js
 import User from "../../../models/user/user.js";
 import Ad from "../../../models/listings/ad.js";
+import DailyActiveUser from "../../../models/analytics/DailyActiveUser.js";
 
 /* ========= Helpers ========= */
 const n = (x, d = 0) => (Number.isFinite(x) ? x : d);
@@ -58,9 +59,24 @@ export const getDashboardStats = async (_req, res) => {
     const { d7, d30 } = ranges();
 
     // 1) Podstawowe liczniki
-    const [totalUsers, totalListings] = await Promise.all([
+    const now = new Date();
+    const activeListingsFilter = {
+      $or: [{ status: "active" }, { status: "approved" }],
+      $and: [
+        {
+          $or: [
+            { expiresAt: { $exists: false } },
+            { expiresAt: null },
+            { expiresAt: { $gt: now } },
+          ],
+        },
+      ],
+    };
+
+    const [totalUsers, totalListings, activeListings] = await Promise.all([
       safeCount(User, {}),
       safeCount(Ad, {}),
+      safeCount(Ad, activeListingsFilter),
     ]);
 
     // 2) Wzrosty
@@ -71,8 +87,22 @@ export const getDashboardStats = async (_req, res) => {
       safeCount(Ad, { createdAt: { $gte: d30 } }),
     ]);
 
-    // 3) „Aktywni” użytkownicy — po lastActivity (jeśli brak, będzie 0)
-    const activeUsers = await safeCount(User, { lastActivity: { $gte: d30 } });
+    // 3) Aktywni użytkownicy z DailyActiveUser (ostatnie 30 dni)
+    const today = new Date();
+    const startOfToday = new Date(
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
+    );
+
+    // Unikalne użytkownicy z ostatnich 30 dni
+    const activeUsersData = await DailyActiveUser.distinct("user", {
+      day: { $gte: d30 },
+    }).catch(() => []);
+    const activeUsers = activeUsersData.length;
+
+    // Aktywni użytkownicy dzisiaj (dla karty "Aktywni użytkownicy dziś")
+    const activeUsersToday = await DailyActiveUser.countDocuments({
+      day: startOfToday,
+    }).catch(() => 0);
 
     // 4) Ostatnia aktywność (użytkownicy + ogłoszenia)
     const recentUsers = await safeFind(
@@ -132,10 +162,13 @@ export const getDashboardStats = async (_req, res) => {
     const data = {
       stats: {
         totalUsers: n(totalUsers),
-        totalListings: n(totalListings),
+        activeListings: n(activeListings), // Aktywne ogłoszenia (bez wygasłych)
         pendingReports: n(pendingReports),
-        totalRevenue: n(totalRevenue),
-        activeUsers: n(activeUsers),
+        monthlyRevenue: n(totalRevenue), // Frontend oczekuje monthlyRevenue
+        activeUsersToday: n(activeUsersToday), // Aktywni użytkownicy dzisiaj
+        newMessages: 0, // Placeholder
+        avgListingPrice: 0, // Placeholder
+        featuredListings: 0, // Placeholder
         activityRate: `${activityRate}%`,
       },
       weeklyGrowth: {
@@ -159,12 +192,14 @@ export const getDashboardStats = async (_req, res) => {
         active: n(activeUsers),
       },
       trends: {
-        users: newUsers7 > 0 ? `+${newUsers7} w tym tygodniu` : "Brak nowych",
-        listings: newAds7 > 0 ? `+${newAds7} w tym tygodniu` : "Brak nowych",
-        reports: pendingReports
-          ? `${pendingReports} oczekujących`
-          : "Wszystkie rozwiązane",
-        revenue: "0% zmiana",
+        totalUsers: { change: 0 },
+        activeListings: { change: 0 },
+        pendingReports: { change: 0 },
+        monthlyRevenue: { change: 0 },
+        activeUsersToday: { change: 0 },
+        newMessages: { change: 0 },
+        avgListingPrice: { change: 0 },
+        featuredListings: { change: 0 },
       },
       recentActivity,
       systemStatus: {

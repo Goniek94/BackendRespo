@@ -1,11 +1,11 @@
-import User from '../../models/user/user.js';
-import AdminActivity from '../models/AdminActivity.js';
+import User from "../../models/user/user.js";
+import AdminActivity from "../models/AdminActivity.js";
 
 /**
  * Professional User Management Service
  * Handles all user-related business logic for admin panel
  * Features: CRUD operations, bulk actions, analytics, security
- * 
+ *
  * @author Senior Developer
  * @version 1.0.0
  */
@@ -29,13 +29,13 @@ class UserService {
     const {
       page = 1,
       limit = 20,
-      search = '',
-      role = '',
-      status = '',
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
+      search = "",
+      role = "",
+      status = "",
+      sortBy = "createdAt",
+      sortOrder = "desc",
       dateFrom,
-      dateTo
+      dateTo,
     } = options;
 
     // Build query object
@@ -44,8 +44,8 @@ class UserService {
     // Search in name and email
     if (search) {
       query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } }
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
       ];
     }
 
@@ -68,30 +68,30 @@ class UserService {
 
     // Calculate pagination
     const skip = (page - 1) * limit;
-    const sortOptions = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
+    const sortOptions = { [sortBy]: sortOrder === "desc" ? -1 : 1 };
 
     try {
       // Execute queries in parallel for better performance
       const [rawUsers, totalCount] = await Promise.all([
         User.find(query)
-          .select('-password -__v')
+          .select("-password -__v")
           .sort(sortOptions)
           .skip(skip)
           .limit(parseInt(limit))
           .lean(),
-        User.countDocuments(query)
+        User.countDocuments(query),
       ]);
 
       // Map MongoDB fields to frontend-expected fields
-      const users = rawUsers.map(user => ({
+      const users = rawUsers.map((user) => ({
         ...user,
         id: user._id.toString(),
-        phone: user.phoneNumber || '',
+        phone: user.phoneNumber || "",
         verified: user.isVerified || false,
         listings_count: 0, // TODO: Add actual count from listings collection
         last_active: user.lastActivity || user.lastLogin,
         created_at: user.createdAt,
-        updated_at: user.updatedAt
+        updated_at: user.updatedAt,
       }));
 
       // Calculate pagination metadata
@@ -107,7 +107,7 @@ class UserService {
           totalCount,
           limit: parseInt(limit),
           hasNextPage,
-          hasPrevPage
+          hasPrevPage,
         },
         filters: {
           search,
@@ -116,8 +116,8 @@ class UserService {
           sortBy,
           sortOrder,
           dateFrom,
-          dateTo
-        }
+          dateTo,
+        },
       };
     } catch (error) {
       throw new Error(`Failed to fetch users: ${error.message}`);
@@ -131,12 +131,10 @@ class UserService {
    */
   async getUserById(userId) {
     try {
-      const user = await User.findById(userId)
-        .select('-password -__v')
-        .lean();
+      const user = await User.findById(userId).select("-password -__v").lean();
 
       if (!user) {
-        throw new Error('User not found');
+        throw new Error("User not found");
       }
 
       // Get user statistics (could be extended with more metrics)
@@ -144,7 +142,7 @@ class UserService {
 
       return {
         ...user,
-        statistics: stats
+        statistics: stats,
       };
     } catch (error) {
       throw new Error(`Failed to fetch user: ${error.message}`);
@@ -163,43 +161,69 @@ class UserService {
       // Get current user data for audit trail
       const currentUser = await User.findById(userId).lean();
       if (!currentUser) {
-        throw new Error('User not found');
+        throw new Error("User not found");
       }
 
       // Validate update data
       const allowedFields = [
-        'name', 'email', 'role', 'status', 'isVerified',
-        'phone', 'location', 'preferences'
+        "name",
+        "lastName",
+        "email",
+        "role",
+        "status",
+        "isVerified",
+        "phone",
+        "phoneNumber",
+        "location",
+        "preferences",
+        "password",
+        "isEmailVerified",
+        "emailVerified",
+        "isPhoneVerified",
+        "phoneVerified",
+        "dateOfBirth", // ✅ DODANE
       ];
-      
+
       const filteredData = {};
-      Object.keys(updateData).forEach(key => {
+      Object.keys(updateData).forEach((key) => {
         if (allowedFields.includes(key)) {
           filteredData[key] = updateData[key];
         }
       });
 
+      // Map phoneNumber to phone for database consistency
+      if (filteredData.phoneNumber) {
+        filteredData.phone = filteredData.phoneNumber;
+        delete filteredData.phoneNumber;
+      }
+
+      // Handle password hashing if password is being updated
+      if (filteredData.password) {
+        const bcrypt = await import("bcrypt");
+        filteredData.password = await bcrypt.hash(filteredData.password, 12);
+      }
+
       // Update user
       const updatedUser = await User.findByIdAndUpdate(
         userId,
-        { 
+        {
           ...filteredData,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         },
-        { 
+        {
           new: true,
-          runValidators: true
+          runValidators: true,
         }
-      ).select('-password -__v');
+      ).select("-password -__v");
 
       // Log admin activity
       await AdminActivity.create({
         adminId,
-        actionType: 'user_updated',
+        actionType: "user_updated",
         targetResource: {
-          resourceType: 'user',
+          resourceType: "user",
           resourceId: userId,
-          resourceIdentifier: updatedUser.email
+          resourceIdentifier: updatedUser.email,
         },
         actionDetails: {
           previousState: {
@@ -207,28 +231,28 @@ class UserService {
             email: currentUser.email,
             role: currentUser.role,
             status: currentUser.status,
-            isVerified: currentUser.isVerified
+            isVerified: currentUser.isVerified,
           },
           newState: {
             name: updatedUser.name,
             email: updatedUser.email,
             role: updatedUser.role,
             status: updatedUser.status,
-            isVerified: updatedUser.isVerified
+            isVerified: updatedUser.isVerified,
           },
           metadata: {
-            fieldsChanged: Object.keys(filteredData)
-          }
+            fieldsChanged: Object.keys(filteredData),
+          },
         },
         requestContext: {
-          ipAddress: '0.0.0.0', // Will be set by middleware
-          userAgent: 'Admin Panel',
-          sessionId: 'admin_session'
+          ipAddress: "0.0.0.0", // Will be set by middleware
+          userAgent: "Admin Panel",
+          sessionId: "admin_session",
         },
         result: {
-          status: 'success',
-          message: 'User updated successfully'
-        }
+          status: "success",
+          message: "User updated successfully",
+        },
       });
 
       return updatedUser;
@@ -249,52 +273,54 @@ class UserService {
     try {
       const user = await User.findById(userId);
       if (!user) {
-        throw new Error('User not found');
+        throw new Error("User not found");
       }
 
       const previousStatus = user.status;
-      const newStatus = blocked ? 'blocked' : 'active';
+      const newStatus = blocked ? "blocked" : "active";
 
       const updatedUser = await User.findByIdAndUpdate(
         userId,
-        { 
+        {
           status: newStatus,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         },
         { new: true }
-      ).select('-password -__v');
+      ).select("-password -__v");
 
       // Log admin activity
       await AdminActivity.create({
         adminId,
-        actionType: blocked ? 'user_blocked' : 'user_unblocked',
+        actionType: blocked ? "user_blocked" : "user_unblocked",
         targetResource: {
-          resourceType: 'user',
+          resourceType: "user",
           resourceId: userId,
-          resourceIdentifier: user.email
+          resourceIdentifier: user.email,
         },
         actionDetails: {
           previousState: { status: previousStatus },
           newState: { status: newStatus },
           reason,
           metadata: {
-            action: blocked ? 'block' : 'unblock'
-          }
+            action: blocked ? "block" : "unblock",
+          },
         },
         requestContext: {
-          ipAddress: '0.0.0.0',
-          userAgent: 'Admin Panel',
-          sessionId: 'admin_session'
+          ipAddress: "0.0.0.0",
+          userAgent: "Admin Panel",
+          sessionId: "admin_session",
         },
         result: {
-          status: 'success',
-          message: `User ${blocked ? 'blocked' : 'unblocked'} successfully`
-        }
+          status: "success",
+          message: `User ${blocked ? "blocked" : "unblocked"} successfully`,
+        },
       });
 
       return updatedUser;
     } catch (error) {
-      throw new Error(`Failed to ${blocked ? 'block' : 'unblock'} user: ${error.message}`);
+      throw new Error(
+        `Failed to ${blocked ? "block" : "unblock"} user: ${error.message}`
+      );
     }
   }
 
@@ -309,56 +335,56 @@ class UserService {
     try {
       const user = await User.findById(userId);
       if (!user) {
-        throw new Error('User not found');
+        throw new Error("User not found");
       }
 
       // Soft delete - mark as deleted instead of removing from database
       await User.findByIdAndUpdate(userId, {
-        status: 'deleted',
+        status: "deleted",
         deletedAt: new Date(),
-        deletedBy: adminId
+        deletedBy: adminId,
       });
 
       // Log admin activity
       await AdminActivity.create({
         adminId,
-        actionType: 'user_deleted',
+        actionType: "user_deleted",
         targetResource: {
-          resourceType: 'user',
+          resourceType: "user",
           resourceId: userId,
-          resourceIdentifier: user.email
+          resourceIdentifier: user.email,
         },
         actionDetails: {
           reason,
           metadata: {
             originalStatus: user.status,
-            deletionType: 'soft_delete'
-          }
+            deletionType: "soft_delete",
+          },
         },
         requestContext: {
-          ipAddress: '0.0.0.0',
-          userAgent: 'Admin Panel',
-          sessionId: 'admin_session'
+          ipAddress: "0.0.0.0",
+          userAgent: "Admin Panel",
+          sessionId: "admin_session",
         },
         result: {
-          status: 'success',
-          message: 'User deleted successfully'
+          status: "success",
+          message: "User deleted successfully",
         },
         securityFlags: {
-          riskLevel: 'high',
+          riskLevel: "high",
           requiresReview: true,
-          complianceRelevant: true
-        }
+          complianceRelevant: true,
+        },
       });
 
       return {
         success: true,
-        message: 'User deleted successfully',
+        message: "User deleted successfully",
         deletedUser: {
           id: userId,
           email: user.email,
-          name: user.name
-        }
+          name: user.name,
+        },
       };
     } catch (error) {
       throw new Error(`Failed to delete user: ${error.message}`);
@@ -381,10 +407,10 @@ class UserService {
         totalSpent: 0,
         accountAge: 0, // Calculate from createdAt
         lastActivity: null,
-        verificationStatus: 'pending'
+        verificationStatus: "pending",
       };
     } catch (error) {
-      console.error('Failed to get user statistics:', error);
+      console.error("Failed to get user statistics:", error);
       return {
         totalListings: 0,
         activeListings: 0,
@@ -392,7 +418,7 @@ class UserService {
         totalSpent: 0,
         accountAge: 0,
         lastActivity: null,
-        verificationStatus: 'unknown'
+        verificationStatus: "unknown",
       };
     }
   }
@@ -406,10 +432,10 @@ class UserService {
    */
   async bulkUpdateUsers(userIds, updateData, adminId) {
     try {
-      const allowedFields = ['role', 'status', 'isVerified'];
+      const allowedFields = ["role", "status", "isVerified"];
       const filteredData = {};
-      
-      Object.keys(updateData).forEach(key => {
+
+      Object.keys(updateData).forEach((key) => {
         if (allowedFields.includes(key)) {
           filteredData[key] = updateData[key];
         }
@@ -417,49 +443,49 @@ class UserService {
 
       const result = await User.updateMany(
         { _id: { $in: userIds } },
-        { 
+        {
           ...filteredData,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         }
       );
 
       // Log bulk admin activity
       await AdminActivity.create({
         adminId,
-        actionType: 'bulk_operation',
+        actionType: "bulk_operation",
         targetResource: {
-          resourceType: 'bulk',
-          resourceIdentifier: 'user_bulk_update'
+          resourceType: "bulk",
+          resourceIdentifier: "user_bulk_update",
         },
         actionDetails: {
           newState: filteredData,
           affectedCount: result.modifiedCount,
           metadata: {
-            operation: 'bulk_update',
+            operation: "bulk_update",
             targetIds: userIds,
-            fieldsChanged: Object.keys(filteredData)
-          }
+            fieldsChanged: Object.keys(filteredData),
+          },
         },
         requestContext: {
-          ipAddress: '0.0.0.0',
-          userAgent: 'Admin Panel',
-          sessionId: 'admin_session'
+          ipAddress: "0.0.0.0",
+          userAgent: "Admin Panel",
+          sessionId: "admin_session",
         },
         result: {
-          status: 'success',
-          message: `Bulk updated ${result.modifiedCount} users`
+          status: "success",
+          message: `Bulk updated ${result.modifiedCount} users`,
         },
         securityFlags: {
-          riskLevel: 'medium',
-          requiresReview: true
-        }
+          riskLevel: "medium",
+          requiresReview: true,
+        },
       });
 
       return {
         success: true,
         modifiedCount: result.modifiedCount,
         matchedCount: result.matchedCount,
-        message: `Successfully updated ${result.modifiedCount} users`
+        message: `Successfully updated ${result.modifiedCount} users`,
       };
     } catch (error) {
       throw new Error(`Bulk update failed: ${error.message}`);
@@ -473,13 +499,17 @@ class UserService {
    */
   async getUserAnalytics(options = {}) {
     try {
-      const { timeframe = '30d' } = options;
-      
+      const { timeframe = "30d" } = options;
+
       // Calculate date range for change comparison
       const now = new Date();
-      const daysBack = timeframe === '7d' ? 7 : timeframe === '30d' ? 30 : 90;
-      const currentPeriodStart = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
-      const previousPeriodStart = new Date(currentPeriodStart.getTime() - daysBack * 24 * 60 * 60 * 1000);
+      const daysBack = timeframe === "7d" ? 7 : timeframe === "30d" ? 30 : 90;
+      const currentPeriodStart = new Date(
+        now.getTime() - daysBack * 24 * 60 * 60 * 1000
+      );
+      const previousPeriodStart = new Date(
+        currentPeriodStart.getTime() - daysBack * 24 * 60 * 60 * 1000
+      );
 
       // Get current period stats
       const [currentStats, previousStats] = await Promise.all([
@@ -487,43 +517,31 @@ class UserService {
           {
             $facet: {
               total: [{ $count: "count" }],
-              verified: [
-                { $match: { isVerified: true } },
-                { $count: "count" }
-              ],
+              verified: [{ $match: { isVerified: true } }, { $count: "count" }],
               inactive: [
-                { $match: { status: { $in: ['inactive', 'pending'] } } },
-                { $count: "count" }
+                { $match: { status: { $in: ["inactive", "pending"] } } },
+                { $count: "count" },
               ],
-              blocked: [
-                { $match: { status: 'blocked' } },
-                { $count: "count" }
-              ]
-            }
-          }
+              blocked: [{ $match: { status: "blocked" } }, { $count: "count" }],
+            },
+          },
         ]),
         User.aggregate([
           {
-            $match: { createdAt: { $lt: currentPeriodStart } }
+            $match: { createdAt: { $lt: currentPeriodStart } },
           },
           {
             $facet: {
               total: [{ $count: "count" }],
-              verified: [
-                { $match: { isVerified: true } },
-                { $count: "count" }
-              ],
+              verified: [{ $match: { isVerified: true } }, { $count: "count" }],
               inactive: [
-                { $match: { status: { $in: ['inactive', 'pending'] } } },
-                { $count: "count" }
+                { $match: { status: { $in: ["inactive", "pending"] } } },
+                { $count: "count" },
               ],
-              blocked: [
-                { $match: { status: 'blocked' } },
-                { $count: "count" }
-              ]
-            }
-          }
-        ])
+              blocked: [{ $match: { status: "blocked" } }, { $count: "count" }],
+            },
+          },
+        ]),
       ]);
 
       const current = currentStats[0];
@@ -563,7 +581,7 @@ class UserService {
         usersByRole: [],
         usersByStatus: [],
         timeframe,
-        generatedAt: new Date()
+        generatedAt: new Date(),
       };
     } catch (error) {
       throw new Error(`Failed to generate user analytics: ${error.message}`);

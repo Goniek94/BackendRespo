@@ -73,11 +73,28 @@ export const getDashboardStats = async (_req, res) => {
       ],
     };
 
-    const [totalUsers, totalListings, activeListings] = await Promise.all([
-      safeCount(User, {}),
-      safeCount(Ad, {}),
-      safeCount(Ad, activeListingsFilter),
-    ]);
+    // Licznik wyróżnionych ogłoszeń
+    const featuredListingsFilter = {
+      featured: true,
+      $or: [{ status: "active" }, { status: "approved" }],
+      $and: [
+        {
+          $or: [
+            { expiresAt: { $exists: false } },
+            { expiresAt: null },
+            { expiresAt: { $gt: now } },
+          ],
+        },
+      ],
+    };
+
+    const [totalUsers, totalListings, activeListings, featuredListings] =
+      await Promise.all([
+        safeCount(User, {}),
+        safeCount(Ad, {}),
+        safeCount(Ad, activeListingsFilter),
+        safeCount(Ad, featuredListingsFilter),
+      ]);
 
     // 2) Wzrosty
     const [newUsers7, newAds7, newUsers30, newAds30] = await Promise.all([
@@ -168,7 +185,7 @@ export const getDashboardStats = async (_req, res) => {
         activeUsersToday: n(activeUsersToday), // Aktywni użytkownicy dzisiaj
         newMessages: 0, // Placeholder
         avgListingPrice: 0, // Placeholder
-        featuredListings: 0, // Placeholder
+        featuredListings: n(featuredListings), // Wyróżnione aktywne ogłoszenia
         activityRate: `${activityRate}%`,
       },
       weeklyGrowth: {

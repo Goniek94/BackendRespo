@@ -12,8 +12,6 @@ export {
   verify2FACode,
   send2FACode,
   checkAuth,
-  requestPasswordReset,
-  resetPassword,
 } from "./authController.js";
 
 // Profile Controller
@@ -21,6 +19,12 @@ export {
   getUserProfile,
   updateUserProfile,
   getRecentlyViewed,
+  requestEmailChange,
+  verifyEmailChange,
+  requestPhoneChange,
+  verifyPhoneChange,
+  requestPasswordReset,
+  resetPassword,
 } from "./profileController.js";
 
 // Dashboard Controller

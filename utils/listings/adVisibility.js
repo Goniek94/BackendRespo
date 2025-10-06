@@ -15,8 +15,8 @@ export const publicActiveFilter = () => {
   const now = new Date();
 
   return {
-    // 1) Only ads with "active" status (not approved, pending, rejected, hidden)
-    status: "active",
+    // 1) Ads with "active" or "approved" status (publicly visible)
+    status: { $in: ["active", "approved"] },
 
     // 2) Not expired - either no expiry date or expiry date is in the future
     $or: [

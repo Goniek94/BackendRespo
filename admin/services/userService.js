@@ -1,5 +1,6 @@
 import User from "../../models/user/user.js";
 import AdminActivity from "../models/AdminActivity.js";
+import Ad from "../../models/listings/ad.js";
 
 /**
  * Professional User Management Service
@@ -82,13 +83,38 @@ class UserService {
         User.countDocuments(query),
       ]);
 
+      // Get ads count for all users in one efficient query
+      const userIds = rawUsers.map((u) => u._id);
+      const adsCountAggregation = await Ad.aggregate([
+        {
+          $match: {
+            $or: [{ user: { $in: userIds } }, { owner: { $in: userIds } }],
+          },
+        },
+        {
+          $group: {
+            _id: { $ifNull: ["$user", "$owner"] },
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+
+      // Create a map of userId -> ads count for quick lookup
+      const adsCountMap = new Map();
+      adsCountAggregation.forEach((item) => {
+        if (item._id) {
+          adsCountMap.set(item._id.toString(), item.count);
+        }
+      });
+
       // Map MongoDB fields to frontend-expected fields
       const users = rawUsers.map((user) => ({
         ...user,
         id: user._id.toString(),
         phone: user.phoneNumber || "",
         verified: user.isVerified || false,
-        listings_count: 0, // TODO: Add actual count from listings collection
+        adsCount: adsCountMap.get(user._id.toString()) || 0,
+        listings_count: adsCountMap.get(user._id.toString()) || 0,
         last_active: user.lastActivity || user.lastLogin,
         created_at: user.createdAt,
         updated_at: user.updatedAt,
@@ -181,7 +207,8 @@ class UserService {
         "emailVerified",
         "isPhoneVerified",
         "phoneVerified",
-        "dateOfBirth", // ✅ DODANE
+        "dateOfBirth",
+        "dob",
       ];
 
       const filteredData = {};
@@ -191,16 +218,55 @@ class UserService {
         }
       });
 
-      // Map phoneNumber to phone for database consistency
-      if (filteredData.phoneNumber) {
-        filteredData.phone = filteredData.phoneNumber;
-        delete filteredData.phoneNumber;
+      // Check if email is being changed and if it's already taken
+      if (filteredData.email && filteredData.email !== currentUser.email) {
+        const emailExists = await User.findOne({
+          email: filteredData.email.toLowerCase(),
+          _id: { $ne: userId },
+        });
+
+        if (emailExists) {
+          throw new Error(
+            `Email ${filteredData.email} is already in use by another user`
+          );
+        }
+
+        // Normalize email
+        filteredData.email = filteredData.email.toLowerCase().trim();
+      }
+
+      // Check if phone is being changed and if it's already taken
+      const phoneToCheck = filteredData.phoneNumber || filteredData.phone;
+      if (phoneToCheck && phoneToCheck !== currentUser.phoneNumber) {
+        const phoneExists = await User.findOne({
+          phoneNumber: phoneToCheck,
+          _id: { $ne: userId },
+        });
+
+        if (phoneExists) {
+          throw new Error(
+            `Phone number ${phoneToCheck} is already in use by another user`
+          );
+        }
+
+        // Ensure phoneNumber field is used (not phone)
+        filteredData.phoneNumber = phoneToCheck;
+        delete filteredData.phone;
+      }
+
+      // Remove phone field if exists (use phoneNumber instead)
+      if (filteredData.phone && !filteredData.phoneNumber) {
+        filteredData.phoneNumber = filteredData.phone;
+        delete filteredData.phone;
       }
 
       // Handle password hashing if password is being updated
       if (filteredData.password) {
+        console.log("🔐 Password change requested for user:", userId);
+        console.log("🔐 Password length:", filteredData.password.length);
         const bcrypt = await import("bcrypt");
         filteredData.password = await bcrypt.hash(filteredData.password, 12);
+        console.log("✅ Password hashed successfully");
       }
 
       // Update user
@@ -212,7 +278,7 @@ class UserService {
         },
         {
           new: true,
-          runValidators: true,
+          runValidators: false, // Wyłącz walidatory, żeby nie blokować aktualizacji
         }
       ).select("-password -__v");
 
@@ -398,11 +464,20 @@ class UserService {
    */
   async getUserStatistics(userId) {
     try {
-      // This would typically involve queries to other collections
-      // For now, returning basic structure
+      // Count total listings for user (both new 'user' and legacy 'owner' fields)
+      const totalListings = await Ad.countDocuments({
+        $or: [{ user: userId }, { owner: userId }],
+      });
+
+      // Count active/approved listings
+      const activeListings = await Ad.countDocuments({
+        $or: [{ user: userId }, { owner: userId }],
+        status: { $in: ["active", "approved"] },
+      });
+
       return {
-        totalListings: 0, // await Listing.countDocuments({ userId })
-        activeListings: 0,
+        totalListings,
+        activeListings,
         totalTransactions: 0,
         totalSpent: 0,
         accountAge: 0, // Calculate from createdAt

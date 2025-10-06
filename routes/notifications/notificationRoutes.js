@@ -601,10 +601,11 @@ router.get(
       (async () => {
         const Message = (await import("../../models/communication/message.js"))
           .default;
-        return Message.aggregate([
+        const result = await Message.aggregate([
           {
             $match: {
               recipient: userObjectId,
+              sender: { $ne: userObjectId },
               read: false,
               deletedBy: { $ne: userObjectId },
               archived: { $ne: true },
@@ -612,13 +613,19 @@ router.get(
               unsent: { $ne: true },
             },
           },
-          { $count: "unreadMessages" },
+          {
+            $group: {
+              _id: { sender: "$sender", adId: "$adId" },
+            },
+          },
+          { $count: "unreadConversations" },
         ]);
+        return result;
       })(),
     ]);
 
     const notificationCount = notificationStats[0]?.unread || 0;
-    const messageCount = messageStats[0]?.unreadMessages || 0;
+    const messageCount = messageStats[0]?.unreadConversations || 0;
     const totalUnread = notificationCount + messageCount;
 
     logger.debug("Unread counts calculated", {
@@ -667,10 +674,11 @@ router.get(
       (async () => {
         const Message = (await import("../../models/communication/message.js"))
           .default;
-        return Message.aggregate([
+        const result = await Message.aggregate([
           {
             $match: {
               recipient: userObjectId,
+              sender: { $ne: userObjectId },
               read: false,
               deletedBy: { $ne: userObjectId },
               archived: { $ne: true },
@@ -678,13 +686,19 @@ router.get(
               unsent: { $ne: true },
             },
           },
-          { $count: "unreadMessages" },
+          {
+            $group: {
+              _id: { sender: "$sender", adId: "$adId" },
+            },
+          },
+          { $count: "unreadConversations" },
         ]);
+        return result;
       })(),
     ]);
 
     const notifications = notificationStats[0]?.unread || 0;
-    const messages = messageStats[0]?.unreadMessages || 0;
+    const messages = messageStats[0]?.unreadConversations || 0;
     const total = notifications + messages;
 
     return res.status(200).json({

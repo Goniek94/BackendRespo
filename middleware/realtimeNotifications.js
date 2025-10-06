@@ -1,4 +1,4 @@
-import enhancedNotificationService from "../services/enhancedNotificationService.js";
+import notificationManager from "../services/notificationManager.js";
 import { NotificationType } from "../utils/notificationTypes.js";
 import logger from "../utils/logger.js";
 
@@ -33,7 +33,7 @@ export const notifyNewMessage = async (req, res, next) => {
 
           if (recipientId && recipientId !== senderId) {
             // Utwórz powiadomienie o nowej wiadomości
-            enhancedNotificationService.createNotification(
+            notificationManager.createNotification(
               recipientId,
               "Nowa wiadomość",
               `Masz nową wiadomość od ${senderName}`,
@@ -89,7 +89,7 @@ export const notifyListingCreated = async (req, res, next) => {
 
           if (userId) {
             // Powiadomienie dla właściciela ogłoszenia
-            enhancedNotificationService.createNotification(
+            notificationManager.createNotification(
               userId,
               "Ogłoszenie opublikowane!",
               `Twoje ogłoszenie "${ad.title}" zostało pomyślnie opublikowane`,
@@ -151,7 +151,7 @@ export const notifyFavoriteAdded = async (req, res, next) => {
             const ownerId = req.body.ownerId;
 
             if (ownerId && ownerId !== userId) {
-              enhancedNotificationService.createNotification(
+              notificationManager.createNotification(
                 ownerId,
                 "Dodano do ulubionych",
                 `Ktoś dodał Twoje ogłoszenie "${adTitle}" do ulubionych!`,
@@ -238,7 +238,7 @@ export const notifyPaymentStatus = async (req, res, next) => {
                 return result; // Nie obsługujemy innych statusów
             }
 
-            enhancedNotificationService.createNotification(
+            notificationManager.createNotification(
               userId,
               title,
               message,
@@ -300,7 +300,7 @@ export const notifyListingViewed = async (req, res, next) => {
             const isBot = /bot|crawler|spider|crawling/i.test(userAgent);
 
             if (!isBot) {
-              enhancedNotificationService.createNotification(
+              notificationManager.createNotification(
                 ownerId,
                 "Ogłoszenie wyświetlone",
                 `Ktoś wyświetlił Twoje ogłoszenie "${ad.title}"`,
@@ -351,7 +351,7 @@ export const notifyExpiringListings = async (listings) => {
       );
 
       if (userId && daysLeft > 0) {
-        await enhancedNotificationService.createNotification(
+        await notificationManager.createNotification(
           userId,
           "Ogłoszenie wkrótce wygaśnie",
           `Twoje ogłoszenie "${listing.title}" wygaśnie za ${daysLeft} ${

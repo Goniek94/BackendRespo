@@ -76,7 +76,7 @@ export const getUserProfile = async (req, res, next) => {
 };
 
 /**
- * Update user profile
+ * Update basic user profile data (name, lastName)
  */
 export const updateUserProfile = async (req, res, next) => {
   try {
@@ -90,45 +90,45 @@ export const updateUserProfile = async (req, res, next) => {
     }
 
     const userId = req.user.userId;
-    const { name, lastName, phoneNumber, dob } = req.body;
+    const { name, lastName } = req.body;
 
-    // Update user profile
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      {
-        name: name?.trim(),
-        lastName: lastName?.trim(),
-        phoneNumber,
-        dob: dob ? new Date(dob) : undefined,
-        updatedAt: new Date(),
-      },
-      { new: true, runValidators: true }
-    );
+    const user = await User.findById(userId);
 
-    if (!updatedUser) {
+    if (!user) {
       return res.status(404).json({
         success: false,
         message: "Użytkownik nie został znaleziony",
       });
     }
 
+    // Track changes for notification
+    const changes = [];
+    if (name && name !== user.name) {
+      changes.push(`Imię zmienione z "${user.name}" na "${name}"`);
+      user.name = name.trim();
+    }
+    if (lastName && lastName !== user.lastName) {
+      changes.push(`Nazwisko zmienione z "${user.lastName}" na "${lastName}"`);
+      user.lastName = lastName.trim();
+    }
+
+    await user.save();
+
     // Return updated profile data
     const profileData = {
-      id: updatedUser._id,
-      name: updatedUser.name,
-      lastName: updatedUser.lastName,
-      email: updatedUser.email,
-      phoneNumber: updatedUser.phoneNumber,
-      role: updatedUser.role,
-      isVerified: updatedUser.isVerified,
-      createdAt: updatedUser.createdAt,
-      lastLogin: updatedUser.lastLogin,
-      dob: updatedUser.dob,
+      id: user._id,
+      name: user.name,
+      lastName: user.lastName,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+      isVerified: user.isVerified,
+      createdAt: user.createdAt,
+      lastLogin: user.lastLogin,
+      dob: user.dob,
     };
 
-    console.log(
-      `✅ Profile updated successfully for user: ${updatedUser.email}`
-    );
+    console.log(`✅ Profile updated successfully for user: ${user.email}`);
 
     return res.status(200).json({
       success: true,
@@ -137,6 +137,396 @@ export const updateUserProfile = async (req, res, next) => {
     });
   } catch (error) {
     console.error("❌ Update profile error:", error);
+    return next(error);
+  }
+};
+
+/**
+ * Request email change - sends verification code to new email
+ */
+export const requestEmailChange = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const { newEmail } = req.body;
+
+    if (!newEmail) {
+      return res.status(400).json({
+        success: false,
+        message: "Nowy adres email jest wymagany",
+      });
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Użytkownik nie został znaleziony",
+      });
+    }
+
+    // Check if email is already taken
+    const emailExists = await User.findOne({
+      email: newEmail.toLowerCase(),
+      _id: { $ne: userId },
+    });
+
+    if (emailExists) {
+      return res.status(400).json({
+        success: false,
+        message: "Ten adres email jest już zajęty",
+      });
+    }
+
+    // Generate verification code
+    const { generateVerificationCode, sendEmailChangeVerification } =
+      await import("../../services/emailService.js");
+    const verificationCode = generateVerificationCode();
+
+    // Save verification code with expiry (15 minutes)
+    user.emailVerificationCode = verificationCode;
+    user.emailVerificationCodeExpires = new Date(Date.now() + 15 * 60 * 1000);
+    user.pendingEmail = newEmail.toLowerCase();
+    await user.save();
+
+    // Send verification email
+    await sendEmailChangeVerification(newEmail, verificationCode, user.name);
+
+    return res.status(200).json({
+      success: true,
+      message: "Kod weryfikacyjny został wysłany na nowy adres email",
+    });
+  } catch (error) {
+    console.error("❌ Request email change error:", error);
+    return next(error);
+  }
+};
+
+/**
+ * Verify email change with code
+ */
+export const verifyEmailChange = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const { code } = req.body;
+
+    if (!code) {
+      return res.status(400).json({
+        success: false,
+        message: "Kod weryfikacyjny jest wymagany",
+      });
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Użytkownik nie został znaleziony",
+      });
+    }
+
+    // Check if code is valid
+    if (
+      !user.emailVerificationCode ||
+      user.emailVerificationCode !== code ||
+      !user.emailVerificationCodeExpires ||
+      user.emailVerificationCodeExpires < new Date()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Kod weryfikacyjny jest nieprawidłowy lub wygasł",
+      });
+    }
+
+    if (!user.pendingEmail) {
+      return res.status(400).json({
+        success: false,
+        message: "Brak oczekującego adresu email",
+      });
+    }
+
+    // Update email
+    const oldEmail = user.email;
+    user.email = user.pendingEmail;
+    user.isEmailVerified = true;
+    user.emailVerified = true;
+    user.emailVerificationCode = undefined;
+    user.emailVerificationCodeExpires = undefined;
+    user.pendingEmail = undefined;
+    await user.save();
+
+    // Send notification to old email
+    const { sendProfileChangeNotification } = await import(
+      "../../services/emailService.js"
+    );
+    await sendProfileChangeNotification(oldEmail, user.name, [
+      `Email zmieniony z ${oldEmail} na ${user.email}`,
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: "Adres email został zmieniony pomyślnie",
+      user: {
+        id: user._id,
+        name: user.name,
+        lastName: user.lastName,
+        email: user.email,
+        phoneNumber: user.phoneNumber,
+      },
+    });
+  } catch (error) {
+    console.error("❌ Verify email change error:", error);
+    return next(error);
+  }
+};
+
+/**
+ * Request phone change - sends verification code to new phone
+ */
+export const requestPhoneChange = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const { newPhone } = req.body;
+
+    if (!newPhone) {
+      return res.status(400).json({
+        success: false,
+        message: "Nowy numer telefonu jest wymagany",
+      });
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Użytkownik nie został znaleziony",
+      });
+    }
+
+    // Check if phone is already taken
+    const phoneExists = await User.findOne({
+      phoneNumber: newPhone,
+      _id: { $ne: userId },
+    });
+
+    if (phoneExists) {
+      return res.status(400).json({
+        success: false,
+        message: "Ten numer telefonu jest już zajęty",
+      });
+    }
+
+    // Generate verification code
+    const { generateVerificationCode, sendPhoneChangeVerification } =
+      await import("../../services/emailService.js");
+    const verificationCode = generateVerificationCode();
+
+    // Save verification code with expiry (15 minutes)
+    user.smsVerificationCode = verificationCode;
+    user.smsVerificationCodeExpires = new Date(Date.now() + 15 * 60 * 1000);
+    user.pendingPhone = newPhone;
+    await user.save();
+
+    // Send verification SMS
+    await sendPhoneChangeVerification(newPhone, verificationCode);
+
+    return res.status(200).json({
+      success: true,
+      message: "Kod weryfikacyjny został wysłany SMS",
+    });
+  } catch (error) {
+    console.error("❌ Request phone change error:", error);
+    return next(error);
+  }
+};
+
+/**
+ * Verify phone change with code
+ */
+export const verifyPhoneChange = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const { code } = req.body;
+
+    if (!code) {
+      return res.status(400).json({
+        success: false,
+        message: "Kod weryfikacyjny jest wymagany",
+      });
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Użytkownik nie został znaleziony",
+      });
+    }
+
+    // Check if code is valid
+    if (
+      !user.smsVerificationCode ||
+      user.smsVerificationCode !== code ||
+      !user.smsVerificationCodeExpires ||
+      user.smsVerificationCodeExpires < new Date()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Kod weryfikacyjny jest nieprawidłowy lub wygasł",
+      });
+    }
+
+    if (!user.pendingPhone) {
+      return res.status(400).json({
+        success: false,
+        message: "Brak oczekującego numeru telefonu",
+      });
+    }
+
+    // Update phone
+    const oldPhone = user.phoneNumber;
+    user.phoneNumber = user.pendingPhone;
+    user.isPhoneVerified = true;
+    user.phoneVerified = true;
+    user.smsVerificationCode = undefined;
+    user.smsVerificationCodeExpires = undefined;
+    user.pendingPhone = undefined;
+    await user.save();
+
+    // Send notification to email
+    const { sendProfileChangeNotification } = await import(
+      "../../services/emailService.js"
+    );
+    await sendProfileChangeNotification(user.email, user.name, [
+      `Telefon zmieniony z ${oldPhone} na ${user.phoneNumber}`,
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: "Numer telefonu został zmieniony pomyślnie",
+      user: {
+        id: user._id,
+        name: user.name,
+        lastName: user.lastName,
+        email: user.email,
+        phoneNumber: user.phoneNumber,
+      },
+    });
+  } catch (error) {
+    console.error("❌ Verify phone change error:", error);
+    return next(error);
+  }
+};
+
+/**
+ * Request password reset
+ */
+export const requestPasswordReset = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Adres email jest wymagany",
+      });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+
+    // Always return success to prevent email enumeration
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        message: "Jeśli konto istnieje, link do resetu hasła został wysłany",
+      });
+    }
+
+    // Generate reset token
+    const { generateResetToken, sendPasswordResetEmail } = await import(
+      "../../services/emailService.js"
+    );
+    const resetToken = generateResetToken();
+
+    // Save token with expiry (1 hour)
+    user.passwordResetToken = resetToken;
+    user.passwordResetTokenExpires = new Date(Date.now() + 60 * 60 * 1000);
+    await user.save();
+
+    // Send reset email
+    await sendPasswordResetEmail(user.email, resetToken, user.name);
+
+    return res.status(200).json({
+      success: true,
+      message: "Jeśli konto istnieje, link do resetu hasła został wysłany",
+    });
+  } catch (error) {
+    console.error("❌ Request password reset error:", error);
+    return res.status(200).json({
+      success: true,
+      message: "Jeśli konto istnieje, link do resetu hasła został wysłany",
+    });
+  }
+};
+
+/**
+ * Reset password with token
+ */
+export const resetPassword = async (req, res, next) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Token i nowe hasło są wymagane",
+      });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "Hasło musi mieć co najmniej 8 znaków",
+      });
+    }
+
+    const user = await User.findOne({
+      passwordResetToken: token,
+      passwordResetTokenExpires: { $gt: new Date() },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Token resetowania hasła jest nieprawidłowy lub wygasł",
+      });
+    }
+
+    // Update password (will be hashed by pre-save hook)
+    user.password = newPassword;
+    user.passwordResetToken = undefined;
+    user.passwordResetTokenExpires = undefined;
+    user.failedLoginAttempts = 0;
+    user.accountLocked = false;
+    await user.save();
+
+    // Send notification
+    const { sendProfileChangeNotification } = await import(
+      "../../services/emailService.js"
+    );
+    await sendProfileChangeNotification(user.email, user.name, [
+      "Hasło zostało zmienione",
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: "Hasło zostało zmienione pomyślnie. Możesz się teraz zalogować.",
+    });
+  } catch (error) {
+    console.error("❌ Reset password error:", error);
     return next(error);
   }
 };

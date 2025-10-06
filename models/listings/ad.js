@@ -111,6 +111,16 @@ const AdSchema = new mongoose.Schema(
       rejectedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
       rejectReason: { type: String, default: "" },
     },
+
+    // Analytics & engagement
+    views: { type: Number, default: 0, min: 0 }, // Number of times ad was viewed
+    favorites: { type: Number, default: 0, min: 0 }, // Number of users who favorited
+    favoritedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ], // Users who favorited this ad
   },
   { timestamps: true }
 );

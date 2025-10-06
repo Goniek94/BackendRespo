@@ -88,7 +88,7 @@ router.get(
 
       // Pobierz WSZYSTKIE wyróżnione ogłoszenia (bez limitu)
       const allFeaturedAds = await Ad.find({
-        status: { $in: ["active", "opublikowane"] },
+        status: { $in: ["active", "approved", "opublikowane"] },
         listingType: { $in: ["wyróżnione", "featured", "premium"] },
         $or: [
           { expiresAt: { $gt: now } },
@@ -103,7 +103,7 @@ router.get(
 
       // Pobierz wszystkie zwykłe ogłoszenia
       const allRegularAds = await Ad.find({
-        status: { $in: ["active", "opublikowane"] },
+        status: { $in: ["active", "approved", "opublikowane"] },
         listingType: { $nin: ["wyróżnione", "featured", "premium"] },
         $or: [
           { expiresAt: { $gt: now } },

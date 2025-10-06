@@ -3,17 +3,17 @@
  * Odpowiada za: upload, usuwanie, zmianę kolejności zdjęć
  */
 
-import Ad from '../../../models/listings/ad.js';
-import auth from '../../../middleware/auth.js';
-import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import errorHandler from '../../../middleware/errors/errorHandler.js';
+import Ad from "../../../models/listings/ad.js";
+import auth from "../../../middleware/auth.js";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import errorHandler from "../../../middleware/errors/errorHandler.js";
 
 // Konfiguracja multera do obsługi plików
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = 'uploads/ads';
+    const uploadDir = "uploads/ads";
     // Sprawdź, czy katalog istnieje, jeśli nie - utwórz go
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
@@ -22,25 +22,25 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     // Generuj unikalną nazwę pliku
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
+  },
 });
 
 const upload = multer({
   storage: storage,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
-    files: 10 // maksymalnie 10 plików
+    files: 10, // maksymalnie 10 plików
   },
   fileFilter: (req, file, cb) => {
     // Sprawdź czy plik to obraz
-    if (file.mimetype.startsWith('image/')) {
+    if (file.mimetype.startsWith("image/")) {
       cb(null, true);
     } else {
-      cb(new Error('Tylko pliki obrazów są dozwolone!'), false);
+      cb(new Error("Tylko pliki obrazów są dozwolone!"), false);
     }
-  }
+  },
 });
 
 /**
@@ -54,28 +54,35 @@ export const reorderImages = [
       const { images } = req.body;
 
       if (!images || !Array.isArray(images)) {
-        return res.status(400).json({ message: 'Tablica zdjęć jest wymagana' });
+        return res.status(400).json({ message: "Tablica zdjęć jest wymagana" });
       }
 
       const ad = await Ad.findById(id);
 
       if (!ad) {
-        return res.status(404).json({ message: 'Ogłoszenie nie znalezione' });
+        return res.status(404).json({ message: "Ogłoszenie nie znalezione" });
       }
 
       // Sprawdź czy użytkownik jest właścicielem lub adminem
-      if (ad.owner.toString() !== req.user.userId.toString() && req.user.role !== 'admin') {
-        return res.status(403).json({ message: 'Brak uprawnień do edycji tego ogłoszenia' });
+      if (
+        ad.owner.toString() !== req.user.userId.toString() &&
+        req.user.role !== "admin"
+      ) {
+        return res
+          .status(403)
+          .json({ message: "Brak uprawnień do edycji tego ogłoszenia" });
       }
 
       // Walidacja - sprawdź czy wszystkie zdjęcia z nowej kolejności istnieją w oryginalnej tablicy
       const originalImages = ad.images || [];
-      const isValidReorder = images.every(img => originalImages.includes(img)) && 
-                            images.length === originalImages.length;
+      const isValidReorder =
+        images.every((img) => originalImages.includes(img)) &&
+        images.length === originalImages.length;
 
       if (!isValidReorder) {
-        return res.status(400).json({ 
-          message: 'Nieprawidłowa kolejność zdjęć - wszystkie zdjęcia muszą pochodzić z oryginalnej tablicy' 
+        return res.status(400).json({
+          message:
+            "Nieprawidłowa kolejność zdjęć - wszystkie zdjęcia muszą pochodzić z oryginalnej tablicy",
         });
       }
 
@@ -95,25 +102,101 @@ export const reorderImages = [
       await ad.save();
 
       console.log(`Zmieniono kolejność zdjęć w ogłoszeniu ${id}`);
-      res.status(200).json({ 
-        message: 'Kolejność zdjęć została zmieniona',
+      res.status(200).json({
+        message: "Kolejność zdjęć została zmieniona",
         images: ad.images,
-        mainImage: ad.mainImage
+        mainImage: ad.mainImage,
       });
     } catch (err) {
-      console.error('Błąd podczas zmiany kolejności zdjęć:', err);
+      console.error("Błąd podczas zmiany kolejności zdjęć:", err);
       next(err);
     }
   },
-  errorHandler
+  errorHandler,
 ];
 
 /**
- * POST /ads/:id/images - Upload nowych zdjęć do ogłoszenia
+ * POST /ads/:id/images/urls - Dodawanie zdjęć przez URL-e (z Supabase)
+ */
+export const uploadImageUrls = [
+  auth,
+  async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const { imageUrls } = req.body;
+
+      if (!imageUrls || !Array.isArray(imageUrls) || imageUrls.length === 0) {
+        return res
+          .status(400)
+          .json({ message: "Tablica URL-i zdjęć jest wymagana" });
+      }
+
+      const ad = await Ad.findById(id);
+
+      if (!ad) {
+        return res.status(404).json({ message: "Ogłoszenie nie znalezione" });
+      }
+
+      // Sprawdź czy użytkownik jest właścicielem lub adminem
+      if (
+        ad.owner.toString() !== req.user.userId.toString() &&
+        req.user.role !== "admin"
+      ) {
+        return res.status(403).json({
+          message: "Brak uprawnień do dodawania zdjęć do tego ogłoszenia",
+        });
+      }
+
+      // Sprawdzenie limitu zdjęć
+      const currentImagesCount = ad.images ? ad.images.length : 0;
+      const newImagesCount = currentImagesCount + imageUrls.length;
+
+      if (newImagesCount > 20) {
+        return res.status(400).json({
+          message: `Możesz mieć maksymalnie 20 zdjęć. Obecnie masz ${currentImagesCount}, próbujesz dodać ${imageUrls.length}.`,
+        });
+      }
+
+      console.log("=== DODAWANIE ZDJĘĆ Z SUPABASE ===");
+      console.log("ID ogłoszenia:", id);
+      console.log("Liczba nowych URL-i:", imageUrls.length);
+      console.log("URL-e zdjęć:", imageUrls);
+      console.log("Aktualna liczba zdjęć:", currentImagesCount);
+
+      // Dodaj nowe URL-e do istniejącej tablicy
+      ad.images = [...(ad.images || []), ...imageUrls];
+
+      // Jeśli to pierwsze zdjęcie, ustaw je jako główne
+      if (!ad.mainImage && ad.images.length > 0) {
+        ad.mainImage = ad.images[0];
+        console.log("Ustawiono pierwsze zdjęcie jako główne:", ad.mainImage);
+      }
+
+      await ad.save();
+
+      console.log("✅ Zdjęcia zostały dodane pomyślnie");
+      console.log("Nowa liczba zdjęć:", ad.images.length);
+
+      res.status(200).json({
+        message: "Zdjęcia zostały dodane pomyślnie",
+        images: ad.images,
+        mainImage: ad.mainImage,
+        addedImages: imageUrls,
+      });
+    } catch (err) {
+      console.error("❌ Błąd podczas dodawania zdjęć z URL-i:", err);
+      next(err);
+    }
+  },
+  errorHandler,
+];
+
+/**
+ * POST /ads/:id/images - Upload nowych zdjęć do ogłoszenia (stara metoda - lokalna)
  */
 export const uploadImages = [
   auth,
-  upload.array('images', 10),
+  upload.array("images", 10),
   async (req, res, next) => {
     try {
       const { id } = req.params;
@@ -121,37 +204,46 @@ export const uploadImages = [
       const ad = await Ad.findById(id);
 
       if (!ad) {
-        return res.status(404).json({ message: 'Ogłoszenie nie znalezione' });
+        return res.status(404).json({ message: "Ogłoszenie nie znalezione" });
       }
 
       // Sprawdź czy użytkownik jest właścicielem lub adminem
-      if (ad.owner.toString() !== req.user.userId.toString() && req.user.role !== 'admin') {
-        return res.status(403).json({ message: 'Brak uprawnień do dodawania zdjęć do tego ogłoszenia' });
+      if (
+        ad.owner.toString() !== req.user.userId.toString() &&
+        req.user.role !== "admin"
+      ) {
+        return res.status(403).json({
+          message: "Brak uprawnień do dodawania zdjęć do tego ogłoszenia",
+        });
       }
 
       // Sprawdź czy przesłano pliki
       if (!req.files || req.files.length === 0) {
-        return res.status(400).json({ message: 'Nie przesłano żadnych plików' });
+        return res
+          .status(400)
+          .json({ message: "Nie przesłano żadnych plików" });
       }
 
       // Sprawdzenie limitu zdjęć
       const currentImagesCount = ad.images ? ad.images.length : 0;
       const newImagesCount = currentImagesCount + req.files.length;
-      
+
       if (newImagesCount > 20) {
-        return res.status(400).json({ 
-          message: `Możesz mieć maksymalnie 20 zdjęć. Obecnie masz ${currentImagesCount}, próbujesz dodać ${req.files.length}.` 
+        return res.status(400).json({
+          message: `Możesz mieć maksymalnie 20 zdjęć. Obecnie masz ${currentImagesCount}, próbujesz dodać ${req.files.length}.`,
         });
       }
 
       // Przygotuj ścieżki do nowych zdjęć
-      const newImagePaths = req.files.map(file => `/${file.path.replace(/\\/g, '/')}`);
-      
-      console.log('=== DODAWANIE NOWYCH ZDJĘĆ ===');
-      console.log('ID ogłoszenia:', id);
-      console.log('Liczba nowych zdjęć:', req.files.length);
-      console.log('Nowe ścieżki zdjęć:', newImagePaths);
-      console.log('Aktualna liczba zdjęć:', currentImagesCount);
+      const newImagePaths = req.files.map(
+        (file) => `/${file.path.replace(/\\/g, "/")}`
+      );
+
+      console.log("=== DODAWANIE NOWYCH ZDJĘĆ ===");
+      console.log("ID ogłoszenia:", id);
+      console.log("Liczba nowych zdjęć:", req.files.length);
+      console.log("Nowe ścieżki zdjęć:", newImagePaths);
+      console.log("Aktualna liczba zdjęć:", currentImagesCount);
 
       // Dodaj nowe zdjęcia do istniejącej tablicy
       ad.images = [...(ad.images || []), ...newImagePaths];
@@ -159,26 +251,26 @@ export const uploadImages = [
       // Jeśli to pierwsze zdjęcie, ustaw je jako główne
       if (!ad.mainImage && ad.images.length > 0) {
         ad.mainImage = ad.images[0];
-        console.log('Ustawiono pierwsze zdjęcie jako główne:', ad.mainImage);
+        console.log("Ustawiono pierwsze zdjęcie jako główne:", ad.mainImage);
       }
 
       await ad.save();
 
-      console.log('✅ Zdjęcia zostały dodane pomyślnie');
-      console.log('Nowa liczba zdjęć:', ad.images.length);
+      console.log("✅ Zdjęcia zostały dodane pomyślnie");
+      console.log("Nowa liczba zdjęć:", ad.images.length);
 
-      res.status(200).json({ 
-        message: 'Zdjęcia zostały dodane pomyślnie',
+      res.status(200).json({
+        message: "Zdjęcia zostały dodane pomyślnie",
         images: ad.images,
         mainImage: ad.mainImage,
-        addedImages: newImagePaths
+        addedImages: newImagePaths,
       });
     } catch (err) {
-      console.error('❌ Błąd podczas dodawania zdjęć:', err);
+      console.error("❌ Błąd podczas dodawania zdjęć:", err);
       next(err);
     }
   },
-  errorHandler
+  errorHandler,
 ];
 
 /**
@@ -194,22 +286,31 @@ export const deleteImage = [
       const ad = await Ad.findById(id);
 
       if (!ad) {
-        return res.status(404).json({ message: 'Ogłoszenie nie znalezione' });
+        return res.status(404).json({ message: "Ogłoszenie nie znalezione" });
       }
 
       // Sprawdź czy użytkownik jest właścicielem lub adminem
-      if (ad.owner.toString() !== req.user.userId.toString() && req.user.role !== 'admin') {
-        return res.status(403).json({ message: 'Brak uprawnień do edycji tego ogłoszenia' });
+      if (
+        ad.owner.toString() !== req.user.userId.toString() &&
+        req.user.role !== "admin"
+      ) {
+        return res
+          .status(403)
+          .json({ message: "Brak uprawnień do edycji tego ogłoszenia" });
       }
 
       // Sprawdź czy indeks jest prawidłowy
       if (imageIndex < 0 || imageIndex >= ad.images.length) {
-        return res.status(400).json({ message: 'Nieprawidłowy indeks zdjęcia' });
+        return res
+          .status(400)
+          .json({ message: "Nieprawidłowy indeks zdjęcia" });
       }
 
       // Sprawdź czy to nie jest ostatnie zdjęcie
       if (ad.images.length <= 1) {
-        return res.status(400).json({ message: 'Ogłoszenie musi zawierać co najmniej jedno zdjęcie' });
+        return res.status(400).json({
+          message: "Ogłoszenie musi zawierać co najmniej jedno zdjęcie",
+        });
       }
 
       // Usuń zdjęcie z tablicy
@@ -224,18 +325,20 @@ export const deleteImage = [
       // Zapisz zmiany
       await ad.save();
 
-      console.log(`Usunięto zdjęcie o indeksie ${imageIndex} z ogłoszenia ${id}`);
-      res.status(200).json({ 
-        message: 'Zdjęcie zostało usunięte',
+      console.log(
+        `Usunięto zdjęcie o indeksie ${imageIndex} z ogłoszenia ${id}`
+      );
+      res.status(200).json({
+        message: "Zdjęcie zostało usunięte",
         images: ad.images,
-        mainImage: ad.mainImage
+        mainImage: ad.mainImage,
       });
     } catch (err) {
-      console.error('Błąd podczas usuwania zdjęcia:', err);
+      console.error("Błąd podczas usuwania zdjęcia:", err);
       next(err);
     }
   },
-  errorHandler
+  errorHandler,
 ];
 
-export default { reorderImages, uploadImages, deleteImage };
+export default { reorderImages, uploadImages, uploadImageUrls, deleteImage };

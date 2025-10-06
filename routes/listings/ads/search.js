@@ -68,6 +68,7 @@ function listProjection() {
     listingType: 1,
     createdAt: 1,
     views: 1,
+    favorites: 1,
     featured: 1,
     condition: 1,
   };
@@ -268,7 +269,7 @@ router.get(
       if (filter.listingType === "wyróżnione") {
         const ads = await Ad.find(filter)
           .select(
-            "_id brand model headline shortDescription description images mainImage price year mileage fuelType power transmission status listingType createdAt views"
+            "_id brand model headline shortDescription description images mainImage price year mileage fuelType power transmission status listingType createdAt views favorites"
           )
           .sort({ [sorting.sortBy]: sorting.mongoOrder, _id: 1 })
           .skip(paging.skip)

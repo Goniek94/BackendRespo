@@ -179,6 +179,22 @@ const addComputedProperties = (cfg) => {
       port: process.env.PORT || 5000,
       ...cfg.server,
     },
+    email: {
+      host: process.env.EMAIL_HOST || "smtp.gmail.com",
+      port: parseInt(process.env.EMAIL_PORT || "587", 10),
+      secure: process.env.EMAIL_SECURE === "true",
+      user: process.env.EMAIL_USER || "",
+      password: process.env.EMAIL_PASSWORD || "",
+      from: process.env.EMAIL_FROM || "noreply@autosell.pl",
+      ...cfg.email,
+    },
+    app: {
+      name: "AutoSell",
+      frontendUrl:
+        process.env.FRONTEND_URL ||
+        (cfg.isProduction ? "https://autosell.pl" : "http://localhost:3000"),
+      ...cfg.app,
+    },
     security: {
       ...cfg.security,
       jwt: {

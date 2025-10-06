@@ -247,7 +247,7 @@ export const createAdFilter = (query = {}) => {
   if (status) {
     filter.status = status;
   } else {
-    filter.status = { $in: ["active", "opublikowane", "pending"] };
+    filter.status = { $in: ["active", "approved", "opublikowane"] };
   }
 
   // Listing type and featured filtering

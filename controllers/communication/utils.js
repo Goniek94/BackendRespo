@@ -1,6 +1,6 @@
-import Message from '../../models/communication/message.js';
-import User from '../../models/user/user.js';
-import mongoose from 'mongoose';
+import Message from "../../models/communication/message.js";
+import User from "../../models/user/user.js";
+import mongoose from "mongoose";
 
 // Cache dla liczby nieprzeczytanych wiadomości
 const unreadCountCache = new Map();
@@ -11,50 +11,70 @@ export const getUnreadCount = async (req, res) => {
   try {
     const userId = req.user.userId;
     const cacheKey = `unread_${userId}`;
-    
+
     // Sprawdź cache
     const cachedData = unreadCountCache.get(cacheKey);
     const now = Date.now();
-    
+
     if (cachedData && now - cachedData.timestamp < CACHE_TTL) {
-      return res.status(200).json({ unreadCount: cachedData.count, fromCache: true });
+      return res
+        .status(200)
+        .json({ unreadCount: cachedData.count, fromCache: true });
     }
-    
+
     // Konwertuj userId na ObjectId, aby zapewnić poprawne porównanie w MongoDB
-    const userObjectId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
-    
-    // Pobierz liczbę nieprzeczytanych wiadomości z optymalizacją
-    const unreadCount = await Message.countDocuments({ 
-      recipient: userObjectId,
-      read: false,
-      deletedBy: { $ne: userObjectId }
-    }, { maxTimeMS: 2000 }); // Timeout na zapytanie - 2 sekundy
-    
+    const userObjectId = mongoose.Types.ObjectId.isValid(userId)
+      ? new mongoose.Types.ObjectId(userId)
+      : userId;
+
+    // Pobierz liczbę nieprzeczytanych konwersacji z optymalizacją
+    const result = await Message.aggregate([
+      {
+        $match: {
+          recipient: userObjectId,
+          sender: { $ne: userObjectId },
+          read: false,
+          deletedBy: { $ne: userObjectId },
+        },
+      },
+      {
+        $group: {
+          _id: { sender: "$sender", adId: "$adId" },
+        },
+      },
+      { $count: "unreadConversations" },
+    ]);
+
+    const unreadCount = result[0]?.unreadConversations || 0;
+
     // Zapisz do cache
     unreadCountCache.set(cacheKey, {
       count: unreadCount,
-      timestamp: now
+      timestamp: now,
     });
-    
+
     // Automatyczne czyszczenie cache po TTL
     setTimeout(() => {
       if (unreadCountCache.has(cacheKey)) {
         unreadCountCache.delete(cacheKey);
       }
     }, CACHE_TTL);
-    
+
     res.status(200).json({ unreadCount });
   } catch (error) {
-    console.error('Błąd podczas pobierania liczby nieprzeczytanych wiadomości:', error);
-    
+    console.error(
+      "Błąd podczas pobierania liczby nieprzeczytanych wiadomości:",
+      error
+    );
+
     // Obsługa timeoutu zapytania MongoDB
-    if (error.name === 'MongooseError' && error.message.includes('timed out')) {
-      return res.status(200).json({ unreadCount: 0, error: 'timeout' });
+    if (error.name === "MongooseError" && error.message.includes("timed out")) {
+      return res.status(200).json({ unreadCount: 0, error: "timeout" });
     }
-    
+
     // Domyślna odpowiedź w przypadku błędu - zwracamy 0 zamiast błędu 500
     // aby nie przerywać działania aplikacji
-    res.status(200).json({ unreadCount: 0, error: 'server_error' });
+    res.status(200).json({ unreadCount: 0, error: "server_error" });
   }
 };
 
@@ -63,72 +83,97 @@ export const searchMessages = async (req, res) => {
   try {
     const { query, folder } = req.query;
     const userId = req.user.userId;
-    
+
     // Konwertuj userId na ObjectId, aby zapewnić poprawne porównanie w MongoDB
-    const userObjectId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
-    
+    const userObjectId = mongoose.Types.ObjectId.isValid(userId)
+      ? new mongoose.Types.ObjectId(userId)
+      : userId;
+
     if (!query) {
-      return res.status(400).json({ message: 'Brak parametru wyszukiwania' });
+      return res.status(400).json({ message: "Brak parametru wyszukiwania" });
     }
 
     let searchCriteria = {
       $or: [
-        { subject: { $regex: query, $options: 'i' } },
-        { content: { $regex: query, $options: 'i' } }
-      ]
+        { subject: { $regex: query, $options: "i" } },
+        { content: { $regex: query, $options: "i" } },
+      ],
     };
 
     // Dodaj kryteria folderu
-    if (folder === 'inbox') {
-      searchCriteria = { $and: [searchCriteria, { recipient: userObjectId, deletedBy: { $ne: userObjectId } }] };
-    } else if (folder === 'sent') {
-      searchCriteria = { $and: [searchCriteria, { sender: userObjectId, draft: false, deletedBy: { $ne: userObjectId } }] };
-    } else if (folder === 'drafts') {
-      searchCriteria = { $and: [searchCriteria, { sender: userObjectId, draft: true, deletedBy: { $ne: userObjectId } }] };
-    } else if (folder === 'starred') {
-      searchCriteria = { 
+    if (folder === "inbox") {
+      searchCriteria = {
         $and: [
-          searchCriteria, 
-          { 
+          searchCriteria,
+          { recipient: userObjectId, deletedBy: { $ne: userObjectId } },
+        ],
+      };
+    } else if (folder === "sent") {
+      searchCriteria = {
+        $and: [
+          searchCriteria,
+          {
+            sender: userObjectId,
+            draft: false,
+            deletedBy: { $ne: userObjectId },
+          },
+        ],
+      };
+    } else if (folder === "drafts") {
+      searchCriteria = {
+        $and: [
+          searchCriteria,
+          {
+            sender: userObjectId,
+            draft: true,
+            deletedBy: { $ne: userObjectId },
+          },
+        ],
+      };
+    } else if (folder === "starred") {
+      searchCriteria = {
+        $and: [
+          searchCriteria,
+          {
             $or: [{ recipient: userObjectId }, { sender: userObjectId }],
             starred: true,
-            deletedBy: { $ne: userObjectId }
-          }
-        ] 
+            deletedBy: { $ne: userObjectId },
+          },
+        ],
       };
-    } else if (folder === 'trash') {
+    } else if (folder === "trash") {
       searchCriteria = { $and: [searchCriteria, { deletedBy: userObjectId }] };
-    } else if (folder === 'archived') {
-      searchCriteria = { 
+    } else if (folder === "archived") {
+      searchCriteria = {
         $and: [
-          searchCriteria, 
-          { 
+          searchCriteria,
+          {
             $or: [{ recipient: userObjectId }, { sender: userObjectId }],
             archived: true,
-            deletedBy: { $ne: userObjectId }
-          }
-        ] 
+            deletedBy: { $ne: userObjectId },
+          },
+        ],
       };
     } else {
       // Wszystkie foldery
-      searchCriteria = { 
+      searchCriteria = {
         $and: [
-          searchCriteria, 
+          searchCriteria,
           { $or: [{ recipient: userObjectId }, { sender: userObjectId }] },
-          { deletedBy: { $ne: userObjectId } }
-        ] 
+          { deletedBy: { $ne: userObjectId } },
+        ],
       };
     }
 
     const messages = await Message.find(searchCriteria)
-      .populate('sender', 'name email')
-      .populate('recipient', 'name email')
+      .populate("sender", "name email")
+      .populate("recipient", "name email")
       .sort({ createdAt: -1 });
 
     res.status(200).json(messages);
   } catch (error) {
-    console.error('Błąd podczas wyszukiwania wiadomości:', error);
-    res.status(500).json({ message: 'Błąd serwera' });
+    console.error("Błąd podczas wyszukiwania wiadomości:", error);
+    res.status(500).json({ message: "Błąd serwera" });
   }
 };
 
@@ -137,10 +182,12 @@ export const getUserSuggestions = async (req, res) => {
   try {
     const { query } = req.query;
     const userId = req.user.userId;
-    
+
     // Konwertuj userId na ObjectId, aby zapewnić poprawne porównanie w MongoDB
-    const userObjectId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
-    
+    const userObjectId = mongoose.Types.ObjectId.isValid(userId)
+      ? new mongoose.Types.ObjectId(userId)
+      : userId;
+
     if (!query || query.length < 2) {
       return res.status(200).json([]);
     }
@@ -148,17 +195,17 @@ export const getUserSuggestions = async (req, res) => {
     const users = await User.find({
       _id: { $ne: userObjectId },
       $or: [
-        { email: { $regex: query, $options: 'i' } },
-        { name: { $regex: query, $options: 'i' } }
-      ]
+        { email: { $regex: query, $options: "i" } },
+        { name: { $regex: query, $options: "i" } },
+      ],
     })
-    .select('name email')
-    .limit(5);
+      .select("name email")
+      .limit(5);
 
     res.status(200).json(users);
   } catch (error) {
-    console.error('Błąd podczas pobierania sugestii użytkowników:', error);
-    res.status(500).json({ message: 'Błąd serwera' });
+    console.error("Błąd podczas pobierania sugestii użytkowników:", error);
+    res.status(500).json({ message: "Błąd serwera" });
   }
 };
 
@@ -167,25 +214,27 @@ export const saveDraft = async (req, res) => {
   try {
     const { recipient, subject, content, draftId } = req.body;
     const senderId = req.user.userId;
-    
+
     // Konwertuj senderId na ObjectId, aby zapewnić poprawne porównanie w MongoDB
-    const senderObjectId = mongoose.Types.ObjectId.isValid(senderId) ? new mongoose.Types.ObjectId(senderId) : senderId;
-    
+    const senderObjectId = mongoose.Types.ObjectId.isValid(senderId)
+      ? new mongoose.Types.ObjectId(senderId)
+      : senderId;
+
     // Przygotuj dane
     const draftData = {
       sender: senderObjectId,
-      subject: subject || '',
-      content: content || '',
-      draft: true
+      subject: subject || "",
+      content: content || "",
+      draft: true,
     };
 
     // Dodaj załączniki, jeśli są
     if (req.files && req.files.length > 0) {
-      draftData.attachments = req.files.map(file => ({
+      draftData.attachments = req.files.map((file) => ({
         name: file.originalname,
         path: file.path,
         size: file.size,
-        mimetype: file.mimetype
+        mimetype: file.mimetype,
       }));
     }
 
@@ -214,9 +263,9 @@ export const saveDraft = async (req, res) => {
         draftData,
         { new: true }
       );
-      
+
       if (!draft) {
-        return res.status(404).json({ message: 'Szkic nie znaleziony' });
+        return res.status(404).json({ message: "Szkic nie znaleziony" });
       }
     } else {
       draft = new Message(draftData);
@@ -225,7 +274,7 @@ export const saveDraft = async (req, res) => {
 
     res.status(200).json({ draftId: draft._id });
   } catch (error) {
-    console.error('Błąd podczas zapisywania szkicu:', error);
-    res.status(500).json({ message: 'Błąd serwera' });
+    console.error("Błąd podczas zapisywania szkicu:", error);
+    res.status(500).json({ message: "Błąd serwera" });
   }
 };

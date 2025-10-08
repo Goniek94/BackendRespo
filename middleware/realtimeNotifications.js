@@ -1,6 +1,9 @@
 import notificationManager from "../services/notificationManager.js";
 import { NotificationType } from "../utils/notificationTypes.js";
 import logger from "../utils/logger.js";
+import Notification from "../models/communication/notification.js";
+import Message from "../models/communication/message.js";
+import socketService from "../services/socketService.js";
 
 /**
  * Middleware do automatycznego generowania powiadomień w czasie rzeczywistym
@@ -15,7 +18,7 @@ export const notifyNewMessage = async (req, res, next) => {
   // Zapisz oryginalną metodę send
   const originalSend = res.send;
 
-  res.send = function (data) {
+  res.send = async function (data) {
     // Wywołaj oryginalną metodę
     const result = originalSend.call(this, data);
 
@@ -32,8 +35,55 @@ export const notifyNewMessage = async (req, res, next) => {
             req.user?.name || req.user?.email || "Nieznany użytkownik";
 
           if (recipientId && recipientId !== senderId) {
-            // Utwórz powiadomienie o nowej wiadomości
-            notificationManager.createNotification(
+            // 🔥 KLUCZOWE: Sprawdź czy odbiorca ma AKTYWNIE otwartą konwersację z nadawcą
+            const isUserInActiveChat = socketService.isUserInActiveConversation(
+              recipientId.toString(),
+              senderId.toString()
+            );
+
+            if (isUserInActiveChat) {
+              logger.info(
+                `[RealtimeNotifications] User ${recipientId} ma aktywnie otwartą konwersację z ${senderId} - pomijam powiadomienie`
+              );
+              return result; // NIE wysyłaj powiadomienia
+            }
+
+            // 1. Sprawdź ile nieprzeczytanych wiadomości od tego nadawcy
+            const unreadMessagesCount = await Message.countDocuments({
+              sender: senderId,
+              recipient: recipientId,
+              read: false,
+            });
+
+            // 2. Jeśli są nieprzeczytane wiadomości, zaktualizuj istniejące powiadomienie
+            if (unreadMessagesCount > 0) {
+              // Znajdź istniejące nieprzeczytane powiadomienie od tego nadawcy
+              const existingNotification = await Notification.findOne({
+                user: recipientId,
+                type: NotificationType.NEW_MESSAGE,
+                isRead: false,
+                "metadata.senderId": senderId,
+              }).sort({ createdAt: -1 });
+
+              if (existingNotification) {
+                // Zaktualizuj licznik i datę
+                existingNotification.unreadCount = unreadMessagesCount;
+                existingNotification.message =
+                  unreadMessagesCount === 1
+                    ? `Masz nową wiadomość od ${senderName}`
+                    : `Masz ${unreadMessagesCount} nowe wiadomości od ${senderName}`;
+                existingNotification.updatedAt = new Date();
+                await existingNotification.save();
+
+                logger.info(
+                  `[RealtimeNotifications] Zaktualizowano powiadomienie (licznik: ${unreadMessagesCount}) dla użytkownika ${recipientId}`
+                );
+                return result;
+              }
+            }
+
+            // 3. Jeśli nie ma nieprzeczytanego powiadomienia, utwórz nowe
+            await notificationManager.createNotification(
               recipientId,
               "Nowa wiadomość",
               `Masz nową wiadomość od ${senderName}`,
@@ -51,7 +101,7 @@ export const notifyNewMessage = async (req, res, next) => {
             );
 
             logger.info(
-              `[RealtimeNotifications] Utworzono powiadomienie o nowej wiadomości dla użytkownika ${recipientId}`
+              `[RealtimeNotifications] Utworzono nowe powiadomienie o wiadomości dla użytkownika ${recipientId}`
             );
           }
         }

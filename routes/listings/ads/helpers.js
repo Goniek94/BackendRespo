@@ -47,7 +47,14 @@ export const createAdFilter = (query = {}) => {
   // Basic text filters - support arrays from frontend
   const brands = asStrArray(query.brand || query.make);
   if (brands && brands.length > 0) {
-    filter.brand = brands.length === 1 ? brands[0] : { $in: brands };
+    console.log("🏷️ brands filter:", brands);
+    if (brands.length === 1) {
+      filter.brand = brands[0];
+      console.log("  ✅ Single brand filter:", filter.brand);
+    } else {
+      filter.brand = { $in: brands };
+      console.log("  ✅ Multiple brands filter ($in):", filter.brand);
+    }
   }
 
   const models = asStrArray(query.model);
@@ -85,12 +92,20 @@ export const createAdFilter = (query = {}) => {
 
   const bodyTypes = asStrArray(query.bodyType);
   if (bodyTypes && bodyTypes.length > 0) {
+    console.log("🚗 bodyTypes filter:", bodyTypes);
+    // Use $in with case-insensitive regex for multiple values
     if (bodyTypes.length === 1) {
       filter.bodyType = { $regex: new RegExp(`^${bodyTypes[0]}$`, "i") };
+      console.log("  ✅ Single bodyType filter:", filter.bodyType);
     } else {
+      // Create regex patterns for each value
       filter.bodyType = {
         $in: bodyTypes.map((bt) => new RegExp(`^${bt}$`, "i")),
       };
+      console.log(
+        "  ✅ Multiple bodyTypes filter ($in with regex):",
+        filter.bodyType
+      );
     }
   }
 
@@ -134,8 +149,11 @@ export const createAdFilter = (query = {}) => {
         : { $in: countriesOfOrigin };
   }
 
-  const sellerType = asStr(query.sellerType);
-  if (sellerType) filter.sellerType = sellerType;
+  const sellerTypes = asStrArray(query.sellerType);
+  if (sellerTypes && sellerTypes.length > 0) {
+    filter.sellerType =
+      sellerTypes.length === 1 ? sellerTypes[0] : { $in: sellerTypes };
+  }
 
   // Vehicle status (boolean)
   const imported = asBool(query.imported);

@@ -14,9 +14,7 @@ import config from "../../config/index.js";
  * Enterprise-grade security for admin panel access
  * Features: JWT validation, rate limiting, activity logging
  *
- * @author Senior Developer
- * @version 1.0.0
- */
+
 
 /**
  * Rate limiter for admin login attempts

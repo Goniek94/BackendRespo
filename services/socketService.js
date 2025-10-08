@@ -138,6 +138,35 @@ class SocketService {
 
       this.conversationManager.handleLeaveConversation(socket, data);
     });
+
+    // NOWE EVENTY - Tracking aktywnych konwersacji
+    // Obsługa otwarcia konwersacji (z ChatPanel)
+    socket.on("conversation:opened", async (data) => {
+      // Walidacja payloadu
+      if (!this.connectionManager.validateEventPayload(data)) {
+        logger.warn("Invalid payload for conversation:opened", {
+          userId: socket.user?.userId,
+          socketId: socket.id,
+        });
+        return;
+      }
+
+      await this.conversationManager.handleConversationOpened(socket, data);
+    });
+
+    // Obsługa zamknięcia konwersacji (z ChatPanel)
+    socket.on("conversation:closed", async (data) => {
+      // Walidacja payloadu
+      if (!this.connectionManager.validateEventPayload(data)) {
+        logger.warn("Invalid payload for conversation:closed", {
+          userId: socket.user?.userId,
+          socketId: socket.id,
+        });
+        return;
+      }
+
+      await this.conversationManager.handleConversationClosed(socket, data);
+    });
   }
 
   // ========== DELEGACJA METOD DO MENEDŻERÓW ==========

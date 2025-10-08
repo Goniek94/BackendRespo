@@ -82,6 +82,13 @@ const notificationSchema = new mongoose.Schema(
       default: {},
     },
 
+    // Licznik nieprzeczytanych wiadomości (dla grupowania powiadomień o wiadomościach)
+    unreadCount: {
+      type: Number,
+      default: 1,
+      min: 1,
+    },
+
     // Data wygaśnięcia powiadomienia (opcjonalna)
     expiresAt: {
       type: Date,

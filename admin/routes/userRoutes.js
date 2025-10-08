@@ -166,6 +166,71 @@ router.post(
 );
 
 /**
+ * POST /api/admin-panel/users/:id/send-password-reset
+ * Wyślij link do resetu hasła
+ * Uprawnienia: admin, moderator
+ */
+router.post(
+  "/:id/send-password-reset",
+  requireAdminRole(["admin", "moderator"]),
+  validateUserId,
+  logAdminActivity("password_reset_link_sent"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const crypto = await import("crypto");
+
+      // Find user
+      const User = (await import("../../models/user/user.js")).default;
+      const user = await User.findById(id);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          error: "Użytkownik nie został znaleziony",
+        });
+      }
+
+      // Generate reset token
+      const resetToken = crypto.randomBytes(32).toString("hex");
+      const hashedToken = crypto
+        .createHash("sha256")
+        .update(resetToken)
+        .digest("hex");
+
+      // Save token to user (expires in 1 hour)
+      user.passwordResetToken = hashedToken;
+      user.passwordResetTokenExpires = Date.now() + 3600000; // 1 hour
+      await user.save();
+
+      // Send email with reset link
+      const emailService = (await import("../../services/emailService.js"))
+        .default;
+      const resetUrl = `${
+        process.env.FRONTEND_URL || "http://localhost:3000"
+      }/reset-password?token=${resetToken}`;
+
+      await emailService.sendPasswordResetEmail(
+        user.email,
+        resetUrl,
+        user.name || user.email
+      );
+
+      res.json({
+        success: true,
+        message: `Link do resetu hasła został wysłany na adres: ${user.email}`,
+      });
+    } catch (error) {
+      console.error("Error sending password reset link:", error);
+      res.status(500).json({
+        success: false,
+        error: "Błąd podczas wysyłania linku resetującego",
+      });
+    }
+  }
+);
+
+/**
  * DELETE /api/admin-panel/users/:id
  * Usunięcie (soft delete)
  * Uprawnienia: admin

@@ -314,11 +314,17 @@ export const getAdDetails = async (req, res) => {
     const ad = await Ad.findById(adId)
       .populate("user", "email name lastName phoneNumber")
       .populate("owner", "email name lastName phoneNumber");
+
     if (!ad)
       return res
         .status(404)
         .json({ message: "Ogłoszenie nie zostało znalezione." });
-    res.status(200).json({ success: true, data: ad });
+
+    // Konwertuj do obiektu i dodaj pole 'id' jako string
+    const adObj = ad.toObject();
+    adObj.id = ad._id.toString();
+
+    res.status(200).json({ success: true, data: adObj });
   } catch (error) {
     console.error("Błąd szczegółów ogłoszenia:", error);
     res.status(500).json({

@@ -130,9 +130,13 @@ export const getDashboardStats = async (_req, res) => {
     );
 
     // ad.user -> ref do User
+    // Select more fields including legacy ones
     const recentAdsRaw = await Ad.find({})
-      .select("title createdAt user")
+      .select(
+        "title headline brand model createdAt user owner ownerName ownerLastName ownerEmail"
+      )
       .populate("user", "name lastName email")
+      .populate("owner", "name lastName email")
       .sort({ createdAt: -1 })
       .limit(5)
       .lean()
@@ -142,27 +146,63 @@ export const getDashboardStats = async (_req, res) => {
     const activity = [];
 
     recentUsers.forEach((u) => {
-      const label = [u.name, u.lastName].filter(Boolean).join(" ") || u.email;
+      const userName =
+        [u.name, u.lastName].filter(Boolean).join(" ") ||
+        u.email ||
+        "Użytkownik";
+      const timeStr = timeAgo(u.createdAt);
       activity.push({
         id: `user_${u._id}`,
         type: "user_registered",
-        message: `Nowy użytkownik: ${label}`,
-        time: timeAgo(u.createdAt),
+        action: "user_registered", // Frontend oczekuje 'action'
+        title: `Nowy użytkownik: ${userName}`, // Frontend oczekuje 'title'
+        subtitle: `${u.email || "brak emaila"} • ${timeStr}`, // Frontend oczekuje 'subtitle'
+        createdAt: u.createdAt, // Frontend oczekuje 'createdAt'
+        // Zachowane dla kompatybilności wstecznej:
+        message: `Nowy użytkownik: ${userName}`,
+        time: timeStr,
         timestamp: u.createdAt,
       });
     });
 
     recentAdsRaw.forEach((ad) => {
-      const owner =
-        (ad.user &&
-          ([ad.user.name, ad.user.lastName].filter(Boolean).join(" ") ||
-            ad.user.email)) ||
-        "Nieznany użytkownik";
+      // Get ad title - support both new and legacy fields
+      const adTitle =
+        ad.title ||
+        ad.headline ||
+        `${ad.brand || ""} ${ad.model || ""}`.trim() ||
+        "Bez tytułu";
+
+      // Get owner info - support both new (user) and legacy (owner) fields
+      let ownerName = "Nieznany użytkownik";
+
+      if (ad.user) {
+        ownerName =
+          [ad.user.name, ad.user.lastName].filter(Boolean).join(" ") ||
+          ad.user.email ||
+          "Użytkownik";
+      } else if (ad.owner) {
+        ownerName =
+          [ad.owner.name, ad.owner.lastName].filter(Boolean).join(" ") ||
+          ad.owner.email ||
+          "Użytkownik";
+      } else if (ad.ownerName || ad.ownerLastName) {
+        ownerName = [ad.ownerName, ad.ownerLastName].filter(Boolean).join(" ");
+      } else if (ad.ownerEmail) {
+        ownerName = ad.ownerEmail;
+      }
+
+      const timeStr = timeAgo(ad.createdAt);
       activity.push({
         id: `ad_${ad._id}`,
         type: "listing_created",
-        message: `Nowe ogłoszenie: ${ad.title} (${owner})`,
-        time: timeAgo(ad.createdAt),
+        action: "listing_created", // Frontend oczekuje 'action'
+        title: `Nowe ogłoszenie: ${adTitle}`, // Frontend oczekuje 'title'
+        subtitle: `przez ${ownerName} • ${timeStr}`, // Frontend oczekuje 'subtitle'
+        createdAt: ad.createdAt, // Frontend oczekuje 'createdAt'
+        // Zachowane dla kompatybilności wstecznej:
+        message: `Nowe ogłoszenie: ${adTitle} (${ownerName})`,
+        time: timeStr,
         timestamp: ad.createdAt,
       });
     });

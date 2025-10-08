@@ -210,6 +210,132 @@ class SocketConversationManager {
   }
 
   /**
+   * Obsługuje otwarcie konwersacji przez użytkownika (nowy event z frontendu)
+   * @param {Object} socket - Socket klienta
+   * @param {Object} data - { conversationId }
+   */
+  async handleConversationOpened(socket, data) {
+    try {
+      const { conversationId } = data;
+      const userId = socket.user?.userId;
+
+      if (!conversationId || !userId) {
+        logger.warn("Missing data in conversation:opened event", {
+          conversationId,
+          userId,
+        });
+        return;
+      }
+
+      // Pobierz informacje o konwersacji żeby znaleźć participantId
+      const Conversation = (
+        await import("../../models/communication/conversation.js")
+      ).default;
+      const conversation = await Conversation.findById(conversationId);
+
+      if (!conversation) {
+        logger.warn("Conversation not found", { conversationId });
+        return;
+      }
+
+      // Znajdź ID drugiego uczestnika
+      const participantId = conversation.participants.find(
+        (p) => p.toString() !== userId.toString()
+      );
+
+      if (!participantId) {
+        logger.warn("Participant not found in conversation", {
+          conversationId,
+          userId,
+        });
+        return;
+      }
+
+      logger.info("📱 User opened conversation", {
+        userId,
+        conversationId,
+        participantId: participantId.toString(),
+      });
+
+      this.setUserInActiveConversation(
+        userId,
+        participantId.toString(),
+        conversationId
+      );
+    } catch (error) {
+      logger.error("Error handling conversation:opened", {
+        error: error.message,
+        stack: error.stack,
+        userId: socket.user?.userId,
+        data,
+      });
+    }
+  }
+
+  /**
+   * Obsługuje zamknięcie konwersacji przez użytkownika (nowy event z frontendu)
+   * @param {Object} socket - Socket klienta
+   * @param {Object} data - { conversationId }
+   */
+  async handleConversationClosed(socket, data) {
+    try {
+      const { conversationId } = data;
+      const userId = socket.user?.userId;
+
+      if (!conversationId || !userId) {
+        logger.warn("Missing data in conversation:closed event", {
+          conversationId,
+          userId,
+        });
+        return;
+      }
+
+      // Pobierz informacje o konwersacji żeby znaleźć participantId
+      const Conversation = (
+        await import("../../models/communication/conversation.js")
+      ).default;
+      const conversation = await Conversation.findById(conversationId);
+
+      if (!conversation) {
+        logger.warn("Conversation not found", { conversationId });
+        return;
+      }
+
+      // Znajdź ID drugiego uczestnika
+      const participantId = conversation.participants.find(
+        (p) => p.toString() !== userId.toString()
+      );
+
+      if (!participantId) {
+        logger.warn("Participant not found in conversation", {
+          conversationId,
+          userId,
+        });
+        return;
+      }
+
+      logger.info("📱 User closed conversation", {
+        userId,
+        conversationId,
+        participantId: participantId.toString(),
+      });
+
+      this.removeUserFromActiveConversation(
+        userId,
+        participantId.toString(),
+        conversationId
+      );
+    } catch (error) {
+      logger.error("Error handling conversation:closed", {
+        error: error.message,
+        stack: error.stack,
+        userId: socket.user?.userId,
+        data,
+      });
+    }
+  }
+
+  /**
    * Zwraca statystyki konwersacji
    * @returns {Object} - Statystyki konwersacji
    */

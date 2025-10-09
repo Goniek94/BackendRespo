@@ -50,14 +50,14 @@ router.post(
     body("email")
       .isEmail()
       .withMessage("Podaj prawidłowy adres email.")
-      .normalizeEmail()
+      .normalizeEmail({ gmail_remove_dots: false })
       .isLength({ max: 100 })
       .withMessage("Email nie może być dłuższy niż 100 znaków."),
 
     body("confirmEmail")
       .isEmail()
       .withMessage("Podaj prawidłowy adres email w potwierdzeniu.")
-      .normalizeEmail()
+      .normalizeEmail({ gmail_remove_dots: false })
       .custom((value, { req }) => {
         if (value !== req.body.email) {
           throw new Error("Adresy email nie są identyczne.");

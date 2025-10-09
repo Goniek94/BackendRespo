@@ -12,6 +12,7 @@ import {
   exportUsers,
 } from "../controllers/users/userController.js"; // <— UWAGA na ścieżkę (1x ..)
 import {
+  validateUserCreate,
   validateUserUpdate,
   validateUserBlock,
   validateUserDelete,
@@ -101,7 +102,7 @@ router.post(
   "/",
   requireAdminRole(["admin"]),
   sanitizeUserInput,
-  validateUserUpdate, // re-use walidacji update dla create
+  validateUserCreate, // ✅ Używamy dedykowanego validatora dla create
   validateBusinessRules,
   logAdminActivity("user_created"),
   createUser

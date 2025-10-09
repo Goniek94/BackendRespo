@@ -184,11 +184,18 @@ class UserService {
    */
   async updateUser(userId, updateData, adminId) {
     try {
+      console.log("🟣 UserService.updateUser CALLED");
+      console.log("🟣 userId:", userId);
+      console.log("🟣 updateData received:", updateData);
+      console.log("🟣 adminId:", adminId);
+
       // Get current user data for audit trail
       const currentUser = await User.findById(userId).lean();
       if (!currentUser) {
         throw new Error("User not found");
       }
+
+      console.log("🟣 Current user found:", currentUser.email);
 
       // Validate update data
       const allowedFields = [
@@ -209,6 +216,11 @@ class UserService {
         "phoneVerified",
         "dateOfBirth",
         "dob",
+        "blockUntil",
+        "accountLocked",
+        "blockedAt",
+        "blockedBy",
+        "blockReason",
       ];
 
       const filteredData = {};
@@ -219,20 +231,37 @@ class UserService {
       });
 
       // Check if email is being changed and if it's already taken
-      if (filteredData.email && filteredData.email !== currentUser.email) {
-        const emailExists = await User.findOne({
-          email: filteredData.email.toLowerCase(),
-          _id: { $ne: userId },
-        });
+      if (filteredData.email) {
+        // Normalize email FIRST before comparison
+        const normalizedNewEmail = filteredData.email.toLowerCase().trim();
+        const normalizedCurrentEmail = currentUser.email.toLowerCase().trim();
 
-        if (emailExists) {
-          throw new Error(
-            `Email ${filteredData.email} is already in use by another user`
-          );
+        console.log("🔵 Email comparison:");
+        console.log("🔵 New email (normalized):", normalizedNewEmail);
+        console.log("🔵 Current email (normalized):", normalizedCurrentEmail);
+
+        if (normalizedNewEmail !== normalizedCurrentEmail) {
+          console.log("🔵 Email IS changing, checking if exists...");
+
+          const emailExists = await User.findOne({
+            email: normalizedNewEmail,
+            _id: { $ne: userId },
+          });
+
+          if (emailExists) {
+            throw new Error(
+              `Email ${normalizedNewEmail} is already in use by another user`
+            );
+          }
+
+          console.log("✅ Email is unique, will be updated");
+          // Set normalized email only if it's different
+          filteredData.email = normalizedNewEmail;
+        } else {
+          console.log("⚠️ Email is the same (after normalization)");
+          // Remove email from update if it's the same - don't waste DB operation
+          delete filteredData.email;
         }
-
-        // Normalize email
-        filteredData.email = filteredData.email.toLowerCase().trim();
       }
 
       // Check if phone is being changed and if it's already taken
@@ -260,6 +289,12 @@ class UserService {
         delete filteredData.phone;
       }
 
+      // Map dateOfBirth to dob (frontend uses dateOfBirth, DB uses dob)
+      if (filteredData.dateOfBirth) {
+        filteredData.dob = filteredData.dateOfBirth;
+        delete filteredData.dateOfBirth;
+      }
+
       // Handle password hashing if password is being updated
       if (filteredData.password) {
         console.log("🔐 Password change requested for user:", userId);
@@ -270,6 +305,8 @@ class UserService {
       }
 
       // Update user
+      console.log("🟣 About to update user with filteredData:", filteredData);
+
       const updatedUser = await User.findByIdAndUpdate(
         userId,
         {
@@ -278,9 +315,14 @@ class UserService {
         },
         {
           new: true,
-          runValidators: false, // Wyłącz walidatory, żeby nie blokować aktualizacji
+          runValidators: true, // Włącz walidatory dla poprawności danych
+          context: "query", // Potrzebne dla niektórych walidatorów
         }
       ).select("-password -__v");
+
+      console.log("✅ User updated successfully!");
+      console.log("✅ Updated email:", updatedUser?.email);
+      console.log("✅ Updated name:", updatedUser?.name);
 
       // Log admin activity
       await AdminActivity.create({
@@ -333,9 +375,10 @@ class UserService {
    * @param {boolean} blocked - Block status
    * @param {string} reason - Reason for blocking/unblocking
    * @param {string} adminId - ID of admin performing the action
+   * @param {Date} blockUntil - Optional: block until specific date (for temporary blocks)
    * @returns {Object} Updated user
    */
-  async toggleUserBlock(userId, blocked, reason, adminId) {
+  async toggleUserBlock(userId, blocked, reason, adminId, blockUntil = null) {
     try {
       const user = await User.findById(userId);
       if (!user) {
@@ -345,14 +388,30 @@ class UserService {
       const previousStatus = user.status;
       const newStatus = blocked ? "blocked" : "active";
 
-      const updatedUser = await User.findByIdAndUpdate(
-        userId,
-        {
-          status: newStatus,
-          updatedAt: new Date(),
-        },
-        { new: true }
-      ).select("-password -__v");
+      const updateData = {
+        status: newStatus,
+        updatedAt: new Date(),
+      };
+
+      if (blocked) {
+        updateData.blockedAt = new Date();
+        updateData.blockedBy = adminId;
+        updateData.blockReason = reason;
+        if (blockUntil) {
+          updateData.blockUntil = blockUntil;
+        }
+        updateData.accountLocked = true;
+      } else {
+        updateData.blockedAt = null;
+        updateData.blockedBy = null;
+        updateData.blockReason = null;
+        updateData.blockUntil = null;
+        updateData.accountLocked = false;
+      }
+
+      const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
+        new: true,
+      }).select("-password -__v");
 
       // Log admin activity
       await AdminActivity.create({
@@ -369,6 +428,8 @@ class UserService {
           reason,
           metadata: {
             action: blocked ? "block" : "unblock",
+            blockUntil: blockUntil || null,
+            temporary: !!blockUntil,
           },
         },
         requestContext: {

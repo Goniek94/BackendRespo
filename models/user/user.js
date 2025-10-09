@@ -220,7 +220,7 @@ const userSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["active", "suspended", "banned"],
+      enum: ["active", "suspended", "banned", "blocked", "deleted", "pending"],
       default: "active",
     },
     suspendedUntil: {
@@ -239,6 +239,28 @@ const userSchema = new mongoose.Schema(
     },
     banReason: {
       type: String,
+    },
+    // Blocking fields
+    blockedAt: {
+      type: Date,
+    },
+    blockedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    blockReason: {
+      type: String,
+    },
+    blockUntil: {
+      type: Date,
+    },
+    // Deletion fields
+    deletedAt: {
+      type: Date,
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
     favorites: [
       {

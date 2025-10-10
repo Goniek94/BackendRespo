@@ -1,6 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
-import sharp from 'sharp';
-import { v4 as uuidv4 } from 'uuid';
+import { createClient } from "@supabase/supabase-js";
+import sharp from "sharp";
+import { v4 as uuidv4 } from "uuid";
 
 // Inicjalizacja Supabase
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -13,12 +13,37 @@ if (supabaseUrl && supabaseKey) {
   try {
     supabase = createClient(supabaseUrl, supabaseKey);
     isSupabaseConfigured = true;
-    console.log('✅ Supabase storage configured for messages');
+    console.log("✅ Supabase storage configured for messages");
   } catch (error) {
-    console.warn('⚠️ Supabase configuration failed for messages:', error.message);
+    console.warn(
+      "⚠️ Supabase configuration failed for messages:",
+      error.message
+    );
   }
 } else {
-  console.warn('⚠️ Supabase not configured - message image upload will be disabled');
+  console.warn(
+    "⚠️ Supabase not configured - message image upload will be disabled"
+  );
+}
+
+// Magic bytes signatures for image validation (SECURITY)
+const IMAGE_SIGNATURES = {
+  "image/jpeg": [0xff, 0xd8, 0xff],
+  "image/jpg": [0xff, 0xd8, 0xff],
+  "image/png": [0x89, 0x50, 0x4e, 0x47],
+  "image/webp": [0x52, 0x49, 0x46, 0x46],
+};
+
+/**
+ * Validate image magic bytes (SECURITY CRITICAL)
+ * Prevents malicious file uploads disguised as images
+ */
+function validateImageMagicBytes(buffer, mimetype) {
+  const signature = IMAGE_SIGNATURES[mimetype];
+  if (!signature) return false;
+
+  const header = buffer.slice(0, signature.length);
+  return signature.every((byte, i) => header[i] === byte);
 }
 
 /**
@@ -30,7 +55,7 @@ if (supabaseUrl && supabaseKey) {
  */
 export const uploadMessageImages = async (files, userId, messageId) => {
   if (!isSupabaseConfigured) {
-    throw new Error('Upload zdjęć niedostępny - brak konfiguracji Supabase');
+    throw new Error("Upload zdjęć niedostępny - brak konfiguracji Supabase");
   }
 
   if (!files || files.length === 0) {
@@ -38,36 +63,37 @@ export const uploadMessageImages = async (files, userId, messageId) => {
   }
 
   const uploadedImages = [];
-  const bucketName = 'autosell';
+  const bucketName = "autosell";
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
-    
+
     try {
       // Walidacja pliku
-      if (file.size > 10 * 1024 * 1024) { // 10MB limit dla wiadomości
+      if (file.size > 10 * 1024 * 1024) {
+        // 10MB limit dla wiadomości
         throw new Error(`Plik ${file.originalname} jest za duży (max 10MB)`);
       }
 
       // Sprawdź czy to obraz
-      if (!file.mimetype.startsWith('image/')) {
+      if (!file.mimetype.startsWith("image/")) {
         throw new Error(`Plik ${file.originalname} nie jest obrazem`);
       }
 
       // Optymalizacja obrazu z Sharp
       const optimizedBuffer = await sharp(file.buffer)
-        .resize(1920, null, { 
+        .resize(1920, null, {
           withoutEnlargement: true,
-          fit: 'inside'
+          fit: "inside",
         })
         .jpeg({ quality: 85, progressive: true })
         .toBuffer();
 
       // Generowanie thumbnail dla szybkiego ładowania
       const thumbnailBuffer = await sharp(file.buffer)
-        .resize(300, 300, { 
-          fit: 'cover',
-          position: 'center'
+        .resize(300, 300, {
+          fit: "cover",
+          position: "center",
         })
         .jpeg({ quality: 80 })
         .toBuffer();
@@ -77,7 +103,7 @@ export const uploadMessageImages = async (files, userId, messageId) => {
 
       // Generowanie unikalnych nazw plików
       const fileId = uuidv4();
-      const fileExt = 'jpg'; // Zawsze konwertujemy do JPEG
+      const fileExt = "jpg"; // Zawsze konwertujemy do JPEG
       const fileName = `messages/${userId}/${messageId}/${fileId}.${fileExt}`;
       const thumbnailName = `messages/${userId}/${messageId}/thumbs/${fileId}_thumb.${fileExt}`;
 
@@ -85,9 +111,9 @@ export const uploadMessageImages = async (files, userId, messageId) => {
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from(bucketName)
         .upload(fileName, optimizedBuffer, {
-          contentType: 'image/jpeg',
-          cacheControl: '3600',
-          upsert: false
+          contentType: "image/jpeg",
+          cacheControl: "3600",
+          upsert: false,
         });
 
       if (uploadError) {
@@ -95,13 +121,14 @@ export const uploadMessageImages = async (files, userId, messageId) => {
       }
 
       // Upload thumbnail do Supabase Storage
-      const { data: thumbnailUploadData, error: thumbnailUploadError } = await supabase.storage
-        .from(bucketName)
-        .upload(thumbnailName, thumbnailBuffer, {
-          contentType: 'image/jpeg',
-          cacheControl: '3600',
-          upsert: false
-        });
+      const { data: thumbnailUploadData, error: thumbnailUploadError } =
+        await supabase.storage
+          .from(bucketName)
+          .upload(thumbnailName, thumbnailBuffer, {
+            contentType: "image/jpeg",
+            cacheControl: "3600",
+            upsert: false,
+          });
 
       if (thumbnailUploadError) {
         console.warn(`Błąd uploadu thumbnail: ${thumbnailUploadError.message}`);
@@ -121,19 +148,25 @@ export const uploadMessageImages = async (files, userId, messageId) => {
         id: fileId,
         name: file.originalname,
         path: publicUrlData.publicUrl,
-        thumbnailPath: thumbnailUploadError ? publicUrlData.publicUrl : thumbnailPublicUrlData.publicUrl,
+        thumbnailPath: thumbnailUploadError
+          ? publicUrlData.publicUrl
+          : thumbnailPublicUrlData.publicUrl,
         size: optimizedBuffer.length,
-        mimetype: 'image/jpeg',
+        mimetype: "image/jpeg",
         width: metadata.width,
         height: metadata.height,
         storagePath: fileName,
-        bucketName: bucketName
+        bucketName: bucketName,
       });
 
-      console.log(`✅ Przesłano zdjęcie do wiadomości: ${file.originalname} -> ${fileName}`);
-
+      console.log(
+        `✅ Przesłano zdjęcie do wiadomości: ${file.originalname} -> ${fileName}`
+      );
     } catch (fileError) {
-      console.error(`❌ Błąd przetwarzania pliku ${file.originalname}:`, fileError);
+      console.error(
+        `❌ Błąd przetwarzania pliku ${file.originalname}:`,
+        fileError
+      );
       throw fileError; // Rzuć błąd dalej, aby zatrzymać proces
     }
   }
@@ -155,24 +188,34 @@ export const deleteMessageImages = async (attachments) => {
       if (attachment.storagePath) {
         // Usuń główny obraz
         const { error: deleteError } = await supabase.storage
-          .from(attachment.bucketName || 'autosell')
+          .from(attachment.bucketName || "autosell")
           .remove([attachment.storagePath]);
 
         if (deleteError) {
-          console.warn(`Błąd usuwania obrazu ${attachment.storagePath}:`, deleteError.message);
+          console.warn(
+            `Błąd usuwania obrazu ${attachment.storagePath}:`,
+            deleteError.message
+          );
         }
 
         // Usuń thumbnail jeśli istnieje
-        const thumbnailPath = attachment.storagePath.replace(/\/([^/]+)$/, '/thumbs/$1').replace(/\.([^.]+)$/, '_thumb.$1');
+        const thumbnailPath = attachment.storagePath
+          .replace(/\/([^/]+)$/, "/thumbs/$1")
+          .replace(/\.([^.]+)$/, "_thumb.$1");
         const { error: thumbnailDeleteError } = await supabase.storage
-          .from(attachment.bucketName || 'autosell')
+          .from(attachment.bucketName || "autosell")
           .remove([thumbnailPath]);
 
         if (thumbnailDeleteError) {
-          console.warn(`Błąd usuwania thumbnail ${thumbnailPath}:`, thumbnailDeleteError.message);
+          console.warn(
+            `Błąd usuwania thumbnail ${thumbnailPath}:`,
+            thumbnailDeleteError.message
+          );
         }
 
-        console.log(`✅ Usunięto zdjęcie wiadomości: ${attachment.storagePath}`);
+        console.log(
+          `✅ Usunięto zdjęcie wiadomości: ${attachment.storagePath}`
+        );
       }
     } catch (error) {
       console.error(`❌ Błąd usuwania załącznika:`, error);
@@ -202,7 +245,7 @@ export const validateMessageFiles = (files) => {
 
   // Maksymalnie 5 zdjęć na wiadomość
   if (files.length > 5) {
-    errors.push('Maksymalnie 5 zdjęć na wiadomość');
+    errors.push("Maksymalnie 5 zdjęć na wiadomość");
     return { valid: false, files: [], errors };
   }
 
@@ -214,15 +257,30 @@ export const validateMessageFiles = (files) => {
     }
 
     // Sprawdź typ pliku
-    if (!file.mimetype.startsWith('image/')) {
+    if (!file.mimetype.startsWith("image/")) {
       errors.push(`Plik ${file.originalname} nie jest obrazem`);
       continue;
     }
 
     // Sprawdź obsługiwane formaty
-    const supportedFormats = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    const supportedFormats = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+    ];
     if (!supportedFormats.includes(file.mimetype.toLowerCase())) {
       errors.push(`Nieobsługiwany format pliku: ${file.originalname}`);
+      continue;
+    }
+
+    // SECURITY: Sprawdź prawdziwe bajty pliku (magic bytes)
+    // To zapobiega uploadowi złośliwych plików udających obrazy
+    if (!validateImageMagicBytes(file.buffer, file.mimetype)) {
+      errors.push(
+        `${file.originalname}: Plik nie jest prawdziwym obrazem (wykryto próbę uploadu złośliwego pliku)`
+      );
       continue;
     }
 
@@ -232,7 +290,7 @@ export const validateMessageFiles = (files) => {
   return {
     valid: errors.length === 0,
     files: validFiles,
-    errors
+    errors,
   };
 };
 
@@ -240,5 +298,5 @@ export default {
   uploadMessageImages,
   deleteMessageImages,
   isImageUploadAvailable,
-  validateMessageFiles
+  validateMessageFiles,
 };

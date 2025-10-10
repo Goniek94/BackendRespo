@@ -73,11 +73,11 @@ export const getDashboardStats = async (_req, res) => {
       ],
     };
 
-    // Licznik wyróżnionych ogłoszeń
+    // Licznik wyróżnionych ogłoszeń (featured: true LUB hot: true)
     const featuredListingsFilter = {
-      featured: true,
-      $or: [{ status: "active" }, { status: "approved" }],
       $and: [
+        { $or: [{ featured: true }, { hot: true }] },
+        { status: { $in: ["active", "approved"] } },
         {
           $or: [
             { expiresAt: { $exists: false } },

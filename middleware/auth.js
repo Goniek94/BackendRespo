@@ -316,10 +316,56 @@ const authMiddleware = async (req, res, next) => {
       // Użyj pełnego ID użytkownika z tokena
       const fullUserId = decoded.userId;
 
-      // Check user inactivity - sprawdź czy użytkownik był nieaktywny zbyt długo
+      // Check user inactivity and account status - sprawdź status i nieaktywność
       if (fullUserId) {
         const user = await User.findById(fullUserId);
-        if (user && user.lastActivity) {
+
+        if (!user) {
+          // User deleted - blacklist token
+          logger.warn("Token valid but user not found (deleted account)", {
+            userId: fullUserId,
+            ip: req.ip,
+          });
+
+          await addToBlacklist(accessToken, {
+            reason: "USER_NOT_FOUND",
+            userId: fullUserId,
+            ip: req.ip,
+          });
+
+          clearAuthCookies(res);
+          return res.status(401).json({
+            message: "User account not found",
+            code: "USER_NOT_FOUND",
+          });
+        }
+
+        // 🔒 SECURITY FIX: Check if account is suspended or banned
+        if (user.status === "suspended" || user.status === "banned") {
+          logger.warn("Suspended/banned user attempted to use API", {
+            userId: user._id,
+            status: user.status,
+            ip: req.ip,
+            endpoint: req.originalUrl,
+          });
+
+          // Blacklist the token
+          await addToBlacklist(accessToken, {
+            reason: "ACCOUNT_SUSPENDED",
+            userId: user._id,
+            status: user.status,
+            ip: req.ip,
+          });
+
+          clearAuthCookies(res);
+          return res.status(403).json({
+            message: "Account suspended",
+            code: "ACCOUNT_SUSPENDED",
+          });
+        }
+
+        // Check inactivity only if user is valid
+        if (user.lastActivity) {
           const inactivityTime =
             Date.now() - new Date(user.lastActivity).getTime();
           const maxInactivity = finalSessionConfig.inactivityTimeout;

@@ -24,8 +24,9 @@ const maskEmail = (e = "") =>
 
 // globalny skip: dev/test/off switch
 const shouldSkip = (req) => {
-  // wyłącz całkowicie na DEV/STAGING/TEST lub gdy ustawisz RATE_LIMIT_DISABLED=1
+  // Wyłącz na DEV - żeby nie blokować podczas programowania
   if (!isProd || process.env.RATE_LIMIT_DISABLED === "1") return true;
+
   // nie licz preflightów (CORS) i websocketowych "OPTIONS"
   if (req.method === "OPTIONS") return true;
   return false;
@@ -119,6 +120,25 @@ export const registrationLimiter = makeLimiter({
   message: "Zbyt wiele prób rejestracji. Spróbuj ponownie później.",
 });
 
+/** Limiter dla wiadomości - minimum 5s między wiadomościami */
+export const messageRateLimiter = makeLimiter({
+  windowMs: 5 * 1000, // 5 sekund
+  max: 1, // 1 wiadomość na 5 sekund
+  keyGenerator: (req) => req.user?.userId || ipOnlyKey(req),
+  code: "MESSAGE_RATE_LIMIT_EXCEEDED",
+  message: "Poczekaj chwilę przed wysłaniem kolejnej wiadomości.",
+});
+
+/** Limiter godzinny dla wiadomości */
+export const messageHourlyLimiter = makeLimiter({
+  windowMs: 60 * 60 * 1000, // 1 godzina
+  max: 50, // 50 wiadomości na godzinę
+  keyGenerator: (req) => req.user?.userId || ipOnlyKey(req),
+  code: "MESSAGE_HOURLY_LIMIT_EXCEEDED",
+  message:
+    "Osiągnięto limit wiadomości na godzinę (50). Spróbuj ponownie później.",
+});
+
 /* ---------------------- Backward compatibility ---------------------- */
 export { authLimiter as checkUserRole };
 
@@ -128,4 +148,6 @@ export default {
   passwordResetLimiter,
   registrationLimiter,
   apiLimiter,
+  messageRateLimiter,
+  messageHourlyLimiter,
 };

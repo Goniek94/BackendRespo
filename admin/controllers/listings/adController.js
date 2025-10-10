@@ -337,16 +337,7 @@ export const getAdDetails = async (req, res) => {
 export const updateAd = async (req, res) => {
   try {
     const { adId } = req.params;
-    const {
-      status,
-      discount,
-      title,
-      description,
-      price,
-      images,
-      mainImage,
-      featured,
-    } = req.body || {};
+    const b = req.body || {};
 
     const ad = await Ad.findById(adId);
     if (!ad)
@@ -354,21 +345,62 @@ export const updateAd = async (req, res) => {
         .status(404)
         .json({ message: "Ogłoszenie nie zostało znalezione." });
 
-    if (status !== undefined) ad.status = status;
-    if (title !== undefined) ad.title = title;
-    if (description !== undefined) ad.description = description;
-    if (price !== undefined) ad.price = Number(price);
+    // Podstawowe pola
+    if (b.status !== undefined) ad.status = b.status;
+    if (b.title !== undefined) ad.title = b.title;
+    if (b.headline !== undefined) ad.headline = b.headline;
+    if (b.description !== undefined) ad.description = b.description;
+    if (b.price !== undefined) ad.price = Number(b.price);
 
-    if (Array.isArray(images)) ad.images = images;
-    if (mainImage !== undefined) ad.mainImage = mainImage;
+    // Synchronizacja title i headline
+    if (b.title && !ad.headline) ad.headline = b.title;
+    if (b.headline && !ad.title) ad.title = b.headline;
 
-    if (discount !== undefined) ad.discount = clampDiscount(discount);
+    // Zdjęcia
+    if (Array.isArray(b.images)) ad.images = b.images;
+    if (b.mainImage !== undefined) ad.mainImage = b.mainImage;
+
+    // Rabat i promocje
+    if (b.discount !== undefined) ad.discount = clampDiscount(b.discount);
     ad.discountedPrice = discounted(ad.price, ad.discount);
 
-    // Handle featured field
-    if (featured !== undefined) {
-      ad.featured = !!featured;
-      ad.featuredAt = featured ? new Date() : null;
+    // Featured
+    if (b.featured !== undefined) {
+      ad.featured = !!b.featured;
+      ad.featuredAt = b.featured ? new Date() : null;
+    }
+
+    // Hidden
+    if (b.hidden !== undefined) {
+      ad.hidden = !!b.hidden;
+      if (b.hidden) ad.status = "hidden";
+    }
+
+    // Dane pojazdu
+    if (b.brand !== undefined) ad.brand = b.brand;
+    if (b.model !== undefined) ad.model = b.model;
+    if (b.generation !== undefined) ad.generation = b.generation;
+    if (b.version !== undefined) ad.version = b.version;
+    if (b.year !== undefined) ad.year = b.year;
+    if (b.mileage !== undefined) ad.mileage = b.mileage;
+    if (b.fuelType !== undefined) ad.fuelType = b.fuelType;
+    if (b.transmission !== undefined) ad.transmission = b.transmission;
+    if (b.bodyType !== undefined) ad.bodyType = b.bodyType;
+    if (b.color !== undefined) ad.color = b.color;
+    if (b.power !== undefined) ad.power = b.power;
+    if (b.engineSize !== undefined) ad.engineSize = b.engineSize;
+    if (b.drive !== undefined) ad.drive = b.drive;
+    if (b.seats !== undefined) ad.seats = b.seats;
+    if (b.condition !== undefined) ad.condition = b.condition;
+    if (b.countryOfOrigin !== undefined) ad.countryOfOrigin = b.countryOfOrigin;
+
+    // Lokalizacja
+    if (b.city !== undefined) ad.city = b.city;
+    if (b.voivodeship !== undefined) ad.voivodeship = b.voivodeship;
+
+    // Automatyczne generowanie shortDescription
+    if (b.description) {
+      ad.shortDescription = b.description.substring(0, 120);
     }
 
     await ad.save();
@@ -378,9 +410,10 @@ export const updateAd = async (req, res) => {
       .json({ success: true, message: "Ogłoszenie zaktualizowane.", data: ad });
   } catch (error) {
     console.error("Błąd aktualizacji ogłoszenia:", error);
-    res
-      .status(500)
-      .json({ message: "Błąd serwera podczas aktualizacji ogłoszenia." });
+    res.status(500).json({
+      message: "Błąd serwera podczas aktualizacji ogłoszenia.",
+      error: error.message,
+    });
   }
 };
 

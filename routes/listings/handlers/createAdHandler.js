@@ -519,9 +519,13 @@ export const createAd = [
         // Termin ważności ogłoszenia
         expiresAt: expiresAt,
 
-        // Status - wszystkie ogłoszenia od razu widoczne publicznie
-        // Różnica tylko w czasie publikacji (30 dni dla zwykłych, bez limitu dla adminów)
-        status: "approved",
+        // ZABEZPIECZENIE: Status zależy od roli użytkownika
+        // Admin może publikować bez płatności (status: "approved")
+        // Zwykli użytkownicy muszą zapłacić (status: "pending_payment")
+        status:
+          user.role === "admin" || user.role === "moderator"
+            ? "approved"
+            : "pending_payment",
       });
 
       console.log(

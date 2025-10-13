@@ -425,6 +425,7 @@ export const getConversationsList = async (req, res) => {
         query = {
           recipient: userObjectId,
           deletedBy: { $ne: userObjectId },
+          archived: { $ne: true }, // ✅ Wyklucz zarchiwizowane wiadomości
         };
         break;
       case "sent":
@@ -432,6 +433,7 @@ export const getConversationsList = async (req, res) => {
           sender: userObjectId,
           draft: false,
           deletedBy: { $ne: userObjectId },
+          archived: { $ne: true }, // ✅ Wyklucz zarchiwizowane wiadomości
         };
         break;
       case "starred":

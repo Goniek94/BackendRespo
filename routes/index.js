@@ -13,6 +13,7 @@ import statsRoutes from "./listings/statsRoutes.js";
 import imageRoutes from "./media/imageRoutes.js";
 import carBrandsRoutes from "./listings/carBrandsRoutes.js";
 import searchStatsRoutes from "./listings/searchStatsRoutes.js";
+import promoCodeRoutes from "./promoCode.js";
 
 // Import organized route modules
 import * as userRoutesModule from "./user/index.js";
@@ -53,6 +54,7 @@ export default (app) => {
     payments: paymentRoutes,
     favorites: favoriteRoutes,
     cepik: cepikRoutes,
+    "promo-codes": promoCodeRoutes,
   };
 
   // ========================================

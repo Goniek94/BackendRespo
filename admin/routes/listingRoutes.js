@@ -73,6 +73,15 @@ router.post("/:adId/unfeature", async (req, res) => {
 router.post("/:adId/hide", async (req, res) => {
   try {
     const Ad = (await import("../../models/listings/ad.js")).default;
+    const { reason } = req.body;
+
+    if (!reason || reason.trim().length < 10) {
+      return res.status(400).json({
+        success: false,
+        error: "Powód ukrycia musi mieć minimum 10 znaków",
+      });
+    }
+
     const ad = await Ad.findById(req.params.adId);
     if (!ad)
       return res
@@ -82,9 +91,17 @@ router.post("/:adId/hide", async (req, res) => {
     ad.hidden = true;
     ad.isHidden = true;
     ad.status = "hidden";
+    if (!ad.moderation) ad.moderation = {};
+    ad.moderation.hiddenAt = new Date();
+    ad.moderation.hiddenBy = req.user?.userId || req.user?._id;
+    ad.moderation.hideReason = reason.trim();
     await ad.save();
 
-    res.json({ success: true, message: "Ogłoszenie ukryte" });
+    res.json({
+      success: true,
+      message: "Ogłoszenie ukryte",
+      reason: reason.trim(),
+    });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

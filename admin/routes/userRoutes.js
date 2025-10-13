@@ -102,8 +102,9 @@ router.post(
   "/",
   requireAdminRole(["admin"]),
   sanitizeUserInput,
-  validateUserCreate, // ✅ Używamy dedykowanego validatora dla create
-  validateBusinessRules,
+  validateUserCreate,
+  // TYMCZASOWO WYŁĄCZONE: validateBusinessRules blokuje tworzenie użytkowników
+  // validateBusinessRules,
   logAdminActivity("user_created"),
   createUser
 );

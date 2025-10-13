@@ -37,18 +37,21 @@ export const getSecureCookieConfig = (tokenType = "access") => {
   return {
     httpOnly: true,
     secure: isProd || isStaging,
-    sameSite: isProd ? "strict" : "lax",
+    // Use 'lax' for same-site scenarios (www.autosell.pl ↔ api.autosell.pl)
+    // Both frontend and API are under the same site (.autosell.pl)
+    sameSite: "lax",
     domain: cookieDomain,
     path: "/",
     maxAge: expiry[tokenType] || expiry.access,
-    ...(isProd && { priority: "high", partitioned: true }),
+    // Removed partitioned: true - not using CHIPS (requires SameSite=None + no domain)
+    ...(isProd && { priority: "high" }),
   };
 };
 
 export const getClearCookieConfig = () => ({
   httpOnly: true,
   secure: isProd || isStaging,
-  sameSite: isProd ? "strict" : "lax",
+  sameSite: "lax",
   domain: cookieDomain,
   path: "/",
 });
@@ -74,23 +77,9 @@ export const clearAuthCookies = (res) => {
   clearSecureCookie(res, "rt");
 };
 
-export const setAdminCookies = (res, accessToken, refreshToken) => {
-  setSecureCookie(res, "admin_token", accessToken, "admin_access");
-  setSecureCookie(res, "admin_refreshToken", refreshToken, "admin_refresh");
-};
-
-export const clearAdminCookies = (res) => {
-  clearSecureCookie(res, "admin_token");
-  clearSecureCookie(res, "admin_refreshToken");
-};
-
-export const setAdminCookie = (res, adminToken) => {
-  setSecureCookie(res, "admin_token", adminToken, "admin_access");
-};
-
-export const clearAdminCookie = (res) => {
-  clearSecureCookie(res, "admin_token");
-};
+// REMOVED: Admin-specific cookie helpers (setAdminCookies, clearAdminCookies, etc.)
+// Admin uses the same 'token' and 'refreshToken' cookies as regular users
+// The middleware already checks user.role to determine admin privileges
 
 export const getCookieInfo = () => {
   const expiry = getCurrentExpiry();
@@ -98,12 +87,10 @@ export const getCookieInfo = () => {
     environment: process.env.NODE_ENV || "development",
     domain: cookieDomain || "localhost",
     secure: isProd || isStaging,
-    sameSite: isProd ? "strict" : "lax",
+    sameSite: "lax",
     expiry: {
       access: `${expiry.access / 1000 / 60} min`,
       refresh: `${expiry.refresh / 1000 / 60 / 60 / 24} dni`,
-      admin_access: `${expiry.admin_access / 1000 / 60} min`,
-      admin_refresh: `${expiry.admin_refresh / 1000 / 60 / 60 / 24} dni`,
     },
   };
 };
@@ -115,9 +102,5 @@ export default {
   clearSecureCookie,
   setAuthCookies,
   clearAuthCookies,
-  setAdminCookies,
-  clearAdminCookies,
-  setAdminCookie,
-  clearAdminCookie,
   getCookieInfo,
 };

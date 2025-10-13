@@ -3,7 +3,7 @@
  * Optymalizowane zapytania do liczenia ogłoszeń dla każdego filtru
  */
 
-import { createAdFilter, getActiveStatusFilter } from './commonFilters.js';
+import { createAdFilter, getActiveStatusFilter } from "./commonFilters.js";
 
 /**
  * Główna funkcja do pobierania liczników dla wszystkich filtrów
@@ -13,11 +13,11 @@ import { createAdFilter, getActiveStatusFilter } from './commonFilters.js';
  */
 export const getFilterCounts = async (Ad, currentFilters = {}) => {
   try {
-    console.log('Pobieranie liczników filtrów dla:', currentFilters);
-    
+    console.log("Pobieranie liczników filtrów dla:", currentFilters);
+
     // Bazowy filtr z aktualnych wyborów użytkownika
     const baseFilter = createAdFilter(currentFilters);
-    
+
     // Równoległe wykonanie wszystkich agregacji dla wydajności
     const [
       brandCounts,
@@ -34,7 +34,7 @@ export const getFilterCounts = async (Ad, currentFilters = {}) => {
       cityCounts,
       yearRangeCounts,
       priceRangeCounts,
-      mileageRangeCounts
+      mileageRangeCounts,
     ] = await Promise.all([
       getBrandCounts(Ad, baseFilter, currentFilters),
       getModelCounts(Ad, baseFilter, currentFilters),
@@ -50,7 +50,7 @@ export const getFilterCounts = async (Ad, currentFilters = {}) => {
       getCityCounts(Ad, baseFilter, currentFilters),
       getYearRangeCounts(Ad, baseFilter, currentFilters),
       getPriceRangeCounts(Ad, baseFilter, currentFilters),
-      getMileageRangeCounts(Ad, baseFilter, currentFilters)
+      getMileageRangeCounts(Ad, baseFilter, currentFilters),
     ]);
 
     const result = {
@@ -68,13 +68,13 @@ export const getFilterCounts = async (Ad, currentFilters = {}) => {
       cities: cityCounts,
       yearRanges: yearRangeCounts,
       priceRanges: priceRangeCounts,
-      mileageRanges: mileageRangeCounts
+      mileageRanges: mileageRangeCounts,
     };
 
-    console.log('Liczniki filtrów pobrane pomyślnie');
+    console.log("Liczniki filtrów pobrane pomyślnie");
     return result;
   } catch (error) {
-    console.error('Błąd podczas pobierania liczników filtrów:', error);
+    console.error("Błąd podczas pobierania liczników filtrów:", error);
     throw error;
   }
 };
@@ -85,13 +85,13 @@ export const getFilterCounts = async (Ad, currentFilters = {}) => {
 const getBrandCounts = async (Ad, baseFilter, currentFilters) => {
   const filter = { ...baseFilter };
   delete filter.brand; // Usuń filtr marki, żeby zobaczyć wszystkie dostępne marki
-  
+
   const counts = await Ad.aggregate([
     { $match: filter },
-    { $group: { _id: '$brand', count: { $sum: 1 } } },
-    { $sort: { count: -1, _id: 1 } }
+    { $group: { _id: "$brand", count: { $sum: 1 } } },
+    { $sort: { count: -1, _id: 1 } },
   ]);
-  
+
   return counts.reduce((acc, item) => {
     if (item._id) {
       acc[item._id] = item.count;
@@ -106,18 +106,18 @@ const getBrandCounts = async (Ad, baseFilter, currentFilters) => {
 const getModelCounts = async (Ad, baseFilter, currentFilters) => {
   const filter = { ...baseFilter };
   delete filter.model; // Usuń filtr modelu, ale zachowaj markę
-  
+
   // Jeśli nie wybrano marki, nie pokazuj modeli
   if (!filter.brand) {
     return {};
   }
-  
+
   const counts = await Ad.aggregate([
     { $match: filter },
-    { $group: { _id: '$model', count: { $sum: 1 } } },
-    { $sort: { count: -1, _id: 1 } }
+    { $group: { _id: "$model", count: { $sum: 1 } } },
+    { $sort: { count: -1, _id: 1 } },
   ]);
-  
+
   return counts.reduce((acc, item) => {
     if (item._id) {
       acc[item._id] = item.count;
@@ -132,18 +132,18 @@ const getModelCounts = async (Ad, baseFilter, currentFilters) => {
 const getGenerationCounts = async (Ad, baseFilter, currentFilters) => {
   const filter = { ...baseFilter };
   delete filter.generation; // Usuń filtr generacji, ale zachowaj markę i model
-  
+
   // Jeśli nie wybrano marki i modelu, nie pokazuj generacji
   if (!filter.brand || !filter.model) {
     return {};
   }
-  
+
   const counts = await Ad.aggregate([
     { $match: filter },
-    { $group: { _id: '$generation', count: { $sum: 1 } } },
-    { $sort: { count: -1, _id: 1 } }
+    { $group: { _id: "$generation", count: { $sum: 1 } } },
+    { $sort: { count: -1, _id: 1 } },
   ]);
-  
+
   return counts.reduce((acc, item) => {
     if (item._id) {
       acc[item._id] = item.count;
@@ -158,13 +158,13 @@ const getGenerationCounts = async (Ad, baseFilter, currentFilters) => {
 const getBodyTypeCounts = async (Ad, baseFilter, currentFilters) => {
   const filter = { ...baseFilter };
   delete filter.bodyType;
-  
+
   const counts = await Ad.aggregate([
     { $match: filter },
-    { $group: { _id: '$bodyType', count: { $sum: 1 } } },
-    { $sort: { count: -1, _id: 1 } }
+    { $group: { _id: "$bodyType", count: { $sum: 1 } } },
+    { $sort: { count: -1, _id: 1 } },
   ]);
-  
+
   return counts.reduce((acc, item) => {
     if (item._id) {
       acc[item._id] = item.count;
@@ -179,13 +179,13 @@ const getBodyTypeCounts = async (Ad, baseFilter, currentFilters) => {
 const getFuelTypeCounts = async (Ad, baseFilter, currentFilters) => {
   const filter = { ...baseFilter };
   delete filter.fuelType;
-  
+
   const counts = await Ad.aggregate([
     { $match: filter },
-    { $group: { _id: '$fuelType', count: { $sum: 1 } } },
-    { $sort: { count: -1, _id: 1 } }
+    { $group: { _id: "$fuelType", count: { $sum: 1 } } },
+    { $sort: { count: -1, _id: 1 } },
   ]);
-  
+
   return counts.reduce((acc, item) => {
     if (item._id) {
       acc[item._id] = item.count;
@@ -200,13 +200,13 @@ const getFuelTypeCounts = async (Ad, baseFilter, currentFilters) => {
 const getTransmissionCounts = async (Ad, baseFilter, currentFilters) => {
   const filter = { ...baseFilter };
   delete filter.transmission;
-  
+
   const counts = await Ad.aggregate([
     { $match: filter },
-    { $group: { _id: '$transmission', count: { $sum: 1 } } },
-    { $sort: { count: -1, _id: 1 } }
+    { $group: { _id: "$transmission", count: { $sum: 1 } } },
+    { $sort: { count: -1, _id: 1 } },
   ]);
-  
+
   return counts.reduce((acc, item) => {
     if (item._id) {
       acc[item._id] = item.count;
@@ -221,13 +221,13 @@ const getTransmissionCounts = async (Ad, baseFilter, currentFilters) => {
 const getDriveTypeCounts = async (Ad, baseFilter, currentFilters) => {
   const filter = { ...baseFilter };
   delete filter.driveType;
-  
+
   const counts = await Ad.aggregate([
     { $match: filter },
-    { $group: { _id: '$driveType', count: { $sum: 1 } } },
-    { $sort: { count: -1, _id: 1 } }
+    { $group: { _id: "$driveType", count: { $sum: 1 } } },
+    { $sort: { count: -1, _id: 1 } },
   ]);
-  
+
   return counts.reduce((acc, item) => {
     if (item._id) {
       acc[item._id] = item.count;
@@ -242,13 +242,13 @@ const getDriveTypeCounts = async (Ad, baseFilter, currentFilters) => {
 const getColorCounts = async (Ad, baseFilter, currentFilters) => {
   const filter = { ...baseFilter };
   delete filter.color;
-  
+
   const counts = await Ad.aggregate([
     { $match: filter },
-    { $group: { _id: '$color', count: { $sum: 1 } } },
-    { $sort: { count: -1, _id: 1 } }
+    { $group: { _id: "$color", count: { $sum: 1 } } },
+    { $sort: { count: -1, _id: 1 } },
   ]);
-  
+
   return counts.reduce((acc, item) => {
     if (item._id) {
       acc[item._id] = item.count;
@@ -263,13 +263,13 @@ const getColorCounts = async (Ad, baseFilter, currentFilters) => {
 const getConditionCounts = async (Ad, baseFilter, currentFilters) => {
   const filter = { ...baseFilter };
   delete filter.condition;
-  
+
   const counts = await Ad.aggregate([
     { $match: filter },
-    { $group: { _id: '$condition', count: { $sum: 1 } } },
-    { $sort: { count: -1, _id: 1 } }
+    { $group: { _id: "$condition", count: { $sum: 1 } } },
+    { $sort: { count: -1, _id: 1 } },
   ]);
-  
+
   return counts.reduce((acc, item) => {
     if (item._id) {
       acc[item._id] = item.count;
@@ -284,13 +284,13 @@ const getConditionCounts = async (Ad, baseFilter, currentFilters) => {
 const getAccidentStatusCounts = async (Ad, baseFilter, currentFilters) => {
   const filter = { ...baseFilter };
   delete filter.accidentStatus;
-  
+
   const counts = await Ad.aggregate([
     { $match: filter },
-    { $group: { _id: '$accidentStatus', count: { $sum: 1 } } },
-    { $sort: { count: -1, _id: 1 } }
+    { $group: { _id: "$accidentStatus", count: { $sum: 1 } } },
+    { $sort: { count: -1, _id: 1 } },
   ]);
-  
+
   return counts.reduce((acc, item) => {
     if (item._id) {
       acc[item._id] = item.count;
@@ -305,13 +305,13 @@ const getAccidentStatusCounts = async (Ad, baseFilter, currentFilters) => {
 const getRegionCounts = async (Ad, baseFilter, currentFilters) => {
   const filter = { ...baseFilter };
   delete filter.voivodeship;
-  
+
   const counts = await Ad.aggregate([
     { $match: filter },
-    { $group: { _id: '$voivodeship', count: { $sum: 1 } } },
-    { $sort: { count: -1, _id: 1 } }
+    { $group: { _id: "$voivodeship", count: { $sum: 1 } } },
+    { $sort: { count: -1, _id: 1 } },
   ]);
-  
+
   return counts.reduce((acc, item) => {
     if (item._id) {
       acc[item._id] = item.count;
@@ -326,18 +326,18 @@ const getRegionCounts = async (Ad, baseFilter, currentFilters) => {
 const getCityCounts = async (Ad, baseFilter, currentFilters) => {
   const filter = { ...baseFilter };
   delete filter.city; // Usuń filtr miasta, ale zachowaj województwo
-  
+
   // Jeśli nie wybrano województwa, nie pokazuj miast
   if (!filter.voivodeship) {
     return {};
   }
-  
+
   const counts = await Ad.aggregate([
     { $match: filter },
-    { $group: { _id: '$city', count: { $sum: 1 } } },
-    { $sort: { count: -1, _id: 1 } }
+    { $group: { _id: "$city", count: { $sum: 1 } } },
+    { $sort: { count: -1, _id: 1 } },
   ]);
-  
+
   return counts.reduce((acc, item) => {
     if (item._id) {
       acc[item._id] = item.count;
@@ -352,7 +352,7 @@ const getCityCounts = async (Ad, baseFilter, currentFilters) => {
 const getYearRangeCounts = async (Ad, baseFilter, currentFilters) => {
   const filter = { ...baseFilter };
   delete filter.year;
-  
+
   const counts = await Ad.aggregate([
     { $match: filter },
     {
@@ -360,21 +360,21 @@ const getYearRangeCounts = async (Ad, baseFilter, currentFilters) => {
         _id: {
           $switch: {
             branches: [
-              { case: { $gte: ['$year', 2020] }, then: '2020+' },
-              { case: { $gte: ['$year', 2015] }, then: '2015-2019' },
-              { case: { $gte: ['$year', 2010] }, then: '2010-2014' },
-              { case: { $gte: ['$year', 2005] }, then: '2005-2009' },
-              { case: { $gte: ['$year', 2000] }, then: '2000-2004' }
+              { case: { $gte: ["$year", 2020] }, then: "2020+" },
+              { case: { $gte: ["$year", 2015] }, then: "2015-2019" },
+              { case: { $gte: ["$year", 2010] }, then: "2010-2014" },
+              { case: { $gte: ["$year", 2005] }, then: "2005-2009" },
+              { case: { $gte: ["$year", 2000] }, then: "2000-2004" },
             ],
-            default: 'Starsze'
-          }
+            default: "Starsze",
+          },
         },
-        count: { $sum: 1 }
-      }
+        count: { $sum: 1 },
+      },
     },
-    { $sort: { _id: 1 } }
+    { $sort: { _id: 1 } },
   ]);
-  
+
   return counts.reduce((acc, item) => {
     if (item._id) {
       acc[item._id] = item.count;
@@ -389,7 +389,7 @@ const getYearRangeCounts = async (Ad, baseFilter, currentFilters) => {
 const getPriceRangeCounts = async (Ad, baseFilter, currentFilters) => {
   const filter = { ...baseFilter };
   delete filter.price;
-  
+
   const counts = await Ad.aggregate([
     { $match: filter },
     {
@@ -397,21 +397,21 @@ const getPriceRangeCounts = async (Ad, baseFilter, currentFilters) => {
         _id: {
           $switch: {
             branches: [
-              { case: { $lt: ['$price', 10000] }, then: 'do 10k' },
-              { case: { $lt: ['$price', 25000] }, then: '10k-25k' },
-              { case: { $lt: ['$price', 50000] }, then: '25k-50k' },
-              { case: { $lt: ['$price', 100000] }, then: '50k-100k' },
-              { case: { $lt: ['$price', 200000] }, then: '100k-200k' }
+              { case: { $lt: ["$price", 10000] }, then: "do 10k" },
+              { case: { $lt: ["$price", 25000] }, then: "10k-25k" },
+              { case: { $lt: ["$price", 50000] }, then: "25k-50k" },
+              { case: { $lt: ["$price", 100000] }, then: "50k-100k" },
+              { case: { $lt: ["$price", 200000] }, then: "100k-200k" },
             ],
-            default: '200k+'
-          }
+            default: "200k+",
+          },
         },
-        count: { $sum: 1 }
-      }
+        count: { $sum: 1 },
+      },
     },
-    { $sort: { _id: 1 } }
+    { $sort: { _id: 1 } },
   ]);
-  
+
   return counts.reduce((acc, item) => {
     if (item._id) {
       acc[item._id] = item.count;
@@ -426,7 +426,7 @@ const getPriceRangeCounts = async (Ad, baseFilter, currentFilters) => {
 const getMileageRangeCounts = async (Ad, baseFilter, currentFilters) => {
   const filter = { ...baseFilter };
   delete filter.mileage;
-  
+
   const counts = await Ad.aggregate([
     { $match: filter },
     {
@@ -434,20 +434,20 @@ const getMileageRangeCounts = async (Ad, baseFilter, currentFilters) => {
         _id: {
           $switch: {
             branches: [
-              { case: { $lt: ['$mileage', 50000] }, then: 'do 50k km' },
-              { case: { $lt: ['$mileage', 100000] }, then: '50k-100k km' },
-              { case: { $lt: ['$mileage', 150000] }, then: '100k-150k km' },
-              { case: { $lt: ['$mileage', 200000] }, then: '150k-200k km' }
+              { case: { $lt: ["$mileage", 50000] }, then: "do 50k km" },
+              { case: { $lt: ["$mileage", 100000] }, then: "50k-100k km" },
+              { case: { $lt: ["$mileage", 150000] }, then: "100k-150k km" },
+              { case: { $lt: ["$mileage", 200000] }, then: "150k-200k km" },
             ],
-            default: '200k+ km'
-          }
+            default: "200k+ km",
+          },
         },
-        count: { $sum: 1 }
-      }
+        count: { $sum: 1 },
+      },
     },
-    { $sort: { _id: 1 } }
+    { $sort: { _id: 1 } },
   ]);
-  
+
   return counts.reduce((acc, item) => {
     if (item._id) {
       acc[item._id] = item.count;
@@ -466,11 +466,11 @@ export const getMatchingAdsCount = async (Ad, filters = {}) => {
   try {
     const filter = createAdFilter(filters);
     const count = await Ad.countDocuments(filter);
-    
+
     console.log(`Liczba ogłoszeń pasujących do filtrów: ${count}`);
     return count;
   } catch (error) {
-    console.error('Błąd podczas liczenia ogłoszeń:', error);
+    console.error("Błąd podczas liczenia ogłoszeń:", error);
     return 0;
   }
 };
@@ -482,14 +482,14 @@ export const getMatchingAdsCount = async (Ad, filters = {}) => {
  */
 export const createPartialFilter = (baseFilter) => {
   const partialFilter = { ...baseFilter };
-  
+
   // Usuń niektóre restrykcyjne filtry dla częściowego dopasowania
   delete partialFilter.model;
   delete partialFilter.generation;
   delete partialFilter.color;
   delete partialFilter.doors;
   delete partialFilter.seats;
-  
+
   // Rozluźnij filtry zakresowe
   if (partialFilter.price) {
     if (partialFilter.price.$gte) {
@@ -499,7 +499,7 @@ export const createPartialFilter = (baseFilter) => {
       partialFilter.price.$lte = partialFilter.price.$lte * 1.2; // +20%
     }
   }
-  
+
   if (partialFilter.year) {
     if (partialFilter.year.$gte) {
       partialFilter.year.$gte = partialFilter.year.$gte - 2; // -2 lata
@@ -508,6 +508,6 @@ export const createPartialFilter = (baseFilter) => {
       partialFilter.year.$lte = partialFilter.year.$lte + 2; // +2 lata
     }
   }
-  
+
   return partialFilter;
 };

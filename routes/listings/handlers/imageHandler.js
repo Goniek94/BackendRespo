@@ -1,44 +1,42 @@
 /**
  * Handler do zarządzania zdjęciami w ogłoszeniach
  * Odpowiada za: upload, usuwanie, zmianę kolejności zdjęć
+ * UPDATED: Teraz używa wyłącznie Supabase Storage
  */
 
 import Ad from "../../../models/listings/ad.js";
 import auth from "../../../middleware/auth.js";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
 import errorHandler from "../../../middleware/errors/errorHandler.js";
+import {
+  uploadAdImages,
+  deleteAdImages,
+  validateFiles,
+  isStorageAvailable,
+} from "../../../services/storage/supabase.js";
 
-// Konfiguracja multera do obsługi plików
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = "uploads/ads";
-    // Sprawdź, czy katalog istnieje, jeśli nie - utwórz go
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    // Generuj unikalną nazwę pliku
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  },
-});
-
+// Configure multer to use memory storage for Supabase
 const upload = multer({
-  storage: storage,
+  storage: multer.memoryStorage(), // Store files in memory as Buffer
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
-    files: 10, // maksymalnie 10 plików
+    fileSize: 5 * 1024 * 1024, // 5MB limit per file
+    files: 15, // Maximum 15 files per request
   },
   fileFilter: (req, file, cb) => {
-    // Sprawdź czy plik to obraz
-    if (file.mimetype.startsWith("image/")) {
+    // Only accept images
+    const allowedMimeTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+    ];
+    if (allowedMimeTypes.includes(file.mimetype.toLowerCase())) {
       cb(null, true);
     } else {
-      cb(new Error("Tylko pliki obrazów są dozwolone!"), false);
+      cb(
+        new Error("Tylko pliki obrazów są dozwolone (JPEG, PNG, WebP)"),
+        false
+      );
     }
   },
 });
@@ -63,7 +61,7 @@ export const reorderImages = [
         return res.status(404).json({ message: "Ogłoszenie nie znalezione" });
       }
 
-      // Sprawdź czy użytkownik jest właścicielem lub adminem
+      // Check if user is owner or admin
       if (
         ad.owner.toString() !== req.user.userId.toString() &&
         req.user.role !== "admin"
@@ -73,7 +71,7 @@ export const reorderImages = [
           .json({ message: "Brak uprawnień do edycji tego ogłoszenia" });
       }
 
-      // Walidacja - sprawdź czy wszystkie zdjęcia z nowej kolejności istnieją w oryginalnej tablicy
+      // Validate - check if all images from new order exist in original array
       const originalImages = ad.images || [];
       const isValidReorder =
         images.every((img) => originalImages.includes(img)) &&
@@ -86,14 +84,14 @@ export const reorderImages = [
         });
       }
 
-      // Aktualizuj kolejność zdjęć
+      // Update image order
       ad.images = images;
 
-      // Jeśli główne zdjęcie nie jest już na pierwszej pozycji, zaktualizuj je
+      // If main image is not at first position anymore, update it
       if (ad.mainImage && images.length > 0) {
-        // Sprawdź czy główne zdjęcie nadal istnieje w nowej tablicy
+        // Check if main image still exists in new array
         if (!images.includes(ad.mainImage)) {
-          ad.mainImage = images[0]; // Ustaw pierwsze zdjęcie jako główne
+          ad.mainImage = images[0]; // Set first image as main
         }
       } else if (images.length > 0) {
         ad.mainImage = images[0];
@@ -101,14 +99,14 @@ export const reorderImages = [
 
       await ad.save();
 
-      console.log(`Zmieniono kolejność zdjęć w ogłoszeniu ${id}`);
+      console.log(`✅ Zmieniono kolejność zdjęć w ogłoszeniu ${id}`);
       res.status(200).json({
         message: "Kolejność zdjęć została zmieniona",
         images: ad.images,
         mainImage: ad.mainImage,
       });
     } catch (err) {
-      console.error("Błąd podczas zmiany kolejności zdjęć:", err);
+      console.error("❌ Błąd podczas zmiany kolejności zdjęć:", err);
       next(err);
     }
   },
@@ -116,7 +114,7 @@ export const reorderImages = [
 ];
 
 /**
- * POST /ads/:id/images/urls - Dodawanie zdjęć przez URL-e (z Supabase)
+ * POST /ads/:id/images/urls - Dodawanie zdjęć przez URL-e (z Supabase lub zewnętrzne)
  */
 export const uploadImageUrls = [
   auth,
@@ -137,7 +135,7 @@ export const uploadImageUrls = [
         return res.status(404).json({ message: "Ogłoszenie nie znalezione" });
       }
 
-      // Sprawdź czy użytkownik jest właścicielem lub adminem
+      // Check if user is owner or admin
       if (
         ad.owner.toString() !== req.user.userId.toString() &&
         req.user.role !== "admin"
@@ -147,7 +145,7 @@ export const uploadImageUrls = [
         });
       }
 
-      // Sprawdzenie limitu zdjęć
+      // Check image limit
       const currentImagesCount = ad.images ? ad.images.length : 0;
       const newImagesCount = currentImagesCount + imageUrls.length;
 
@@ -157,16 +155,15 @@ export const uploadImageUrls = [
         });
       }
 
-      console.log("=== DODAWANIE ZDJĘĆ Z SUPABASE ===");
+      console.log("=== DODAWANIE ZDJĘĆ Z URL-I ===");
       console.log("ID ogłoszenia:", id);
       console.log("Liczba nowych URL-i:", imageUrls.length);
-      console.log("URL-e zdjęć:", imageUrls);
       console.log("Aktualna liczba zdjęć:", currentImagesCount);
 
-      // Dodaj nowe URL-e do istniejącej tablicy
+      // Add new URLs to existing array
       ad.images = [...(ad.images || []), ...imageUrls];
 
-      // Jeśli to pierwsze zdjęcie, ustaw je jako główne
+      // If this is first image, set it as main
       if (!ad.mainImage && ad.images.length > 0) {
         ad.mainImage = ad.images[0];
         console.log("Ustawiono pierwsze zdjęcie jako główne:", ad.mainImage);
@@ -192,14 +189,22 @@ export const uploadImageUrls = [
 ];
 
 /**
- * POST /ads/:id/images - Upload nowych zdjęć do ogłoszenia (stara metoda - lokalna)
+ * POST /ads/:id/images - Upload nowych zdjęć do ogłoszenia (SUPABASE)
  */
 export const uploadImages = [
   auth,
-  upload.array("images", 10),
+  upload.array("images", 15),
   async (req, res, next) => {
     try {
       const { id } = req.params;
+
+      // Check if Supabase is configured
+      if (!isStorageAvailable()) {
+        return res.status(503).json({
+          message: "Upload zdjęć tymczasowo niedostępny",
+          error: "Supabase Storage not configured",
+        });
+      }
 
       const ad = await Ad.findById(id);
 
@@ -207,7 +212,7 @@ export const uploadImages = [
         return res.status(404).json({ message: "Ogłoszenie nie znalezione" });
       }
 
-      // Sprawdź czy użytkownik jest właścicielem lub adminem
+      // Check if user is owner or admin
       if (
         ad.owner.toString() !== req.user.userId.toString() &&
         req.user.role !== "admin"
@@ -217,14 +222,14 @@ export const uploadImages = [
         });
       }
 
-      // Sprawdź czy przesłano pliki
+      // Check if files were uploaded
       if (!req.files || req.files.length === 0) {
         return res
           .status(400)
           .json({ message: "Nie przesłano żadnych plików" });
       }
 
-      // Sprawdzenie limitu zdjęć
+      // Check image limit
       const currentImagesCount = ad.images ? ad.images.length : 0;
       const newImagesCount = currentImagesCount + req.files.length;
 
@@ -234,21 +239,36 @@ export const uploadImages = [
         });
       }
 
-      // Przygotuj ścieżki do nowych zdjęć
-      const newImagePaths = req.files.map(
-        (file) => `/${file.path.replace(/\\/g, "/")}`
-      );
-
-      console.log("=== DODAWANIE NOWYCH ZDJĘĆ ===");
+      console.log("=== UPLOAD ZDJĘĆ DO SUPABASE ===");
       console.log("ID ogłoszenia:", id);
       console.log("Liczba nowych zdjęć:", req.files.length);
-      console.log("Nowe ścieżki zdjęć:", newImagePaths);
       console.log("Aktualna liczba zdjęć:", currentImagesCount);
 
-      // Dodaj nowe zdjęcia do istniejącej tablicy
-      ad.images = [...(ad.images || []), ...newImagePaths];
+      // Validate files
+      const validation = validateFiles(req.files, {
+        maxFiles: 15,
+        maxFileSize: 5 * 1024 * 1024,
+      });
 
-      // Jeśli to pierwsze zdjęcie, ustaw je jako główne
+      if (!validation.valid) {
+        return res.status(400).json({
+          message: "Walidacja plików nie powiodła się",
+          errors: validation.errors,
+        });
+      }
+
+      // Upload to Supabase
+      const uploadedImages = await uploadAdImages(req.files, id);
+
+      // Extract public URLs from uploaded images
+      const newImageUrls = uploadedImages.map((img) => img.originalUrl);
+
+      console.log("Przesłane zdjęcia - URL-e:", newImageUrls);
+
+      // Add new images to existing array
+      ad.images = [...(ad.images || []), ...newImageUrls];
+
+      // If this is first image, set it as main
       if (!ad.mainImage && ad.images.length > 0) {
         ad.mainImage = ad.images[0];
         console.log("Ustawiono pierwsze zdjęcie jako główne:", ad.mainImage);
@@ -256,18 +276,22 @@ export const uploadImages = [
 
       await ad.save();
 
-      console.log("✅ Zdjęcia zostały dodane pomyślnie");
+      console.log("✅ Zdjęcia zostały przesłane pomyślnie");
       console.log("Nowa liczba zdjęć:", ad.images.length);
 
       res.status(200).json({
         message: "Zdjęcia zostały dodane pomyślnie",
         images: ad.images,
         mainImage: ad.mainImage,
-        addedImages: newImagePaths,
+        addedImages: newImageUrls,
+        uploadedDetails: uploadedImages,
       });
     } catch (err) {
-      console.error("❌ Błąd podczas dodawania zdjęć:", err);
-      next(err);
+      console.error("❌ Błąd podczas uploadu zdjęć:", err);
+      res.status(500).json({
+        message: "Błąd podczas uploadu zdjęć",
+        error: err.message,
+      });
     }
   },
   errorHandler,
@@ -289,7 +313,7 @@ export const deleteImage = [
         return res.status(404).json({ message: "Ogłoszenie nie znalezione" });
       }
 
-      // Sprawdź czy użytkownik jest właścicielem lub adminem
+      // Check if user is owner or admin
       if (
         ad.owner.toString() !== req.user.userId.toString() &&
         req.user.role !== "admin"
@@ -299,34 +323,59 @@ export const deleteImage = [
           .json({ message: "Brak uprawnień do edycji tego ogłoszenia" });
       }
 
-      // Sprawdź czy indeks jest prawidłowy
+      // Check if index is valid
       if (imageIndex < 0 || imageIndex >= ad.images.length) {
         return res
           .status(400)
           .json({ message: "Nieprawidłowy indeks zdjęcia" });
       }
 
-      // Sprawdź czy to nie jest ostatnie zdjęcie
+      // Check if this is not the last image
       if (ad.images.length <= 1) {
         return res.status(400).json({
           message: "Ogłoszenie musi zawierać co najmniej jedno zdjęcie",
         });
       }
 
-      // Usuń zdjęcie z tablicy
-      const removedImage = ad.images[imageIndex];
-      ad.images.splice(imageIndex, 1);
+      // Get image URL to delete
+      const removedImageUrl = ad.images[imageIndex];
 
-      // Jeśli usuwane zdjęcie było głównym, ustaw nowe główne zdjęcie
-      if (ad.mainImage === removedImage) {
-        ad.mainImage = ad.images[0]; // Ustaw pierwsze dostępne zdjęcie jako główne
+      // Try to extract storage path from Supabase URL
+      // Format: https://{supabaseUrl}/storage/v1/object/public/autosell/ads/{adId}/original/{filename}
+      if (
+        removedImageUrl.includes("supabase") &&
+        removedImageUrl.includes("/autosell/")
+      ) {
+        try {
+          const pathMatch = removedImageUrl.match(/\/autosell\/(.+)$/);
+          if (pathMatch) {
+            const storagePath = pathMatch[1];
+            console.log("Usuwanie zdjęcia z Supabase:", storagePath);
+            await deleteAdImages(storagePath);
+            console.log("✅ Zdjęcie usunięte z Supabase Storage");
+          }
+        } catch (deleteError) {
+          console.warn(
+            "⚠️ Nie udało się usunąć zdjęcia z Supabase:",
+            deleteError.message
+          );
+          // Continue anyway - remove from database
+        }
       }
 
-      // Zapisz zmiany
+      // Remove image from array
+      ad.images.splice(imageIndex, 1);
+
+      // If removed image was main, set new main image
+      if (ad.mainImage === removedImageUrl) {
+        ad.mainImage = ad.images[0]; // Set first available image as main
+      }
+
+      // Save changes
       await ad.save();
 
       console.log(
-        `Usunięto zdjęcie o indeksie ${imageIndex} z ogłoszenia ${id}`
+        `✅ Usunięto zdjęcie o indeksie ${imageIndex} z ogłoszenia ${id}`
       );
       res.status(200).json({
         message: "Zdjęcie zostało usunięte",
@@ -334,7 +383,7 @@ export const deleteImage = [
         mainImage: ad.mainImage,
       });
     } catch (err) {
-      console.error("Błąd podczas usuwania zdjęcia:", err);
+      console.error("❌ Błąd podczas usuwania zdjęcia:", err);
       next(err);
     }
   },

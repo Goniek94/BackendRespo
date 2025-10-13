@@ -185,21 +185,18 @@ export const createUser = async (req, res) => {
       updatedAt: new Date(),
     });
 
-    console.log("🟢 User object created, now hashing password...");
-    // If password is provided, hash it
+    console.log(
+      "🟢 User object created, password will be hashed by User model..."
+    );
+    // DON'T hash password here - User model pre-save hook will do it automatically
     if (userData.password) {
-      console.log("🔐 Password provided, hashing...");
-      const bcrypt = await import("bcrypt");
-      newUser.password = await bcrypt.hash(userData.password, 12);
-      console.log("✅ Password hashed successfully");
+      console.log("🔐 Password provided, will be hashed by model");
+      newUser.password = userData.password; // Plain password - model will hash it
     } else {
       console.log("🔐 No password provided, generating random password...");
-      // Generate random password if not provided
-      const bcrypt = await import("bcrypt");
-      const randomPassword = Math.random().toString(36).slice(-12) + "A1!"; // Ensure it meets requirements
+      const randomPassword = Math.random().toString(36).slice(-12) + "A1!";
       console.log("🔐 Random password generated (hidden)");
-      newUser.password = await bcrypt.hash(randomPassword, 12);
-      console.log("✅ Random password hashed successfully");
+      newUser.password = randomPassword; // Plain password - model will hash it
     }
 
     console.log("🟢 Saving user to database...");

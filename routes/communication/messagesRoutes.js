@@ -146,19 +146,27 @@ router.patch("/conversation/:userId/star", async (req, res) => {
 router.delete("/conversation/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
+    const { adId } = req.query; // Pobierz adId z query
     const currentUserId = req.user.userId;
 
+    // Buduj kryteria wyszukiwania
+    const criteria = {
+      $or: [
+        { sender: currentUserId, recipient: userId },
+        { sender: userId, recipient: currentUserId },
+      ],
+      deletedBy: { $ne: currentUserId }, // Tylko wiadomości nie usunięte przez tego usera
+    };
+
+    // Jeśli podano adId, dodaj filtr
+    if (adId) {
+      criteria.relatedAd = adId;
+    }
+
     // SOFT DELETE - dodaj currentUserId do deletedBy array
-    const result = await Message.updateMany(
-      {
-        $or: [
-          { sender: currentUserId, recipient: userId },
-          { sender: userId, recipient: currentUserId },
-        ],
-        deletedBy: { $ne: currentUserId }, // Tylko wiadomości nie usunięte przez tego usera
-      },
-      { $addToSet: { deletedBy: currentUserId } }
-    );
+    const result = await Message.updateMany(criteria, {
+      $addToSet: { deletedBy: currentUserId },
+    });
 
     res.status(200).json({
       message: "Konwersacja usunięta (ukryta dla Ciebie)",
@@ -174,17 +182,23 @@ router.delete("/conversation/:userId", async (req, res) => {
 router.patch("/conversation/:userId/archive", async (req, res) => {
   try {
     const { userId } = req.params;
+    const { adId } = req.query; // Pobierz adId z query
     const currentUserId = req.user.userId;
 
-    const result = await Message.updateMany(
-      {
-        $or: [
-          { sender: currentUserId, recipient: userId },
-          { sender: userId, recipient: currentUserId },
-        ],
-      },
-      { archived: true }
-    );
+    // Buduj kryteria wyszukiwania
+    const criteria = {
+      $or: [
+        { sender: currentUserId, recipient: userId },
+        { sender: userId, recipient: currentUserId },
+      ],
+    };
+
+    // Jeśli podano adId, dodaj filtr
+    if (adId) {
+      criteria.relatedAd = adId;
+    }
+
+    const result = await Message.updateMany(criteria, { archived: true });
 
     res.status(200).json({
       message: "Konwersacja zarchiwizowana",
@@ -200,17 +214,23 @@ router.patch("/conversation/:userId/archive", async (req, res) => {
 router.patch("/conversation/:userId/unarchive", async (req, res) => {
   try {
     const { userId } = req.params;
+    const { adId } = req.query; // Pobierz adId z query
     const currentUserId = req.user.userId;
 
-    const result = await Message.updateMany(
-      {
-        $or: [
-          { sender: currentUserId, recipient: userId },
-          { sender: userId, recipient: currentUserId },
-        ],
-      },
-      { archived: false }
-    );
+    // Buduj kryteria wyszukiwania
+    const criteria = {
+      $or: [
+        { sender: currentUserId, recipient: userId },
+        { sender: userId, recipient: currentUserId },
+      ],
+    };
+
+    // Jeśli podano adId, dodaj filtr
+    if (adId) {
+      criteria.relatedAd = adId;
+    }
+
+    const result = await Message.updateMany(criteria, { archived: false });
 
     res.status(200).json({
       message: "Konwersacja przywrócona z archiwum",

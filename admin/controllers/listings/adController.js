@@ -26,6 +26,7 @@ export const getListingsStats = async (_req, res) => {
       $or: [{ status: "approved" }, { status: "active" }],
     });
     const rejected = await Ad.countDocuments({ status: "rejected" });
+    const archived = await Ad.countDocuments({ status: "archived" });
 
     const lastMonth = new Date();
     lastMonth.setMonth(lastMonth.getMonth() - 1);
@@ -44,6 +45,10 @@ export const getListingsStats = async (_req, res) => {
       status: "rejected",
       createdAt: { $lt: lastMonth },
     });
+    const archLast = await Ad.countDocuments({
+      status: "archived",
+      createdAt: { $lt: lastMonth },
+    });
 
     const ch = (cur, prev) =>
       prev === 0
@@ -59,10 +64,12 @@ export const getListingsStats = async (_req, res) => {
         pending,
         approved,
         rejected,
+        archived,
         totalChange: ch(total, totalLast),
         pendingChange: ch(pending, pendLast),
         approvedChange: ch(approved, apprLast),
         rejectedChange: ch(rejected, rejLast),
+        archivedChange: ch(archived, archLast),
       },
     });
   } catch (error) {

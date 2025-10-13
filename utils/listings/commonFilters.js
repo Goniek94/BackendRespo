@@ -1,103 +1,112 @@
 /**
- * Wspólne funkcje filtrowania dla ogłoszeń
- * Używane przez różne endpointy, żeby zapewnić spójność
+ * Wspólne funkcje filtrowania - FINAL PRODUCTION
+ *
+ * POPRAWKI:
+ * ✅ Walidacja NaN (safeInt, safeFloat)
+ * ✅ Walidacja zakresów (min <= max)
+ * ✅ drive (zamiast driveType; kompatybilność zachowana)
+ * ✅ seats/doors jako liczby
+ * ✅ Usunięto getActiveAdsPool (niebezpieczne RAM-owo)
+ * ✅ toIn helper (normalizacja array -> $in)
+ * ✅ processAdImages działa także z .lean()
+ * ✅ getActiveAdsCount nie nadpisuje statusu, jeśli podany
  */
 
-// Centralna funkcja zwracająca filtr dla aktywnych ogłoszeń
-// Zwraca wszystkie ogłoszenia (active + opublikowane + pending + approved) dla lepszej widoczności w wyszukiwarce
+/* ------------------------ Safe Helpers ------------------------ */
+
+const safeInt = (val, fallback = null) => {
+  if (val === undefined || val === null || val === "") return fallback;
+  const n = parseInt(val, 10);
+  return Number.isNaN(n) ? fallback : n;
+};
+
+const safeFloat = (val, fallback = null) => {
+  if (val === undefined || val === null || val === "") return fallback;
+  const n = parseFloat(val);
+  return Number.isNaN(n) ? fallback : n;
+};
+
+/**
+ * Normalizacja wartości tekstowych do formatu:
+ * - pojedyncza wartość: "val"
+ * - wiele wartości: { $in: ["a", "b"] }
+ * Usuwa duplikaty, trymuje, filtruje puste.
+ */
+const toIn = (v) => {
+  const arr = Array.isArray(v) ? v : [v];
+  const norm = [
+    ...new Set(
+      arr
+        .map(String)
+        .map((s) => s.trim())
+        .filter(Boolean)
+    ),
+  ];
+  return norm.length > 1 ? { $in: norm } : norm[0];
+};
+
+/**
+ * Wariant liczbowy doIn (gdyby kiedyś potrzebny dla pól numerycznych)
+ */
+const toInNumber = (v) => {
+  const arr = Array.isArray(v) ? v : [v];
+  const norm = [
+    ...new Set(arr.map((x) => safeFloat(x, null)).filter((n) => n !== null)),
+  ];
+  return norm.length > 1 ? { $in: norm } : norm[0];
+};
+
+/* ------------------------ Filters ------------------------ */
+
+// Statusy aktywne
 export const getActiveStatusFilter = () => {
   return { $in: ["active", "opublikowane", "pending", "approved"] };
 };
 
-// Funkcja pomocnicza do tworzenia filtru ogłoszeń - kompletna obsługa wszystkich filtrów
-export const createAdFilter = (query) => {
+/**
+ * Buduje filtr MongoDB na podstawie query params.
+ * Zgodny z routerem (m.in. drive, voivodeship, engineSize itp.).
+ */
+export const createAdFilter = (query = {}) => {
   const filter = {};
-
-  // Debug: logowanie filtrów
-  console.log("Tworzenie filtru z query:", query);
 
   // === PODSTAWOWE FILTRY TEKSTOWE ===
 
   // Marka (make -> brand mapping)
-  if (query.make) {
-    if (Array.isArray(query.make)) {
-      filter.brand = { $in: query.make };
-    } else {
-      filter.brand = query.make;
-    }
-  }
-  if (query.brand) {
-    if (Array.isArray(query.brand)) {
-      filter.brand = { $in: query.brand };
-    } else {
-      filter.brand = query.brand;
-    }
-  }
+  const brand = query.brand || query.make;
+  if (brand) filter.brand = toIn(brand);
 
   // Model
-  if (query.model) {
-    if (Array.isArray(query.model)) {
-      filter.model = { $in: query.model };
-    } else {
-      filter.model = query.model;
-    }
-  }
+  if (query.model) filter.model = toIn(query.model);
 
   // Generacja
-  if (query.generation) {
-    if (Array.isArray(query.generation)) {
-      filter.generation = { $in: query.generation };
-    } else {
-      filter.generation = query.generation;
-    }
-  }
+  if (query.generation) filter.generation = toIn(query.generation);
 
   // Typ nadwozia
-  if (query.bodyType) {
-    if (Array.isArray(query.bodyType)) {
-      filter.bodyType = { $in: query.bodyType };
-    } else {
-      filter.bodyType = query.bodyType;
-    }
-  }
+  if (query.bodyType) filter.bodyType = toIn(query.bodyType);
 
   // Rodzaj paliwa
-  if (query.fuelType) {
-    if (Array.isArray(query.fuelType)) {
-      filter.fuelType = { $in: query.fuelType };
-    } else {
-      filter.fuelType = query.fuelType;
-    }
-  }
+  if (query.fuelType) filter.fuelType = toIn(query.fuelType);
 
   // Skrzynia biegów
-  if (query.transmission) {
-    if (Array.isArray(query.transmission)) {
-      filter.transmission = { $in: query.transmission };
-    } else {
-      filter.transmission = query.transmission;
-    }
-  }
+  if (query.transmission) filter.transmission = toIn(query.transmission);
 
-  // Napęd
-  if (query.driveType) {
-    if (Array.isArray(query.driveType)) {
-      filter.driveType = { $in: query.driveType };
-    } else {
-      filter.driveType = query.driveType;
-    }
-  }
+  // Napęd (drive, NIE driveType) – kompatybilność z driveType
+  const drive = query.drive || query.driveType;
+  if (drive) filter.drive = toIn(drive);
 
   // === FILTRY ZAAWANSOWANE ===
 
   // Wykończenie lakieru
   if (query.finish) filter.paintFinish = query.finish;
 
-  // Liczba drzwi
-  if (query.doorCount) filter.doors = query.doorCount;
+  // Liczba drzwi (liczba)
+  const doors = safeInt(query.doorCount);
+  if (doors !== null) filter.doors = doors;
 
-  // Liczba miejsc
-  if (query.seats) filter.seats = query.seats;
+  // Liczba miejsc (liczba)
+  const seats = safeInt(query.seats);
+  if (seats !== null) filter.seats = seats;
 
   // Stan techniczny
   if (query.condition) filter.condition = query.condition;
@@ -138,24 +147,12 @@ export const createAdFilter = (query) => {
   // === LOKALIZACJA ===
 
   // Województwo
-  if (query.region) {
-    if (Array.isArray(query.region)) {
-      filter.voivodeship = { $in: query.region };
-    } else {
-      filter.voivodeship = query.region;
-    }
-  }
+  if (query.region) filter.voivodeship = toIn(query.region);
 
   // Miasto
-  if (query.city) {
-    if (Array.isArray(query.city)) {
-      filter.city = { $in: query.city };
-    } else {
-      filter.city = query.city;
-    }
-  }
+  if (query.city) filter.city = toIn(query.city);
 
-  // === ZACHOWANE DLA KOMPATYBILNOŚCI ===
+  // === KOMPATYBILNOŚĆ WSTECZNA ===
   if (query.country) filter.country = query.country;
   if (query.vehicleCondition) filter.vehicleCondition = query.vehicleCondition;
   if (query.sellingForm) filter.sellingForm = query.sellingForm;
@@ -169,24 +166,38 @@ export const createAdFilter = (query) => {
       query.invoiceOptions === "true" || query.invoiceOptions === true;
   }
 
-  // === FILTRY ZAKRESOWE ===
+  // === FILTRY ZAKRESOWE (z walidacją NaN i zakresów) ===
 
   // Cena
   if (query.minPrice || query.maxPrice || query.priceFrom || query.priceTo) {
-    filter.price = {};
-    if (query.minPrice) filter.price.$gte = parseFloat(query.minPrice);
-    if (query.maxPrice) filter.price.$lte = parseFloat(query.maxPrice);
-    if (query.priceFrom) filter.price.$gte = parseFloat(query.priceFrom);
-    if (query.priceTo) filter.price.$lte = parseFloat(query.priceTo);
+    const minPrice = safeFloat(query.minPrice || query.priceFrom);
+    const maxPrice = safeFloat(query.maxPrice || query.priceTo);
+
+    if (minPrice !== null || maxPrice !== null) {
+      filter.price = {};
+      if (minPrice !== null) filter.price.$gte = minPrice;
+      if (maxPrice !== null) filter.price.$lte = maxPrice;
+
+      if (minPrice !== null && maxPrice !== null && minPrice > maxPrice) {
+        delete filter.price;
+      }
+    }
   }
 
   // Rok produkcji
   if (query.minYear || query.maxYear || query.yearFrom || query.yearTo) {
-    filter.year = {};
-    if (query.minYear) filter.year.$gte = parseInt(query.minYear);
-    if (query.maxYear) filter.year.$lte = parseInt(query.maxYear);
-    if (query.yearFrom) filter.year.$gte = parseInt(query.yearFrom);
-    if (query.yearTo) filter.year.$lte = parseInt(query.yearTo);
+    const minYear = safeInt(query.minYear || query.yearFrom);
+    const maxYear = safeInt(query.maxYear || query.yearTo);
+
+    if (minYear !== null || maxYear !== null) {
+      filter.year = {};
+      if (minYear !== null) filter.year.$gte = minYear;
+      if (maxYear !== null) filter.year.$lte = maxYear;
+
+      if (minYear !== null && maxYear !== null && minYear > maxYear) {
+        delete filter.year;
+      }
+    }
   }
 
   // Przebieg
@@ -196,38 +207,77 @@ export const createAdFilter = (query) => {
     query.mileageFrom ||
     query.mileageTo
   ) {
-    filter.mileage = {};
-    if (query.minMileage) filter.mileage.$gte = parseInt(query.minMileage);
-    if (query.maxMileage) filter.mileage.$lte = parseInt(query.maxMileage);
-    if (query.mileageFrom) filter.mileage.$gte = parseInt(query.mileageFrom);
-    if (query.mileageTo) filter.mileage.$lte = parseInt(query.mileageTo);
+    const minMileage = safeInt(query.minMileage || query.mileageFrom);
+    const maxMileage = safeInt(query.maxMileage || query.mileageTo);
+
+    if (minMileage !== null || maxMileage !== null) {
+      filter.mileage = {};
+      if (minMileage !== null) filter.mileage.$gte = minMileage;
+      if (maxMileage !== null) filter.mileage.$lte = maxMileage;
+
+      if (
+        minMileage !== null &&
+        maxMileage !== null &&
+        minMileage > maxMileage
+      ) {
+        delete filter.mileage;
+      }
+    }
   }
 
   // Moc silnika
   if (query.enginePowerFrom || query.enginePowerTo) {
-    filter.power = {};
-    if (query.enginePowerFrom)
-      filter.power.$gte = parseInt(query.enginePowerFrom);
-    if (query.enginePowerTo) filter.power.$lte = parseInt(query.enginePowerTo);
+    const minPower = safeInt(query.enginePowerFrom);
+    const maxPower = safeInt(query.enginePowerTo);
+
+    if (minPower !== null || maxPower !== null) {
+      filter.power = {};
+      if (minPower !== null) filter.power.$gte = minPower;
+      if (maxPower !== null) filter.power.$lte = maxPower;
+
+      if (minPower !== null && maxPower !== null && minPower > maxPower) {
+        delete filter.power;
+      }
+    }
   }
 
-  // Pojemność silnika
+  // Pojemność silnika (UWAGA: używamy pola `engineSize` zgodnie z routerem)
   if (query.engineCapacityFrom || query.engineCapacityTo) {
-    filter.engineSize = {}; // Zmienione z engineCapacity na engineSize (zgodnie ze schematem)
-    if (query.engineCapacityFrom)
-      filter.engineSize.$gte = parseFloat(query.engineCapacityFrom);
-    if (query.engineCapacityTo)
-      filter.engineSize.$lte = parseFloat(query.engineCapacityTo);
+    const minCapacity = safeFloat(query.engineCapacityFrom);
+    const maxCapacity = safeFloat(query.engineCapacityTo);
+
+    if (minCapacity !== null || maxCapacity !== null) {
+      filter.engineSize = {};
+      if (minCapacity !== null) filter.engineSize.$gte = minCapacity;
+      if (maxCapacity !== null) filter.engineSize.$lte = maxCapacity;
+
+      if (
+        minCapacity !== null &&
+        maxCapacity !== null &&
+        minCapacity > maxCapacity
+      ) {
+        delete filter.engineSize;
+      }
+    }
   }
 
   // Waga pojazdu
   if (query.weightFrom || query.weightTo) {
-    filter.weight = {};
-    if (query.weightFrom) filter.weight.$gte = parseInt(query.weightFrom);
-    if (query.weightTo) filter.weight.$lte = parseInt(query.weightTo);
+    const minWeight = safeInt(query.weightFrom);
+    const maxWeight = safeInt(query.weightTo);
+
+    if (minWeight !== null || maxWeight !== null) {
+      filter.weight = {};
+      if (minWeight !== null) filter.weight.$gte = minWeight;
+      if (maxWeight !== null) filter.weight.$lte = maxWeight;
+
+      if (minWeight !== null && maxWeight !== null && minWeight > maxWeight) {
+        delete filter.weight;
+      }
+    }
   }
 
-  // Status ogłoszenia - domyślnie aktywne i opublikowane
+  // Status ogłoszenia - domyślnie aktywne (nie nadpisujemy, jeśli przyszło w query)
   if (query.status) {
     filter.status = query.status;
   } else {
@@ -239,66 +289,58 @@ export const createAdFilter = (query) => {
     filter.listingType = query.listingType;
   }
 
-  // === DODATKOWE FILTRY (zachowane dla kompatybilności) ===
-  if (query.power && !filter.power) filter.power = parseInt(query.power);
-  if (query.drive) filter.drive = query.drive;
+  // DODATKOWO: pojedyncze pole power (dla kompatybilności), jeśli nie ustawiono zakresu
+  if (query.power && !filter.power) {
+    const power = safeInt(query.power);
+    if (power !== null) filter.power = power;
+  }
 
   return filter;
 };
 
-// Funkcja do pobierania wszystkich aktywnych ogłoszeń
-export const getActiveAdsPool = async (Ad) => {
-  // Używamy spójnej logiki filtrowania aktywnych ogłoszeń
-  const filter = createAdFilter({});
-  // NIE usuwamy filtra statusu - chcemy tylko aktywne ogłoszenia
+/* ------------------------ Counters & Utils ------------------------ */
 
-  console.log("Filtr dla puli aktywnych ogłoszeń:", filter);
-
-  const ads = await Ad.find(filter);
-
-  console.log("Liczba ogłoszeń w puli aktywnych:", ads.length);
-  console.log(
-    "Statusy ogłoszeń w puli:",
-    ads.map((ad) => ad.status)
-  );
-
-  return ads;
-};
-
-// Funkcja do pobierania liczby aktywnych ogłoszeń
+/**
+ * Zwraca liczbę aktywnych ogłoszeń (lub zgodnie z nadanym `status` w additionalFilters).
+ * Nie nadpisuje `status`, jeśli został jawnie przekazany.
+ */
 export const getActiveAdsCount = async (Ad, additionalFilters = {}) => {
-  const filter = {
-    ...additionalFilters,
-    status: getActiveStatusFilter(),
-  };
-
-  const count = await Ad.countDocuments(filter);
-  console.log("Liczba aktywnych ogłoszeń:", count);
-
-  return count;
+  const filter = { ...additionalFilters };
+  if (!filter.status) {
+    filter.status = getActiveStatusFilter();
+  }
+  return Ad.countDocuments(filter);
 };
 
-// Funkcja pomocnicza do przetwarzania obrazów
+/**
+ * Przetwarzanie obrazów:
+ * - działa z dokumentem Mongoose (ma .toObject) i z obiektem z .lean()
+ * - dodaje BASE_URL dla ścieżek względnych
+ * - fallback do placeholdera, jeśli brak obrazów
+ */
 export const processAdImages = (ad) => {
-  const adObj = ad.toObject();
+  const src =
+    ad && typeof ad.toObject === "function" ? ad.toObject() : { ...ad };
+  const adObj = src || {};
   const defaultImage = "https://via.placeholder.com/800x600?text=No+Image";
 
-  if (!adObj.images || adObj.images.length === 0) {
+  const array = Array.isArray(adObj.images) ? adObj.images : [];
+  const valid = array.filter(Boolean);
+
+  if (valid.length === 0) {
     adObj.images = [defaultImage];
     return adObj;
   }
 
-  const validImages = adObj.images.filter((imageUrl) => imageUrl);
-
-  if (validImages.length > 0) {
-    adObj.images = validImages.map((imageUrl) => {
-      if (imageUrl.startsWith("http")) return imageUrl;
-      return `${process.env.BACKEND_URL || "http://localhost:5000"}${
-        imageUrl.startsWith("/") ? "" : "/"
-      }${imageUrl}`;
-    });
-  } else {
-    adObj.images = [defaultImage];
-  }
+  const base = process.env.BACKEND_URL || "http://localhost:5000";
+  adObj.images = valid.map((url) =>
+    String(url).startsWith("http")
+      ? url
+      : `${base}${url.startsWith("/") ? "" : "/"}${url}`
+  );
   return adObj;
 };
+
+/* ------------------------ Named Exports (opcjonalnie) ------------------------ */
+// (Jeśli chcesz korzystać z helperów w innych miejscach)
+export { safeInt, safeFloat, toIn, toInNumber };

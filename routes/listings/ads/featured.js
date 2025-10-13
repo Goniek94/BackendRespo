@@ -223,10 +223,14 @@ router.post(
             console.log(`Ad ${adObj._id} has ${validImages.length} images`);
 
             // Transform image paths to full URLs
+            // Supabase URLs are already complete, only transform legacy local paths
             adObj.images = validImages.map((imageUrl) => {
+              // If already a full URL (http/https), return as is
               if (imageUrl.startsWith("http")) {
                 return imageUrl;
-              } else if (imageUrl.startsWith("/uploads/")) {
+              }
+              // Legacy local paths - convert to full URLs (backwards compatibility)
+              else if (imageUrl.startsWith("/uploads/")) {
                 return `${
                   process.env.BACKEND_URL || "http://localhost:5000"
                 }${imageUrl}`;
@@ -235,6 +239,7 @@ router.post(
                   process.env.BACKEND_URL || "http://localhost:5000"
                 }/${imageUrl}`;
               } else {
+                // Assume it's a legacy filename without path
                 return `${
                   process.env.BACKEND_URL || "http://localhost:5000"
                 }/uploads/${imageUrl}`;

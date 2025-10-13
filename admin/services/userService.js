@@ -1,752 +1,89 @@
-import User from "../../models/user/user.js";
-import AdminActivity from "../models/AdminActivity.js";
-import Ad from "../../models/listings/ad.js";
+// admin/services/userService.js
+// Main User Service - Clean importer architecture
+// All business logic is in separate operation modules
+
+import * as userCrudOps from "./users/operations/userCrudOperations.js";
+import * as analyticsOps from "./users/operations/analyticsOperations.js";
 
 /**
  * Professional User Management Service
- * Handles all user-related business logic for admin panel
- * Features: CRUD operations, bulk actions, analytics, security
+ * Clean architecture with separated concerns:
+ * - CRUD operations (userCrudOperations.js)
+ * - Analytics operations (analyticsOperations.js)
+ * - Query helpers (helpers/queryBuilder.js)
+ * - Data mapping (helpers/dataMapper.js)
  *
- * @author Senior Developer
- * @version 1.0.0
+ * @version 2.0.0 - Refactored to modular architecture
  */
-
 class UserService {
+  // ========================================
+  // CRUD Operations
+  // ========================================
+
   /**
    * Get paginated list of users with filtering and sorting
-   * @param {Object} options - Query options
-   * @param {number} options.page - Page number (default: 1)
-   * @param {number} options.limit - Items per page (default: 20)
-   * @param {string} options.search - Search term for name/email
-   * @param {string} options.role - Filter by user role
-   * @param {string} options.status - Filter by user status
-   * @param {string} options.sortBy - Sort field (default: 'createdAt')
-   * @param {string} options.sortOrder - Sort order (default: 'desc')
-   * @param {Date} options.dateFrom - Filter from date
-   * @param {Date} options.dateTo - Filter to date
-   * @returns {Object} Paginated users with metadata
    */
   async getUsers(options = {}) {
-    const {
-      page = 1,
-      limit = 20,
-      search = "",
-      role = "",
-      status = "",
-      sortBy = "createdAt",
-      sortOrder = "desc",
-      dateFrom,
-      dateTo,
-    } = options;
-
-    // Build query object
-    const query = {};
-
-    // Search in name and email
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
-      ];
-    }
-
-    // Filter by role
-    if (role) {
-      query.role = role;
-    }
-
-    // Filter by status
-    if (status) {
-      query.status = status;
-    }
-
-    // Date range filter
-    if (dateFrom || dateTo) {
-      query.createdAt = {};
-      if (dateFrom) query.createdAt.$gte = new Date(dateFrom);
-      if (dateTo) query.createdAt.$lte = new Date(dateTo);
-    }
-
-    // Calculate pagination
-    const skip = (page - 1) * limit;
-    const sortOptions = { [sortBy]: sortOrder === "desc" ? -1 : 1 };
-
-    try {
-      // Execute queries in parallel for better performance
-      const [rawUsers, totalCount] = await Promise.all([
-        User.find(query)
-          .select("-password -__v")
-          .sort(sortOptions)
-          .skip(skip)
-          .limit(parseInt(limit))
-          .lean(),
-        User.countDocuments(query),
-      ]);
-
-      // Get ads count for all users in one efficient query
-      const userIds = rawUsers.map((u) => u._id);
-      const adsCountAggregation = await Ad.aggregate([
-        {
-          $match: {
-            $or: [{ user: { $in: userIds } }, { owner: { $in: userIds } }],
-          },
-        },
-        {
-          $group: {
-            _id: { $ifNull: ["$user", "$owner"] },
-            count: { $sum: 1 },
-          },
-        },
-      ]);
-
-      // Create a map of userId -> ads count for quick lookup
-      const adsCountMap = new Map();
-      adsCountAggregation.forEach((item) => {
-        if (item._id) {
-          adsCountMap.set(item._id.toString(), item.count);
-        }
-      });
-
-      // Map MongoDB fields to frontend-expected fields
-      const users = rawUsers.map((user) => ({
-        ...user,
-        id: user._id.toString(),
-        phone: user.phoneNumber || "",
-        verified: user.isVerified || false,
-        adsCount: adsCountMap.get(user._id.toString()) || 0,
-        listings_count: adsCountMap.get(user._id.toString()) || 0,
-        last_active: user.lastActivity || user.lastLogin,
-        created_at: user.createdAt,
-        updated_at: user.updatedAt,
-      }));
-
-      // Calculate pagination metadata
-      const totalPages = Math.ceil(totalCount / limit);
-      const hasNextPage = page < totalPages;
-      const hasPrevPage = page > 1;
-
-      return {
-        users,
-        pagination: {
-          currentPage: parseInt(page),
-          totalPages,
-          totalCount,
-          limit: parseInt(limit),
-          hasNextPage,
-          hasPrevPage,
-        },
-        filters: {
-          search,
-          role,
-          status,
-          sortBy,
-          sortOrder,
-          dateFrom,
-          dateTo,
-        },
-      };
-    } catch (error) {
-      throw new Error(`Failed to fetch users: ${error.message}`);
-    }
+    return userCrudOps.getUsers(options);
   }
 
   /**
    * Get single user by ID with detailed information
-   * @param {string} userId - User ID
-   * @returns {Object} User details with statistics
    */
   async getUserById(userId) {
-    try {
-      const user = await User.findById(userId).select("-password -__v").lean();
-
-      if (!user) {
-        throw new Error("User not found");
-      }
-
-      // Get user statistics (could be extended with more metrics)
-      const stats = await this.getUserStatistics(userId);
-
-      return {
-        ...user,
-        statistics: stats,
-      };
-    } catch (error) {
-      throw new Error(`Failed to fetch user: ${error.message}`);
-    }
+    return userCrudOps.getUserById(userId);
   }
 
   /**
    * Update user information
-   * @param {string} userId - User ID
-   * @param {Object} updateData - Data to update
-   * @param {string} adminId - ID of admin performing the update
-   * @returns {Object} Updated user
    */
   async updateUser(userId, updateData, adminId) {
-    try {
-      console.log("🟣 UserService.updateUser CALLED");
-      console.log("🟣 userId:", userId);
-      console.log("🟣 updateData received:", updateData);
-      console.log("🟣 adminId:", adminId);
-
-      // Get current user data for audit trail
-      const currentUser = await User.findById(userId).lean();
-      if (!currentUser) {
-        throw new Error("User not found");
-      }
-
-      console.log("🟣 Current user found:", currentUser.email);
-
-      // Validate update data
-      const allowedFields = [
-        "name",
-        "lastName",
-        "email",
-        "role",
-        "status",
-        "isVerified",
-        "phone",
-        "phoneNumber",
-        "location",
-        "preferences",
-        "password",
-        "isEmailVerified",
-        "emailVerified",
-        "isPhoneVerified",
-        "phoneVerified",
-        "dateOfBirth",
-        "dob",
-        "blockUntil",
-        "accountLocked",
-        "blockedAt",
-        "blockedBy",
-        "blockReason",
-      ];
-
-      const filteredData = {};
-      Object.keys(updateData).forEach((key) => {
-        if (allowedFields.includes(key)) {
-          filteredData[key] = updateData[key];
-        }
-      });
-
-      // Check if email is being changed and if it's already taken
-      if (filteredData.email) {
-        // Normalize email FIRST before comparison
-        const normalizedNewEmail = filteredData.email.toLowerCase().trim();
-        const normalizedCurrentEmail = currentUser.email.toLowerCase().trim();
-
-        console.log("🔵 Email comparison:");
-        console.log("🔵 New email (normalized):", normalizedNewEmail);
-        console.log("🔵 Current email (normalized):", normalizedCurrentEmail);
-
-        if (normalizedNewEmail !== normalizedCurrentEmail) {
-          console.log("🔵 Email IS changing, checking if exists...");
-
-          const emailExists = await User.findOne({
-            email: normalizedNewEmail,
-            _id: { $ne: userId },
-          });
-
-          if (emailExists) {
-            throw new Error(
-              `Email ${normalizedNewEmail} is already in use by another user`
-            );
-          }
-
-          console.log("✅ Email is unique, will be updated");
-          // Set normalized email only if it's different
-          filteredData.email = normalizedNewEmail;
-        } else {
-          console.log("⚠️ Email is the same (after normalization)");
-          // Remove email from update if it's the same - don't waste DB operation
-          delete filteredData.email;
-        }
-      }
-
-      // Check if phone is being changed and if it's already taken
-      const phoneToCheck = filteredData.phoneNumber || filteredData.phone;
-      if (phoneToCheck && phoneToCheck !== currentUser.phoneNumber) {
-        const phoneExists = await User.findOne({
-          phoneNumber: phoneToCheck,
-          _id: { $ne: userId },
-        });
-
-        if (phoneExists) {
-          throw new Error(
-            `Phone number ${phoneToCheck} is already in use by another user`
-          );
-        }
-
-        // Ensure phoneNumber field is used (not phone)
-        filteredData.phoneNumber = phoneToCheck;
-        delete filteredData.phone;
-      }
-
-      // Remove phone field if exists (use phoneNumber instead)
-      if (filteredData.phone && !filteredData.phoneNumber) {
-        filteredData.phoneNumber = filteredData.phone;
-        delete filteredData.phone;
-      }
-
-      // Map dateOfBirth to dob (frontend uses dateOfBirth, DB uses dob)
-      if (filteredData.dateOfBirth) {
-        filteredData.dob = filteredData.dateOfBirth;
-        delete filteredData.dateOfBirth;
-      }
-
-      // Handle password hashing if password is being updated
-      if (filteredData.password) {
-        console.log("🔐 Password change requested for user:", userId);
-        console.log("🔐 Password length:", filteredData.password.length);
-        const bcrypt = await import("bcrypt");
-        filteredData.password = await bcrypt.hash(filteredData.password, 12);
-        console.log("✅ Password hashed successfully");
-      }
-
-      // Update user
-      console.log("🟣 About to update user with filteredData:", filteredData);
-
-      const updatedUser = await User.findByIdAndUpdate(
-        userId,
-        {
-          ...filteredData,
-          updatedAt: new Date(),
-        },
-        {
-          new: true,
-          runValidators: true, // Włącz walidatory dla poprawności danych
-          context: "query", // Potrzebne dla niektórych walidatorów
-        }
-      ).select("-password -__v");
-
-      console.log("✅ User updated successfully!");
-      console.log("✅ Updated email:", updatedUser?.email);
-      console.log("✅ Updated name:", updatedUser?.name);
-
-      // Log admin activity
-      await AdminActivity.create({
-        adminId,
-        actionType: "user_updated",
-        targetResource: {
-          resourceType: "user",
-          resourceId: userId,
-          resourceIdentifier: updatedUser.email,
-        },
-        actionDetails: {
-          previousState: {
-            name: currentUser.name,
-            email: currentUser.email,
-            role: currentUser.role,
-            status: currentUser.status,
-            isVerified: currentUser.isVerified,
-          },
-          newState: {
-            name: updatedUser.name,
-            email: updatedUser.email,
-            role: updatedUser.role,
-            status: updatedUser.status,
-            isVerified: updatedUser.isVerified,
-          },
-          metadata: {
-            fieldsChanged: Object.keys(filteredData),
-          },
-        },
-        requestContext: {
-          ipAddress: "0.0.0.0", // Will be set by middleware
-          userAgent: "Admin Panel",
-          sessionId: "admin_session",
-        },
-        result: {
-          status: "success",
-          message: "User updated successfully",
-        },
-      });
-
-      return updatedUser;
-    } catch (error) {
-      throw new Error(`Failed to update user: ${error.message}`);
-    }
+    return userCrudOps.updateUser(userId, updateData, adminId);
   }
 
   /**
    * Block or unblock user
-   * @param {string} userId - User ID
-   * @param {boolean} blocked - Block status
-   * @param {string} reason - Reason for blocking/unblocking
-   * @param {string} adminId - ID of admin performing the action
-   * @param {Date} blockUntil - Optional: block until specific date (for temporary blocks)
-   * @returns {Object} Updated user
    */
   async toggleUserBlock(userId, blocked, reason, adminId, blockUntil = null) {
-    try {
-      const user = await User.findById(userId);
-      if (!user) {
-        throw new Error("User not found");
-      }
-
-      // SECURITY FIX: Blacklist all active tokens when blocking user
-      if (blocked) {
-        try {
-          // Import TokenBlacklist model
-          const TokenBlacklist = (
-            await import("../../models/security/TokenBlacklist.js")
-          ).default;
-
-          // Find and blacklist all active tokens for this user
-          // Note: This requires tokens to have userId in metadata or we need another approach
-          // For now, we'll log this action - actual implementation may require token tracking
-          console.log(
-            `[SECURITY] Admin ${adminId} blocked user ${userId} - all future auth attempts will be rejected`
-          );
-
-          // In a complete implementation, you might want to:
-          // 1. Track active sessions in database
-          // 2. Blacklist known active tokens
-          // 3. Force logout from all devices
-        } catch (error) {
-          console.error("Failed to blacklist user tokens:", error);
-          // Continue with user block even if token blacklisting fails
-        }
-      }
-
-      const previousStatus = user.status;
-      const newStatus = blocked ? "blocked" : "active";
-
-      const updateData = {
-        status: newStatus,
-        updatedAt: new Date(),
-      };
-
-      if (blocked) {
-        updateData.blockedAt = new Date();
-        updateData.blockedBy = adminId;
-        updateData.blockReason = reason;
-        if (blockUntil) {
-          updateData.blockUntil = blockUntil;
-        }
-        updateData.accountLocked = true;
-      } else {
-        updateData.blockedAt = null;
-        updateData.blockedBy = null;
-        updateData.blockReason = null;
-        updateData.blockUntil = null;
-        updateData.accountLocked = false;
-      }
-
-      const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
-        new: true,
-      }).select("-password -__v");
-
-      // Log admin activity
-      await AdminActivity.create({
-        adminId,
-        actionType: blocked ? "user_blocked" : "user_unblocked",
-        targetResource: {
-          resourceType: "user",
-          resourceId: userId,
-          resourceIdentifier: user.email,
-        },
-        actionDetails: {
-          previousState: { status: previousStatus },
-          newState: { status: newStatus },
-          reason,
-          metadata: {
-            action: blocked ? "block" : "unblock",
-            blockUntil: blockUntil || null,
-            temporary: !!blockUntil,
-          },
-        },
-        requestContext: {
-          ipAddress: "0.0.0.0",
-          userAgent: "Admin Panel",
-          sessionId: "admin_session",
-        },
-        result: {
-          status: "success",
-          message: `User ${blocked ? "blocked" : "unblocked"} successfully`,
-        },
-      });
-
-      return updatedUser;
-    } catch (error) {
-      throw new Error(
-        `Failed to ${blocked ? "block" : "unblock"} user: ${error.message}`
-      );
-    }
+    return userCrudOps.toggleUserBlock(
+      userId,
+      blocked,
+      reason,
+      adminId,
+      blockUntil
+    );
   }
 
   /**
    * Delete user (soft delete)
-   * @param {string} userId - User ID
-   * @param {string} reason - Reason for deletion
-   * @param {string} adminId - ID of admin performing the deletion
-   * @returns {Object} Success message
    */
   async deleteUser(userId, reason, adminId) {
-    try {
-      const user = await User.findById(userId);
-      if (!user) {
-        throw new Error("User not found");
-      }
-
-      // Soft delete - mark as deleted instead of removing from database
-      await User.findByIdAndUpdate(userId, {
-        status: "deleted",
-        deletedAt: new Date(),
-        deletedBy: adminId,
-      });
-
-      // Log admin activity
-      await AdminActivity.create({
-        adminId,
-        actionType: "user_deleted",
-        targetResource: {
-          resourceType: "user",
-          resourceId: userId,
-          resourceIdentifier: user.email,
-        },
-        actionDetails: {
-          reason,
-          metadata: {
-            originalStatus: user.status,
-            deletionType: "soft_delete",
-          },
-        },
-        requestContext: {
-          ipAddress: "0.0.0.0",
-          userAgent: "Admin Panel",
-          sessionId: "admin_session",
-        },
-        result: {
-          status: "success",
-          message: "User deleted successfully",
-        },
-        securityFlags: {
-          riskLevel: "high",
-          requiresReview: true,
-          complianceRelevant: true,
-        },
-      });
-
-      return {
-        success: true,
-        message: "User deleted successfully",
-        deletedUser: {
-          id: userId,
-          email: user.email,
-          name: user.name,
-        },
-      };
-    } catch (error) {
-      throw new Error(`Failed to delete user: ${error.message}`);
-    }
-  }
-
-  /**
-   * Get user statistics
-   * @param {string} userId - User ID
-   * @returns {Object} User statistics
-   */
-  async getUserStatistics(userId) {
-    try {
-      // Count total listings for user (both new 'user' and legacy 'owner' fields)
-      const totalListings = await Ad.countDocuments({
-        $or: [{ user: userId }, { owner: userId }],
-      });
-
-      // Count active/approved listings
-      const activeListings = await Ad.countDocuments({
-        $or: [{ user: userId }, { owner: userId }],
-        status: { $in: ["active", "approved"] },
-      });
-
-      return {
-        totalListings,
-        activeListings,
-        totalTransactions: 0,
-        totalSpent: 0,
-        accountAge: 0, // Calculate from createdAt
-        lastActivity: null,
-        verificationStatus: "pending",
-      };
-    } catch (error) {
-      console.error("Failed to get user statistics:", error);
-      return {
-        totalListings: 0,
-        activeListings: 0,
-        totalTransactions: 0,
-        totalSpent: 0,
-        accountAge: 0,
-        lastActivity: null,
-        verificationStatus: "unknown",
-      };
-    }
+    return userCrudOps.deleteUser(userId, reason, adminId);
   }
 
   /**
    * Bulk update users
-   * @param {Array} userIds - Array of user IDs
-   * @param {Object} updateData - Data to update
-   * @param {string} adminId - ID of admin performing the update
-   * @returns {Object} Bulk update results
    */
   async bulkUpdateUsers(userIds, updateData, adminId) {
-    try {
-      const allowedFields = ["role", "status", "isVerified"];
-      const filteredData = {};
-
-      Object.keys(updateData).forEach((key) => {
-        if (allowedFields.includes(key)) {
-          filteredData[key] = updateData[key];
-        }
-      });
-
-      const result = await User.updateMany(
-        { _id: { $in: userIds } },
-        {
-          ...filteredData,
-          updatedAt: new Date(),
-        }
-      );
-
-      // Log bulk admin activity
-      await AdminActivity.create({
-        adminId,
-        actionType: "bulk_operation",
-        targetResource: {
-          resourceType: "bulk",
-          resourceIdentifier: "user_bulk_update",
-        },
-        actionDetails: {
-          newState: filteredData,
-          affectedCount: result.modifiedCount,
-          metadata: {
-            operation: "bulk_update",
-            targetIds: userIds,
-            fieldsChanged: Object.keys(filteredData),
-          },
-        },
-        requestContext: {
-          ipAddress: "0.0.0.0",
-          userAgent: "Admin Panel",
-          sessionId: "admin_session",
-        },
-        result: {
-          status: "success",
-          message: `Bulk updated ${result.modifiedCount} users`,
-        },
-        securityFlags: {
-          riskLevel: "medium",
-          requiresReview: true,
-        },
-      });
-
-      return {
-        success: true,
-        modifiedCount: result.modifiedCount,
-        matchedCount: result.matchedCount,
-        message: `Successfully updated ${result.modifiedCount} users`,
-      };
-    } catch (error) {
-      throw new Error(`Bulk update failed: ${error.message}`);
-    }
+    return userCrudOps.bulkUpdateUsers(userIds, updateData, adminId);
   }
 
   /**
+   * Get user statistics
+   */
+  async getUserStatistics(userId) {
+    return userCrudOps.getUserStatistics(userId);
+  }
+
+  // ========================================
+  // Analytics Operations
+  // ========================================
+
+  /**
    * Get user analytics and insights
-   * @param {Object} options - Analytics options
-   * @returns {Object} User analytics data
    */
   async getUserAnalytics(options = {}) {
-    try {
-      const { timeframe = "30d" } = options;
-
-      // Calculate date range for change comparison
-      const now = new Date();
-      const daysBack = timeframe === "7d" ? 7 : timeframe === "30d" ? 30 : 90;
-      const currentPeriodStart = new Date(
-        now.getTime() - daysBack * 24 * 60 * 60 * 1000
-      );
-      const previousPeriodStart = new Date(
-        currentPeriodStart.getTime() - daysBack * 24 * 60 * 60 * 1000
-      );
-
-      // Get current period stats
-      const [currentStats, previousStats] = await Promise.all([
-        User.aggregate([
-          {
-            $facet: {
-              total: [{ $count: "count" }],
-              verified: [{ $match: { isVerified: true } }, { $count: "count" }],
-              inactive: [
-                { $match: { status: { $in: ["inactive", "pending"] } } },
-                { $count: "count" },
-              ],
-              blocked: [{ $match: { status: "blocked" } }, { $count: "count" }],
-            },
-          },
-        ]),
-        User.aggregate([
-          {
-            $match: { createdAt: { $lt: currentPeriodStart } },
-          },
-          {
-            $facet: {
-              total: [{ $count: "count" }],
-              verified: [{ $match: { isVerified: true } }, { $count: "count" }],
-              inactive: [
-                { $match: { status: { $in: ["inactive", "pending"] } } },
-                { $count: "count" },
-              ],
-              blocked: [{ $match: { status: "blocked" } }, { $count: "count" }],
-            },
-          },
-        ]),
-      ]);
-
-      const current = currentStats[0];
-      const previous = previousStats[0];
-
-      // Calculate current values
-      const total = current.total[0]?.count || 0;
-      const verified = current.verified[0]?.count || 0;
-      const inactive = current.inactive[0]?.count || 0;
-      const blocked = current.blocked[0]?.count || 0;
-
-      // Calculate previous values for change calculation
-      const prevTotal = previous.total[0]?.count || 0;
-      const prevVerified = previous.verified[0]?.count || 0;
-      const prevInactive = previous.inactive[0]?.count || 0;
-      const prevBlocked = previous.blocked[0]?.count || 0;
-
-      // Calculate percentage changes
-      const calculateChange = (current, previous) => {
-        if (previous === 0) return current > 0 ? 100 : 0;
-        return Math.round(((current - previous) / previous) * 100);
-      };
-
-      return {
-        total,
-        verified,
-        inactive,
-        blocked,
-        totalChange: calculateChange(total, prevTotal),
-        verifiedChange: calculateChange(verified, prevVerified),
-        inactiveChange: calculateChange(inactive, prevInactive),
-        blockedChange: calculateChange(blocked, prevBlocked),
-        // Dodatkowe dane dla kompatybilności
-        totalUsers: total,
-        verifiedUsers: verified,
-        recentUsers: total - prevTotal,
-        usersByRole: [],
-        usersByStatus: [],
-        timeframe,
-        generatedAt: new Date(),
-      };
-    } catch (error) {
-      throw new Error(`Failed to generate user analytics: ${error.message}`);
-    }
+    return analyticsOps.getUserAnalytics(options);
   }
 }
 

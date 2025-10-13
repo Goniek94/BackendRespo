@@ -8,9 +8,12 @@ import auth from "../../../middleware/auth.js";
 import validate from "../../../middleware/validation/validate.js";
 import adValidationSchema from "../../../validationSchemas/adValidation.js";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
 import errorHandler from "../../../middleware/errors/errorHandler.js";
+import {
+  uploadAdImages,
+  validateFiles,
+  isStorageAvailable,
+} from "../../../services/storage/supabase.js";
 
 /**
  * Funkcja do pełnej kapitalizacji (wszystkie litery duże)
@@ -51,35 +54,28 @@ const sellerTypeMapping = {
   company: "Firma",
 };
 
-// Konfiguracja multera do obsługi plików
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = "uploads/ads";
-    // Sprawdź, czy katalog istnieje, jeśli nie - utwórz go
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    // Generuj unikalną nazwę pliku
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  },
-});
-
+// Configure multer to use memory storage for Supabase
 const upload = multer({
-  storage: storage,
+  storage: multer.memoryStorage(), // Store files in memory as Buffer
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
-    files: 10, // maksymalnie 10 plików
+    fileSize: 5 * 1024 * 1024, // 5MB limit per file
+    files: 15, // Maximum 15 files per request
   },
   fileFilter: (req, file, cb) => {
-    // Sprawdź czy plik to obraz
-    if (file.mimetype.startsWith("image/")) {
+    // Only accept images
+    const allowedMimeTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+    ];
+    if (allowedMimeTypes.includes(file.mimetype.toLowerCase())) {
       cb(null, true);
     } else {
-      cb(new Error("Tylko pliki obrazów są dozwolone!"), false);
+      cb(
+        new Error("Tylko pliki obrazów są dozwolone (JPEG, PNG, WebP)"),
+        false
+      );
     }
   },
 });
@@ -238,13 +234,49 @@ export const updateAd = [
         }
       }
 
-      // Obsługa nowych zdjęć (pliki uploadowane)
+      // Obsługa nowych zdjęć (pliki uploadowane) - SUPABASE
       if (req.files && req.files.length > 0) {
-        console.log(`Dodawanie ${req.files.length} nowych zdjęć`);
-        const newImageUrls = req.files.map(
-          (file) => `/${file.path.replace(/\\/g, "/")}`
-        );
-        ad.images = [...(ad.images || []), ...newImageUrls];
+        console.log(`Dodawanie ${req.files.length} nowych zdjęć do Supabase`);
+
+        // Check if Supabase is available
+        if (!isStorageAvailable()) {
+          return res.status(503).json({
+            message: "Upload zdjęć tymczasowo niedostępny",
+            error: "Supabase Storage not configured",
+          });
+        }
+
+        try {
+          // Validate files
+          const validation = validateFiles(req.files, {
+            maxFiles: 15,
+            maxFileSize: 5 * 1024 * 1024,
+          });
+
+          if (!validation.valid) {
+            return res.status(400).json({
+              message: "Walidacja plików nie powiodła się",
+              errors: validation.errors,
+            });
+          }
+
+          // Upload to Supabase
+          const uploadedImages = await uploadAdImages(req.files, req.params.id);
+
+          // Extract public URLs
+          const newImageUrls = uploadedImages.map((img) => img.originalUrl);
+
+          console.log("Nowe zdjęcia przesłane do Supabase:", newImageUrls);
+
+          // Add to existing images
+          ad.images = [...(ad.images || []), ...newImageUrls];
+        } catch (uploadError) {
+          console.error("❌ Błąd uploadu do Supabase:", uploadError);
+          return res.status(500).json({
+            message: "Błąd podczas uploadu zdjęć",
+            error: uploadError.message,
+          });
+        }
       }
 
       // Ustaw główne zdjęcie

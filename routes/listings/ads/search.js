@@ -71,6 +71,7 @@ function listProjection() {
     favorites: 1,
     featured: 1,
     condition: 1,
+    moderation: 1,
   };
 }
 

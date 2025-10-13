@@ -202,6 +202,31 @@ export const validateUserUpdate = [
     .optional()
     .isIn(["pl", "en"])
     .withMessage("Language must be pl or en"),
+
+  body("blockUntil")
+    .optional()
+    .isISO8601()
+    .withMessage("blockUntil must be a valid ISO 8601 date"),
+
+  body("accountLocked")
+    .optional()
+    .isBoolean()
+    .withMessage("accountLocked must be a boolean"),
+
+  body("blockedAt")
+    .optional()
+    .isISO8601()
+    .withMessage("blockedAt must be a valid ISO 8601 date"),
+
+  body("blockedBy")
+    .optional()
+    .isMongoId()
+    .withMessage("blockedBy must be a valid MongoDB ObjectId"),
+
+  body("blockReason")
+    .optional()
+    .isLength({ max: 500 })
+    .withMessage("blockReason cannot exceed 500 characters"),
 ];
 
 /**

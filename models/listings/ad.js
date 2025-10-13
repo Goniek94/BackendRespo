@@ -94,7 +94,7 @@ const AdSchema = new mongoose.Schema(
     // Status moderacji
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected", "active", "hidden"],
+      enum: ["pending", "approved", "rejected", "active", "hidden", "archived"],
       default: "pending",
       index: true,
     },
@@ -110,6 +110,9 @@ const AdSchema = new mongoose.Schema(
       rejectedAt: { type: Date },
       rejectedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
       rejectReason: { type: String, default: "" },
+      hiddenAt: { type: Date },
+      hiddenBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      hideReason: { type: String, default: "" },
     },
 
     // Analytics & engagement

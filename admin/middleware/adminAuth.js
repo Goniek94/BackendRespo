@@ -405,7 +405,14 @@ export const requireAdminAuth = async (req, res, next) => {
 export const requireAdminRole = (requiredRoles = ["admin"]) => {
   return async (req, res, next) => {
     try {
+      console.log("🟣 requireAdminRole MIDDLEWARE CALLED");
+      console.log("🟣 Required roles:", requiredRoles);
+      console.log("🟣 req.user exists:", !!req.user);
+      console.log("🟣 req.user.role:", req.user?.role);
+      console.log("🟣 req.user._id:", req.user?._id);
+
       if (!req.user) {
+        console.log("❌ No req.user - returning 401");
         return res.status(401).json({
           success: false,
           error: "Authentication required",
@@ -414,6 +421,10 @@ export const requireAdminRole = (requiredRoles = ["admin"]) => {
       }
 
       if (!requiredRoles.includes(req.user.role)) {
+        console.log("❌ Role not in required roles - returning 403");
+        console.log("❌ User role:", req.user.role);
+        console.log("❌ Required roles:", requiredRoles);
+
         await logSecurityEvent(req, "access_denied", {
           userId: req.user._id,
           userRole: req.user.role,
@@ -428,8 +439,10 @@ export const requireAdminRole = (requiredRoles = ["admin"]) => {
         });
       }
 
+      console.log("✅ Role check passed - proceeding");
       next();
     } catch (error) {
+      console.error("❌ requireAdminRole error:", error);
       logger.error("Role check error", {
         error: error.message,
         stack: error.stack,

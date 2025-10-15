@@ -3,8 +3,11 @@
  * Manages CRUD operations for advertisements
  */
 
-import Ad from '../../models/listings/ad.js';
-import { getActiveStatusFilter, getActiveAdsCount } from '../../utils/listings/commonFilters.js';
+import Ad from "../../models/listings/ad.js";
+import {
+  getActiveStatusFilter,
+  getActiveAdsCount,
+} from "../../utils/listings/commonFilters.js";
 
 /**
  * Controller class for ad endpoints
@@ -16,33 +19,38 @@ class AdController {
    */
   static async getAllAds(req, res, next) {
     try {
-      const { 
-        page = 1, 
-        limit = 30, 
-        brand, 
-        model, 
-        minPrice, 
-        maxPrice, 
-        sortBy = 'createdAt', 
-        order = 'desc',
-        listingType
+      const {
+        page = 1,
+        limit = 30,
+        brand,
+        model,
+        minPrice,
+        maxPrice,
+        sortBy = "createdAt",
+        order = "desc",
+        listingType,
       } = req.query;
 
       // Build filter object - only active ads
       const filter = { status: getActiveStatusFilter() };
-      
+
       if (brand) filter.brand = brand;
       if (model) filter.model = model;
-      if (minPrice) filter.price = { ...filter.price, $gte: parseFloat(minPrice) };
-      if (maxPrice) filter.price = { ...filter.price, $lte: parseFloat(maxPrice) };
+      if (minPrice)
+        filter.price = { ...filter.price, $gte: parseFloat(minPrice) };
+      if (maxPrice)
+        filter.price = { ...filter.price, $lte: parseFloat(maxPrice) };
       if (listingType) filter.listingType = listingType;
 
       const sortOptions = {};
-      sortOptions[sortBy] = order === 'desc' ? -1 : 1;
+      sortOptions[sortBy] = order === "desc" ? -1 : 1;
 
       const skip = (parseInt(page) - 1) * parseInt(limit);
-      
+
       const ads = await Ad.find(filter)
+        .select(
+          "_id brand model headline title description year price mileage fuelType transmission power images mainImage status listingType createdAt views favorites"
+        )
         .sort(sortOptions)
         .skip(skip)
         .limit(parseInt(limit));
@@ -53,11 +61,10 @@ class AdController {
         ads,
         totalPages: Math.ceil(totalAds / parseInt(limit)),
         currentPage: parseInt(page),
-        totalAds
+        totalAds,
       });
-
     } catch (error) {
-      console.error('Error in getAllAds:', error);
+      console.error("Error in getAllAds:", error);
       next(error);
     }
   }
@@ -69,23 +76,22 @@ class AdController {
   static async getAdById(req, res, next) {
     try {
       const { id } = req.params;
-      
+
       const ad = await Ad.findById(id);
-      
+
       if (!ad) {
         return res.status(404).json({
           success: false,
-          message: 'Ogłoszenie nie zostało znalezione'
+          message: "Ogłoszenie nie zostało znalezione",
         });
       }
 
       res.status(200).json({
         success: true,
-        data: ad
+        data: ad,
       });
-
     } catch (error) {
-      console.error('Error in getAdById:', error);
+      console.error("Error in getAdById:", error);
       next(error);
     }
   }
@@ -97,15 +103,14 @@ class AdController {
   static async getActiveAdsCount(req, res, next) {
     try {
       const activeCount = await getActiveAdsCount(Ad);
-      
-      res.status(200).json({ 
+
+      res.status(200).json({
         activeCount,
         message: `Znaleziono ${activeCount} aktywnych ogłoszeń w bazie danych`,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-
     } catch (error) {
-      console.error('Error in getActiveAdsCount:', error);
+      console.error("Error in getActiveAdsCount:", error);
       next(error);
     }
   }
@@ -119,82 +124,90 @@ class AdController {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 30;
       const skip = (page - 1) * limit;
-      const { sortBy = 'createdAt', order = 'desc', sellerType } = req.query;
+      const { sortBy = "createdAt", order = "desc", sellerType } = req.query;
 
-      console.log('🔍 BACKEND SEARCH - Parametry sortowania:', { sortBy, order });
-      console.log('🔍 BACKEND SEARCH - Parametry filtrowania:', { sellerType });
+      console.log("🔍 BACKEND SEARCH - Parametry sortowania:", {
+        sortBy,
+        order,
+      });
+      console.log("🔍 BACKEND SEARCH - Parametry filtrowania:", { sellerType });
 
       // Build filter object - start with active ads only
       const activeFilter = { status: getActiveStatusFilter() };
-      
+
       // Add seller type filter if provided
-      if (sellerType && sellerType !== 'all') {
+      if (sellerType && sellerType !== "all") {
         activeFilter.sellerType = sellerType;
-        console.log('🔍 BACKEND SEARCH - Dodano filtr sellerType:', sellerType);
+        console.log("🔍 BACKEND SEARCH - Dodano filtr sellerType:", sellerType);
       }
-      
+
       const allAds = await Ad.find(activeFilter);
-      console.log('🔍 BACKEND SEARCH - Znaleziono ogłoszeń po filtrach:', allAds.length);
-      
+      console.log(
+        "🔍 BACKEND SEARCH - Znaleziono ogłoszeń po filtrach:",
+        allAds.length
+      );
+
       // Calculate match score for each ad
-      const adsWithScore = allAds.map(ad => {
+      const adsWithScore = allAds.map((ad) => {
         const match_score = calculateMatchScore(ad, req.query);
-        const is_featured = ad.listingType === 'wyróżnione' ? 1 : 0;
+        const is_featured = ad.listingType === "wyróżnione" ? 1 : 0;
         return {
           ...ad.toObject(),
           match_score,
-          is_featured
+          is_featured,
         };
       });
 
       // Apply custom sorting based on sortBy parameter
       adsWithScore.sort((a, b) => {
         // Always prioritize featured ads first
-        if (b.is_featured !== a.is_featured) return b.is_featured - a.is_featured;
-        
+        if (b.is_featured !== a.is_featured)
+          return b.is_featured - a.is_featured;
+
         // Then apply user-selected sorting
         let comparison = 0;
-        
+
         switch (sortBy) {
-          case 'price':
+          case "price":
             comparison = (a.price || 0) - (b.price || 0);
             break;
-          case 'year':
+          case "year":
             comparison = (a.year || 0) - (b.year || 0);
             break;
-          case 'mileage':
+          case "mileage":
             comparison = (a.mileage || 0) - (b.mileage || 0);
             break;
-          case 'createdAt':
+          case "createdAt":
           default:
             comparison = new Date(a.createdAt) - new Date(b.createdAt);
             break;
         }
-        
+
         // Apply sort order (desc = -1, asc = 1)
-        const sortMultiplier = order === 'desc' ? -1 : 1;
+        const sortMultiplier = order === "desc" ? -1 : 1;
         comparison *= sortMultiplier;
-        
+
         // If values are equal, fall back to match score, then creation date
         if (comparison === 0) {
-          if (b.match_score !== a.match_score) return b.match_score - a.match_score;
+          if (b.match_score !== a.match_score)
+            return b.match_score - a.match_score;
           return new Date(b.createdAt) - new Date(a.createdAt);
         }
-        
+
         return comparison;
       });
 
-      console.log('✅ BACKEND SEARCH - Posortowane:', {
+      console.log("✅ BACKEND SEARCH - Posortowane:", {
         total: adsWithScore.length,
-        first3: adsWithScore.slice(0, 3).map(ad => ({
+        first3: adsWithScore.slice(0, 3).map((ad) => ({
           id: ad._id,
           brand: ad.brand,
           model: ad.model,
           price: ad.price,
           year: ad.year,
           mileage: ad.mileage,
-          sortValue: ad[sortBy] || 'N/A'
-        }))
+          sortValue: ad[sortBy] || "N/A",
+        })),
       });
 
       // Apply pagination
@@ -204,11 +217,10 @@ class AdController {
         ads: paginatedAds,
         currentPage: page,
         totalPages: Math.ceil(adsWithScore.length / limit),
-        totalAds: adsWithScore.length
+        totalAds: adsWithScore.length,
       });
-
     } catch (error) {
-      console.error('Error in searchAds:', error);
+      console.error("Error in searchAds:", error);
       next(error);
     }
   }
@@ -220,12 +232,13 @@ class AdController {
   static async getBrands(req, res, next) {
     try {
       const activeFilter = { status: getActiveStatusFilter() };
-      const brands = await Ad.distinct('brand', activeFilter);
-      
-      res.status(200).json(brands.filter(brand => brand && brand.trim() !== ''));
+      const brands = await Ad.distinct("brand", activeFilter);
 
+      res
+        .status(200)
+        .json(brands.filter((brand) => brand && brand.trim() !== ""));
     } catch (error) {
-      console.error('Error in getBrands:', error);
+      console.error("Error in getBrands:", error);
       next(error);
     }
   }
@@ -237,23 +250,24 @@ class AdController {
   static async getModels(req, res, next) {
     try {
       const { brand } = req.query;
-      
+
       if (!brand) {
-        return res.status(400).json({ 
-          message: 'Parametr brand jest wymagany' 
+        return res.status(400).json({
+          message: "Parametr brand jest wymagany",
         });
       }
-      
-      const activeFilter = { 
-        brand, 
-        status: getActiveStatusFilter() 
-      };
-      const models = await Ad.distinct('model', activeFilter);
-      
-      res.status(200).json(models.filter(model => model && model.trim() !== ''));
 
+      const activeFilter = {
+        brand,
+        status: getActiveStatusFilter(),
+      };
+      const models = await Ad.distinct("model", activeFilter);
+
+      res
+        .status(200)
+        .json(models.filter((model) => model && model.trim() !== ""));
     } catch (error) {
-      console.error('Error in getModels:', error);
+      console.error("Error in getModels:", error);
       next(error);
     }
   }
@@ -272,14 +286,14 @@ class AdController {
       if (!currentAd) {
         return res.status(404).json({
           success: false,
-          message: 'Ogłoszenie nie zostało znalezione'
+          message: "Ogłoszenie nie zostało znalezione",
         });
       }
 
       // Build filter for similar ads
-      const activeFilter = { 
+      const activeFilter = {
         status: getActiveStatusFilter(),
-        _id: { $ne: id } // Exclude current ad
+        _id: { $ne: id }, // Exclude current ad
       };
 
       // Priority search criteria
@@ -289,43 +303,47 @@ class AdController {
           ...activeFilter,
           brand: currentAd.brand,
           model: currentAd.model,
-          bodyType: currentAd.bodyType
+          bodyType: currentAd.bodyType,
         },
         // 2. Same brand + model (if not enough results)
         {
           ...activeFilter,
           brand: currentAd.brand,
-          model: currentAd.model
+          model: currentAd.model,
         },
         // 3. Same brand + body type (if still not enough)
         {
           ...activeFilter,
           brand: currentAd.brand,
-          bodyType: currentAd.bodyType
+          bodyType: currentAd.bodyType,
         },
         // 4. Same brand only (fallback)
         {
           ...activeFilter,
-          brand: currentAd.brand
-        }
+          brand: currentAd.brand,
+        },
       ];
 
       let similarAds = [];
-      
+
       // Try each search criteria until we have enough ads
       for (const criteria of searchCriteria) {
         if (similarAds.length >= limit) break;
-        
+
         const remainingLimit = limit - similarAds.length;
         const foundAds = await Ad.find(criteria)
           .limit(remainingLimit)
           .sort({ createdAt: -1 })
-          .select('_id headline brand model year price mileage fuelType mainImage images listingType createdAt bodyType');
-        
+          .select(
+            "_id headline brand model year price mileage fuelType mainImage images listingType createdAt bodyType"
+          );
+
         // Add ads that aren't already in the results
-        const existingIds = new Set(similarAds.map(ad => ad._id.toString()));
-        const newAds = foundAds.filter(ad => !existingIds.has(ad._id.toString()));
-        
+        const existingIds = new Set(similarAds.map((ad) => ad._id.toString()));
+        const newAds = foundAds.filter(
+          (ad) => !existingIds.has(ad._id.toString())
+        );
+
         similarAds.push(...newAds);
       }
 
@@ -335,11 +353,10 @@ class AdController {
       res.status(200).json({
         success: true,
         data: similarAds,
-        count: similarAds.length
+        count: similarAds.length,
       });
-
     } catch (error) {
-      console.error('Error in getSimilarAds:', error);
+      console.error("Error in getSimilarAds:", error);
       next(error);
     }
   }
@@ -352,7 +369,7 @@ function calculateMatchScore(ad, filters) {
   let score = 0;
 
   const normalize = (str) =>
-    typeof str === 'string' ? str.trim().toLowerCase() : '';
+    typeof str === "string" ? str.trim().toLowerCase() : "";
 
   // Exact brand + model match
   if (
@@ -394,13 +411,22 @@ function calculateMatchScore(ad, filters) {
   }
 
   // Other filters
-  if (filters.fuelType && normalize(ad.fuelType) === normalize(filters.fuelType)) {
+  if (
+    filters.fuelType &&
+    normalize(ad.fuelType) === normalize(filters.fuelType)
+  ) {
     score += 10;
   }
-  if (filters.transmission && normalize(ad.transmission) === normalize(filters.transmission)) {
+  if (
+    filters.transmission &&
+    normalize(ad.transmission) === normalize(filters.transmission)
+  ) {
     score += 5;
   }
-  if (filters.bodyType && normalize(ad.bodyType) === normalize(filters.bodyType)) {
+  if (
+    filters.bodyType &&
+    normalize(ad.bodyType) === normalize(filters.bodyType)
+  ) {
     score += 5;
   }
 

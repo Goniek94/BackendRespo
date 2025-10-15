@@ -149,6 +149,8 @@ router.delete("/conversation/:userId", async (req, res) => {
     const { adId } = req.query; // Pobierz adId z query
     const currentUserId = req.user.userId;
 
+    console.log("🗑️ Usuwanie konwersacji:", { userId, adId, currentUserId });
+
     // Buduj kryteria wyszukiwania
     const criteria = {
       $or: [
@@ -158,15 +160,27 @@ router.delete("/conversation/:userId", async (req, res) => {
       deletedBy: { $ne: currentUserId }, // Tylko wiadomości nie usunięte przez tego usera
     };
 
-    // Jeśli podano adId, dodaj filtr
-    if (adId) {
-      criteria.relatedAd = adId;
+    // Jeśli podano adId i NIE jest to "no-ad", dodaj filtr
+    if (adId && adId !== "no-ad") {
+      const adObjectId = mongoose.Types.ObjectId.isValid(adId)
+        ? new mongoose.Types.ObjectId(adId)
+        : adId;
+      criteria.relatedAd = adObjectId;
+      console.log("✅ Filtrowanie według ogłoszenia:", adId);
+    } else if (adId === "no-ad") {
+      // Jeśli adId to 'no-ad', usuń tylko wiadomości bez powiązanego ogłoszenia
+      criteria.relatedAd = { $exists: false };
+      console.log("✅ Filtrowanie wiadomości bez ogłoszenia");
     }
+
+    console.log("📋 Kryteria usuwania:", JSON.stringify(criteria));
 
     // SOFT DELETE - dodaj currentUserId do deletedBy array
     const result = await Message.updateMany(criteria, {
       $addToSet: { deletedBy: currentUserId },
     });
+
+    console.log("✅ Usunięto:", result.modifiedCount, "wiadomości");
 
     res.status(200).json({
       message: "Konwersacja usunięta (ukryta dla Ciebie)",
@@ -185,6 +199,12 @@ router.patch("/conversation/:userId/archive", async (req, res) => {
     const { adId } = req.query; // Pobierz adId z query
     const currentUserId = req.user.userId;
 
+    console.log("🔥 Archiwizowanie konwersacji:", {
+      userId,
+      adId,
+      currentUserId,
+    });
+
     // Buduj kryteria wyszukiwania
     const criteria = {
       $or: [
@@ -193,12 +213,24 @@ router.patch("/conversation/:userId/archive", async (req, res) => {
       ],
     };
 
-    // Jeśli podano adId, dodaj filtr
-    if (adId) {
-      criteria.relatedAd = adId;
+    // Jeśli podano adId i NIE jest to "no-ad", dodaj filtr
+    if (adId && adId !== "no-ad") {
+      const adObjectId = mongoose.Types.ObjectId.isValid(adId)
+        ? new mongoose.Types.ObjectId(adId)
+        : adId;
+      criteria.relatedAd = adObjectId;
+      console.log("✅ Filtrowanie według ogłoszenia:", adId);
+    } else if (adId === "no-ad") {
+      // Jeśli adId to 'no-ad', archiwizuj tylko wiadomości bez powiązanego ogłoszenia
+      criteria.relatedAd = { $exists: false };
+      console.log("✅ Filtrowanie wiadomości bez ogłoszenia");
     }
 
+    console.log("📋 Kryteria archiwizacji:", JSON.stringify(criteria));
+
     const result = await Message.updateMany(criteria, { archived: true });
+
+    console.log("✅ Zarchiwizowano:", result.modifiedCount, "wiadomości");
 
     res.status(200).json({
       message: "Konwersacja zarchiwizowana",
@@ -217,6 +249,8 @@ router.patch("/conversation/:userId/unarchive", async (req, res) => {
     const { adId } = req.query; // Pobierz adId z query
     const currentUserId = req.user.userId;
 
+    console.log("📤 Przywracanie z archiwum:", { userId, adId, currentUserId });
+
     // Buduj kryteria wyszukiwania
     const criteria = {
       $or: [
@@ -225,12 +259,24 @@ router.patch("/conversation/:userId/unarchive", async (req, res) => {
       ],
     };
 
-    // Jeśli podano adId, dodaj filtr
-    if (adId) {
-      criteria.relatedAd = adId;
+    // Jeśli podano adId i NIE jest to "no-ad", dodaj filtr
+    if (adId && adId !== "no-ad") {
+      const adObjectId = mongoose.Types.ObjectId.isValid(adId)
+        ? new mongoose.Types.ObjectId(adId)
+        : adId;
+      criteria.relatedAd = adObjectId;
+      console.log("✅ Filtrowanie według ogłoszenia:", adId);
+    } else if (adId === "no-ad") {
+      // Jeśli adId to 'no-ad', przywróć tylko wiadomości bez powiązanego ogłoszenia
+      criteria.relatedAd = { $exists: false };
+      console.log("✅ Filtrowanie wiadomości bez ogłoszenia");
     }
 
+    console.log("📋 Kryteria przywracania:", JSON.stringify(criteria));
+
     const result = await Message.updateMany(criteria, { archived: false });
+
+    console.log("✅ Przywrócono:", result.modifiedCount, "wiadomości");
 
     res.status(200).json({
       message: "Konwersacja przywrócona z archiwum",

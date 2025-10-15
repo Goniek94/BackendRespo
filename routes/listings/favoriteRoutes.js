@@ -49,25 +49,21 @@ router.post("/add/:id", auth, async (req, res) => {
     try {
       ad = await Ad.findOne({
         _id: adId,
-        status: { $in: ["active", "opublikowane", "pending"] },
+        status: { $in: ["active", "approved", "opublikowane", "pending"] },
       });
       if (!ad) {
         console.log("Ogłoszenie nie znalezione lub nie jest aktywne:", adId);
-        return res
-          .status(404)
-          .json({
-            message: "Ogłoszenie nie znalezione lub nie jest opublikowane",
-          });
+        return res.status(404).json({
+          message: "Ogłoszenie nie znalezione lub nie jest opublikowane",
+        });
       }
       console.log("Znaleziono ogłoszenie:", ad._id, "właściciel:", ad.owner);
     } catch (adError) {
       console.error("Błąd podczas wyszukiwania ogłoszenia:", adError);
-      return res
-        .status(500)
-        .json({
-          message: "Błąd podczas wyszukiwania ogłoszenia",
-          error: adError.message,
-        });
+      return res.status(500).json({
+        message: "Błąd podczas wyszukiwania ogłoszenia",
+        error: adError.message,
+      });
     }
 
     // Dodaj ogłoszenie do ulubionych użytkownika
@@ -81,12 +77,10 @@ router.post("/add/:id", auth, async (req, res) => {
       console.log("Znaleziono użytkownika:", user._id);
     } catch (userError) {
       console.error("Błąd podczas wyszukiwania użytkownika:", userError);
-      return res
-        .status(500)
-        .json({
-          message: "Błąd podczas wyszukiwania użytkownika",
-          error: userError.message,
-        });
+      return res.status(500).json({
+        message: "Błąd podczas wyszukiwania użytkownika",
+        error: userError.message,
+      });
     }
 
     // Sprawdź, czy ogłoszenie już jest w ulubionych
@@ -120,12 +114,10 @@ router.post("/add/:id", auth, async (req, res) => {
         "Błąd podczas aktualizacji ulubionych użytkownika:",
         saveError
       );
-      return res
-        .status(500)
-        .json({
-          message: "Błąd podczas aktualizacji ulubionych",
-          error: saveError.message,
-        });
+      return res.status(500).json({
+        message: "Błąd podczas aktualizacji ulubionych",
+        error: saveError.message,
+      });
     }
 
     // Powiadomienie dla właściciela ogłoszenia o dodaniu do ulubionych (z throttlingiem)
@@ -175,6 +167,23 @@ router.post("/add/:id", auth, async (req, res) => {
               console.log(
                 `Utworzono powiadomienie o dodaniu do ulubionych dla użytkownika ${ad.owner}, ID powiadomienia: ${notification._id}`
               );
+
+              // 🔥 Wyślij powiadomienie przez Socket.IO z aktualnym licznikiem
+              if (req.app.locals.io) {
+                req.app.locals.io
+                  .to(`user_${ad.owner.toString()}`)
+                  .emit("notification", {
+                    ...notification.toObject(),
+                    // Dodaj aktualny licznik favorites do powiadomienia
+                    listingStats: {
+                      favorites: ad.favorites,
+                      views: ad.views || 0,
+                    },
+                  });
+                console.log(
+                  `📡 Wysłano powiadomienie z licznikiem favorites=${ad.favorites} do właściciela ${ad.owner}`
+                );
+              }
             } else {
               console.log(
                 `Nie utworzono powiadomienia dla użytkownika ${ad.owner} (zwrócono null)`
@@ -255,12 +264,10 @@ router.delete("/remove/:id", auth, async (req, res) => {
       }
     } catch (userError) {
       console.error("Błąd podczas wyszukiwania użytkownika:", userError);
-      return res
-        .status(500)
-        .json({
-          message: "Błąd podczas wyszukiwania użytkownika",
-          error: userError.message,
-        });
+      return res.status(500).json({
+        message: "Błąd podczas wyszukiwania użytkownika",
+        error: userError.message,
+      });
     }
 
     // Sprawdź, czy ogłoszenie jest w ulubionych
@@ -284,12 +291,10 @@ router.delete("/remove/:id", auth, async (req, res) => {
         "Błąd podczas aktualizacji ulubionych użytkownika:",
         saveError
       );
-      return res
-        .status(500)
-        .json({
-          message: "Błąd podczas aktualizacji ulubionych",
-          error: saveError.message,
-        });
+      return res.status(500).json({
+        message: "Błąd podczas aktualizacji ulubionych",
+        error: saveError.message,
+      });
     }
 
     // Aktualizuj licznik ulubionych i akcji ulubionych w ogłoszeniu
@@ -307,6 +312,20 @@ router.delete("/remove/:id", auth, async (req, res) => {
           "akcje:",
           ad.favoriteActions
         );
+
+        // 🔥 USUWANIE: Wyślij Socket.IO event z nowym licznikiem (bez powiadomienia)
+        if (req.app.locals.io && ad.owner) {
+          req.app.locals.io
+            .to(`user_${ad.owner.toString()}`)
+            .emit("listing_stats_updated", {
+              listingId: ad._id.toString(),
+              favorites: ad.favorites,
+              views: ad.views || 0,
+            });
+          console.log(
+            `📡 Wysłano update licznika favorites=${ad.favorites} dla ogłoszenia ${ad._id}`
+          );
+        }
       }
     } catch (updateAdError) {
       console.error(

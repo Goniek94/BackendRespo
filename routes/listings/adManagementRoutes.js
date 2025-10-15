@@ -25,6 +25,9 @@ router.get(
       console.log("Parametry zapytania:", { page, limit });
 
       const userListings = await Ad.find({ owner: req.user.userId })
+        .select(
+          "_id brand model headline title description year price mileage fuelType transmission power images mainImage status listingType createdAt views favorites"
+        )
         .populate("owner", "role name email")
         .sort({ createdAt: -1 })
         .limit(limit)

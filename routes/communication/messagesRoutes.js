@@ -42,6 +42,45 @@ import notificationManager from "../../services/notificationManager.js";
 
 const router = express.Router();
 
+// ========== HELPERY ==========
+
+/**
+ * Konwertuje ID na ObjectId jeśli to możliwe
+ */
+const toObjectId = (id) =>
+  mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id;
+
+/**
+ * Buduje kryteria dla konwersacji (drugiUżytkownik + konkretne ogłoszenie lub brak ogłoszenia)
+ * @param {string} currentUserIdRaw - ID zalogowanego użytkownika
+ * @param {string} otherUserIdRaw - ID drugiego użytkownika
+ * @param {string} adIdRaw - ID ogłoszenia lub "no-ad"
+ * @returns {Object} - Kryteria MongoDB
+ */
+const buildConversationCriteria = (
+  currentUserIdRaw,
+  otherUserIdRaw,
+  adIdRaw
+) => {
+  const currentUserId = toObjectId(currentUserIdRaw);
+  const otherUserId = toObjectId(otherUserIdRaw);
+
+  const criteria = {
+    $or: [
+      { sender: currentUserId, recipient: otherUserId },
+      { sender: otherUserId, recipient: currentUserId },
+    ],
+  };
+
+  if (typeof adIdRaw === "string" && adIdRaw === "no-ad") {
+    criteria.relatedAd = { $exists: false };
+  } else if (adIdRaw) {
+    criteria.relatedAd = toObjectId(adIdRaw);
+  }
+
+  return criteria;
+};
+
 // Konfiguracja multera do obsługi załączników - MEMORY STORAGE dla Supabase
 const upload = multer({
   storage: multer.memoryStorage(), // Przechowuj pliki w pamięci jako Buffer
@@ -77,22 +116,22 @@ router.post(
 router.patch("/conversation/:userId/read", async (req, res) => {
   try {
     const { userId } = req.params;
+    const { adId } = req.query;
     const currentUserId = req.user.userId;
 
     console.log("📖 Oznaczanie konwersacji jako przeczytanej:", {
       userId,
+      adId,
       currentUserId,
     });
 
-    // Oznacz wszystkie wiadomości od tego użytkownika jako przeczytane
-    const result = await Message.updateMany(
-      {
-        sender: userId,
-        recipient: currentUserId,
-        read: false,
-      },
-      { read: true }
-    );
+    // Buduj kryteria używając helpera
+    const criteria = buildConversationCriteria(currentUserId, userId, adId);
+    criteria.read = false;
+
+    console.log("📋 Kryteria oznaczania:", JSON.stringify(criteria));
+
+    const result = await Message.updateMany(criteria, { read: true });
 
     console.log(
       "✅ Oznaczono jako przeczytane:",
@@ -114,15 +153,18 @@ router.patch("/conversation/:userId/read", async (req, res) => {
 router.patch("/conversation/:userId/star", async (req, res) => {
   try {
     const { userId } = req.params;
+    const { adId } = req.query;
     const currentUserId = req.user.userId;
 
+    console.log("⭐ Przełączanie gwiazdki:", { userId, adId, currentUserId });
+
+    // Buduj kryteria używając helpera
+    const criteria = buildConversationCriteria(currentUserId, userId, adId);
+
+    console.log("📋 Kryteria gwiazdki:", JSON.stringify(criteria));
+
     // Znajdź ostatnią wiadomość w konwersacji
-    const lastMessage = await Message.findOne({
-      $or: [
-        { sender: currentUserId, recipient: userId },
-        { sender: userId, recipient: currentUserId },
-      ],
-    }).sort({ createdAt: -1 });
+    const lastMessage = await Message.findOne(criteria).sort({ createdAt: -1 });
 
     if (!lastMessage) {
       return res.status(404).json({ message: "Konwersacja nie znaleziona" });
@@ -131,6 +173,8 @@ router.patch("/conversation/:userId/star", async (req, res) => {
     // Przełącz gwiazdkę
     lastMessage.starred = !lastMessage.starred;
     await lastMessage.save();
+
+    console.log("✅ Gwiazdka przełączona na:", lastMessage.starred);
 
     res.status(200).json({
       message: "Gwiazdka przełączona",
@@ -142,52 +186,155 @@ router.patch("/conversation/:userId/star", async (req, res) => {
   }
 });
 
-// 🔥 Usuwanie konwersacji (SOFT DELETE - dodaje do deletedBy)
+// 🔥 Usuwanie konwersacji (DWUSTOPNIOWE: 1. archiwum, 2. trwałe)
 router.delete("/conversation/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
-    const { adId } = req.query; // Pobierz adId z query
+    const { adId } = req.query;
     const currentUserId = req.user.userId;
 
-    console.log("🗑️ Usuwanie konwersacji:", { userId, adId, currentUserId });
+    console.log("========================================");
+    console.log("🗑️ DELETE CONVERSATION START");
+    console.log("   Target userId:", userId);
+    console.log("   adId:", adId);
+    console.log("   Current userId:", currentUserId);
 
-    // Buduj kryteria wyszukiwania
-    const criteria = {
+    const criteria = buildConversationCriteria(currentUserId, userId, adId);
+
+    console.log("🔍 CRITERIA:");
+    console.log(JSON.stringify(criteria, null, 2));
+
+    // 🔥 DODAJ TO - Sprawdź WSZYSTKIE wiadomości między tymi użytkownikami
+    const currentUserObjectId = toObjectId(currentUserId);
+    const otherUserObjectId = toObjectId(userId);
+
+    const allMessagesBetweenUsers = await Message.find({
       $or: [
-        { sender: currentUserId, recipient: userId },
-        { sender: userId, recipient: currentUserId },
+        { sender: currentUserObjectId, recipient: otherUserObjectId },
+        { sender: otherUserObjectId, recipient: currentUserObjectId },
       ],
-      deletedBy: { $ne: currentUserId }, // Tylko wiadomości nie usunięte przez tego usera
-    };
+    }).lean();
 
-    // Jeśli podano adId i NIE jest to "no-ad", dodaj filtr
-    if (adId && adId !== "no-ad") {
-      const adObjectId = mongoose.Types.ObjectId.isValid(adId)
-        ? new mongoose.Types.ObjectId(adId)
-        : adId;
-      criteria.relatedAd = adObjectId;
-      console.log("✅ Filtrowanie według ogłoszenia:", adId);
-    } else if (adId === "no-ad") {
-      // Jeśli adId to 'no-ad', usuń tylko wiadomości bez powiązanego ogłoszenia
-      criteria.relatedAd = { $exists: false };
-      console.log("✅ Filtrowanie wiadomości bez ogłoszenia");
-    }
-
-    console.log("📋 Kryteria usuwania:", JSON.stringify(criteria));
-
-    // SOFT DELETE - dodaj currentUserId do deletedBy array
-    const result = await Message.updateMany(criteria, {
-      $addToSet: { deletedBy: currentUserId },
+    console.log(
+      "📨 WSZYSTKIE WIADOMOŚCI między tymi użytkownikami:",
+      allMessagesBetweenUsers.length
+    );
+    allMessagesBetweenUsers.forEach((msg, idx) => {
+      console.log(`  ${idx + 1}. Msg ID: ${msg._id}`);
+      console.log(`     relatedAd: ${msg.relatedAd || "NULL/UNDEFINED"}`);
+      console.log(`     relatedAd type: ${typeof msg.relatedAd}`);
+      console.log(`     archived: ${msg.archived}`);
+      console.log(`     content: ${msg.content?.substring(0, 40)}...`);
+      console.log(`     ---`);
     });
 
-    console.log("✅ Usunięto:", result.modifiedCount, "wiadomości");
+    const existingMessages = await Message.find(criteria).lean();
+
+    console.log(
+      "📨 WIADOMOŚCI PASUJĄCE DO KRYTERIÓW:",
+      existingMessages.length
+    );
+    existingMessages.forEach((msg, idx) => {
+      console.log(`  ${idx + 1}. Msg ID: ${msg._id}`);
+      console.log(`     archived PRZED: ${msg.archived}`);
+      console.log(`     relatedAd: ${msg.relatedAd}`);
+      console.log(`     content: ${msg.content?.substring(0, 40)}...`);
+      console.log(`     ---`);
+    });
+
+    if (existingMessages.length === 0) {
+      console.log(
+        "❌ NIE ZNALEZIONO ŻADNYCH WIADOMOŚCI PASUJĄCYCH DO KRYTERIÓW!"
+      );
+      console.log("❓ MOŻLIWE PRZYCZYNY:");
+      console.log("   1. adId nie pasuje (sprawdź relatedAd powyżej)");
+      console.log("   2. Wiadomości już są archived");
+      console.log("   3. Wiadomości już są w deletedBy");
+      console.log("========================================");
+      return res.status(404).json({ message: "Konwersacja nie znaleziona" });
+    }
+
+    // 🔥 DWUSTOPNIOWE USUWANIE:
+    // 1. Sprawdź czy którakolwiek wiadomość jest już archived
+    const anyArchived = existingMessages.some((msg) => msg.archived === true);
+
+    let result, message, wasArchived;
+
+    if (anyArchived) {
+      // ✅ DRUGI RAZ - Trwałe usunięcie (dodaj do deletedBy)
+      console.log("🗑️ TRWAŁE USUNIĘCIE (archived już = true)");
+      console.log("📋 Dodawanie userId do deletedBy");
+
+      result = await Message.updateMany(criteria, {
+        $addToSet: { deletedBy: currentUserObjectId },
+      });
+
+      message = "Konwersacja usunięta trwale";
+      wasArchived = true;
+      console.log(`✅ ${message}:`, result.modifiedCount, "wiadomości");
+    } else {
+      // ✅ PIERWSZY RAZ - Archiwizacja
+      console.log("📦 Przenoszenie do archiwum (archived = true)");
+      console.log(
+        "📋 Kryteria archiwizacji:",
+        JSON.stringify(criteria, null, 2)
+      );
+
+      result = await Message.updateMany(criteria, {
+        archived: true,
+      });
+
+      message = "Konwersacja przeniesiona do archiwum";
+      wasArchived = false;
+      console.log(`✅ ${message}:`, result.modifiedCount, "wiadomości");
+    }
+
+    console.log(
+      `📊 matchedCount: ${result.matchedCount}, modifiedCount: ${result.modifiedCount}`
+    );
 
     res.status(200).json({
-      message: "Konwersacja usunięta (ukryta dla Ciebie)",
+      message: message,
       modifiedCount: result.modifiedCount,
+      wasArchived: wasArchived,
     });
   } catch (error) {
     console.error("💥 Błąd podczas usuwania konwersacji:", error);
+    res.status(500).json({ message: "Błąd serwera" });
+  }
+});
+
+// 🔥 Trwałe usuwanie konwersacji (wywołane PO potwierdzeniu)
+router.delete("/conversation/:userId/permanent", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { adId } = req.query;
+    const currentUserId = req.user.userId;
+
+    console.log("🔥 TRWAŁE USUWANIE konwersacji:", {
+      userId,
+      adId,
+      currentUserId,
+    });
+
+    const criteria = buildConversationCriteria(currentUserId, userId, adId);
+    const currentUserObjectId = toObjectId(currentUserId);
+
+    console.log("📋 Kryteria trwałego usuwania:", JSON.stringify(criteria));
+
+    // Dodaj do deletedBy
+    const result = await Message.updateMany(criteria, {
+      $addToSet: { deletedBy: currentUserObjectId },
+    });
+
+    console.log("✅ Trwale usunięto:", result.modifiedCount, "wiadomości");
+
+    res.status(200).json({
+      message: "Konwersacja usunięta trwale",
+      modifiedCount: result.modifiedCount,
+    });
+  } catch (error) {
+    console.error("💥 Błąd podczas trwałego usuwania:", error);
     res.status(500).json({ message: "Błąd serwera" });
   }
 });
@@ -196,7 +343,7 @@ router.delete("/conversation/:userId", async (req, res) => {
 router.patch("/conversation/:userId/archive", async (req, res) => {
   try {
     const { userId } = req.params;
-    const { adId } = req.query; // Pobierz adId z query
+    const { adId } = req.query;
     const currentUserId = req.user.userId;
 
     console.log("🔥 Archiwizowanie konwersacji:", {
@@ -205,26 +352,8 @@ router.patch("/conversation/:userId/archive", async (req, res) => {
       currentUserId,
     });
 
-    // Buduj kryteria wyszukiwania
-    const criteria = {
-      $or: [
-        { sender: currentUserId, recipient: userId },
-        { sender: userId, recipient: currentUserId },
-      ],
-    };
-
-    // Jeśli podano adId i NIE jest to "no-ad", dodaj filtr
-    if (adId && adId !== "no-ad") {
-      const adObjectId = mongoose.Types.ObjectId.isValid(adId)
-        ? new mongoose.Types.ObjectId(adId)
-        : adId;
-      criteria.relatedAd = adObjectId;
-      console.log("✅ Filtrowanie według ogłoszenia:", adId);
-    } else if (adId === "no-ad") {
-      // Jeśli adId to 'no-ad', archiwizuj tylko wiadomości bez powiązanego ogłoszenia
-      criteria.relatedAd = { $exists: false };
-      console.log("✅ Filtrowanie wiadomości bez ogłoszenia");
-    }
+    // Buduj kryteria używając helpera
+    const criteria = buildConversationCriteria(currentUserId, userId, adId);
 
     console.log("📋 Kryteria archiwizacji:", JSON.stringify(criteria));
 
@@ -246,31 +375,13 @@ router.patch("/conversation/:userId/archive", async (req, res) => {
 router.patch("/conversation/:userId/unarchive", async (req, res) => {
   try {
     const { userId } = req.params;
-    const { adId } = req.query; // Pobierz adId z query
+    const { adId } = req.query;
     const currentUserId = req.user.userId;
 
     console.log("📤 Przywracanie z archiwum:", { userId, adId, currentUserId });
 
-    // Buduj kryteria wyszukiwania
-    const criteria = {
-      $or: [
-        { sender: currentUserId, recipient: userId },
-        { sender: userId, recipient: currentUserId },
-      ],
-    };
-
-    // Jeśli podano adId i NIE jest to "no-ad", dodaj filtr
-    if (adId && adId !== "no-ad") {
-      const adObjectId = mongoose.Types.ObjectId.isValid(adId)
-        ? new mongoose.Types.ObjectId(adId)
-        : adId;
-      criteria.relatedAd = adObjectId;
-      console.log("✅ Filtrowanie według ogłoszenia:", adId);
-    } else if (adId === "no-ad") {
-      // Jeśli adId to 'no-ad', przywróć tylko wiadomości bez powiązanego ogłoszenia
-      criteria.relatedAd = { $exists: false };
-      console.log("✅ Filtrowanie wiadomości bez ogłoszenia");
-    }
+    // Buduj kryteria używając helpera
+    const criteria = buildConversationCriteria(currentUserId, userId, adId);
 
     console.log("📋 Kryteria przywracania:", JSON.stringify(criteria));
 
@@ -292,16 +403,24 @@ router.patch("/conversation/:userId/unarchive", async (req, res) => {
 router.patch("/conversation/:userId/trash", async (req, res) => {
   try {
     const { userId } = req.params;
+    const { adId } = req.query;
     const currentUserId = req.user.userId;
 
-    const result = await Message.updateMany(
-      {
-        $or: [
-          { sender: currentUserId, recipient: userId },
-          { sender: userId, recipient: currentUserId },
-        ],
-      },
-      { $addToSet: { deletedBy: currentUserId } }
+    console.log("🗑️ Przenoszenie do kosza:", { userId, adId, currentUserId });
+
+    // Buduj kryteria używając helpera
+    const criteria = buildConversationCriteria(currentUserId, userId, adId);
+
+    console.log("📋 Kryteria przenoszenia do kosza:", JSON.stringify(criteria));
+
+    const result = await Message.updateMany(criteria, {
+      $addToSet: { deletedBy: toObjectId(currentUserId) },
+    });
+
+    console.log(
+      "✅ Przeniesiono do kosza:",
+      result.modifiedCount,
+      "wiadomości"
     );
 
     res.status(200).json({
@@ -318,8 +437,15 @@ router.patch("/conversation/:userId/trash", async (req, res) => {
 router.patch("/conversation/:userId/move", async (req, res) => {
   try {
     const { userId } = req.params;
-    const { folder } = req.body;
+    const { folder, adId } = req.body;
     const currentUserId = req.user.userId;
+
+    console.log("📁 Przenoszenie do folderu:", {
+      userId,
+      folder,
+      adId,
+      currentUserId,
+    });
 
     let updateData = {};
 
@@ -328,24 +454,26 @@ router.patch("/conversation/:userId/move", async (req, res) => {
         updateData = { archived: true };
         break;
       case "trash":
-        updateData = { $addToSet: { deletedBy: currentUserId } };
+        updateData = { $addToSet: { deletedBy: toObjectId(currentUserId) } };
         break;
       case "inbox":
-        updateData = { archived: false, $pull: { deletedBy: currentUserId } };
+        updateData = {
+          archived: false,
+          $pull: { deletedBy: toObjectId(currentUserId) },
+        };
         break;
       default:
         return res.status(400).json({ message: "Nieprawidłowy folder" });
     }
 
-    const result = await Message.updateMany(
-      {
-        $or: [
-          { sender: currentUserId, recipient: userId },
-          { sender: userId, recipient: currentUserId },
-        ],
-      },
-      updateData
-    );
+    // Buduj kryteria używając helpera
+    const criteria = buildConversationCriteria(currentUserId, userId, adId);
+
+    console.log("📋 Kryteria przenoszenia:", JSON.stringify(criteria));
+
+    const result = await Message.updateMany(criteria, updateData);
+
+    console.log("✅ Przeniesiono:", result.modifiedCount, "wiadomości");
 
     res.status(200).json({
       message: `Konwersacja przeniesiona do ${folder}`,

@@ -42,12 +42,12 @@ export const getConversation = async (req, res) => {
         {
           sender: currentUserObjectId,
           recipient: otherUserObjectId,
-          deletedBy: { $ne: currentUserObjectId },
+          deletedBy: { $nin: [currentUserObjectId] },
         },
         {
           sender: otherUserObjectId,
           recipient: currentUserObjectId,
-          deletedBy: { $ne: currentUserObjectId },
+          deletedBy: { $nin: [currentUserObjectId] },
         },
       ],
     };
@@ -424,16 +424,16 @@ export const getConversationsList = async (req, res) => {
       case "inbox":
         query = {
           recipient: userObjectId,
-          deletedBy: { $ne: userObjectId },
-          archived: { $ne: true }, // ✅ Wyklucz zarchiwizowane wiadomości
+          deletedBy: { $nin: [userObjectId] },
+          // NIE filtruj archived tutaj - zrobimy to po grupowaniu!
         };
         break;
       case "sent":
         query = {
           sender: userObjectId,
           draft: false,
-          deletedBy: { $ne: userObjectId },
-          archived: { $ne: true }, // ✅ Wyklucz zarchiwizowane wiadomości
+          deletedBy: { $nin: [userObjectId] },
+          // NIE filtruj archived tutaj - zrobimy to po grupowaniu!
         };
         break;
       case "starred":
@@ -442,7 +442,7 @@ export const getConversationsList = async (req, res) => {
             { recipient: userObjectId, starred: true },
             { sender: userObjectId, starred: true },
           ],
-          deletedBy: { $ne: userObjectId },
+          deletedBy: { $nin: [userObjectId] },
         };
         break;
       case "archived":
@@ -451,15 +451,15 @@ export const getConversationsList = async (req, res) => {
             { recipient: userObjectId, archived: true },
             { sender: userObjectId, archived: true },
           ],
-          deletedBy: { $ne: userObjectId },
+          deletedBy: { $nin: [userObjectId] },
         };
         break;
       default:
         // Domyślnie pobierz wszystkie wiadomości (inbox + sent)
         query = {
           $or: [
-            { sender: userObjectId, deletedBy: { $ne: userObjectId } },
-            { recipient: userObjectId, deletedBy: { $ne: userObjectId } },
+            { sender: userObjectId, deletedBy: { $nin: [userObjectId] } },
+            { recipient: userObjectId, deletedBy: { $nin: [userObjectId] } },
           ],
         };
     }
@@ -497,6 +497,14 @@ export const getConversationsList = async (req, res) => {
           adInfo: msg.relatedAd || null,
           conversationId: conversationKey,
         };
+      } else {
+        // Aktualizuj lastMessage jeśli ta wiadomość jest nowsza
+        if (
+          new Date(msg.createdAt) >
+          new Date(conversationsByUser[conversationKey].lastMessage.createdAt)
+        ) {
+          conversationsByUser[conversationKey].lastMessage = msg;
+        }
       }
 
       // Zlicz nieprzeczytane wiadomości
@@ -505,11 +513,39 @@ export const getConversationsList = async (req, res) => {
       }
     });
 
-    // Przekształć obiekt na tablicę i posortuj po dacie ostatniej wiadomości
-    const conversations = Object.values(conversationsByUser).sort(
+    // Przekształć obiekt na tablicę
+    let conversations = Object.values(conversationsByUser);
+
+    console.log(`📊 Konwersacji przed filtrowaniem: ${conversations.length}`);
+    console.log(`📁 Folder: ${folder}`);
+
+    // ✅ WAŻNE: Filtruj konwersacje na podstawie lastMessage
+    // Dla inbox i sent - wykluczaj konwersacje gdzie lastMessage jest archived
+    if (folder === "inbox" || folder === "sent") {
+      const beforeFilter = conversations.length;
+      conversations = conversations.filter((conv) => {
+        const isArchived = conv.lastMessage.archived === true;
+        if (isArchived) {
+          console.log(
+            `🚫 Wykluczam konwersację ${conv.conversationId} - lastMessage.archived = true`
+          );
+        }
+        return !isArchived;
+      });
+      console.log(
+        `📊 Po filtrowaniu: ${conversations.length} (usunięto ${
+          beforeFilter - conversations.length
+        } zarchiwizowanych)`
+      );
+    }
+
+    // Sortuj po dacie ostatniej wiadomości
+    conversations.sort(
       (a, b) =>
         new Date(b.lastMessage.createdAt) - new Date(a.lastMessage.createdAt)
     );
+
+    console.log(`✅ Zwracam ${conversations.length} konwersacji`);
 
     return res.status(200).json({ conversations });
   } catch (error) {

@@ -1,3 +1,5 @@
+// routes/index.js
+
 // Organized imports from new structure
 import userRoutes from "./user/userRoutes.js";
 import adRoutes from "./listings/adRoutes.js";
@@ -13,6 +15,8 @@ import statsRoutes from "./listings/statsRoutes.js";
 import imageRoutes from "./media/imageRoutes.js";
 import carBrandsRoutes from "./listings/carBrandsRoutes.js";
 import searchStatsRoutes from "./listings/searchStatsRoutes.js";
+
+// 👇 Zostawiamy import, ale NIE montujemy promoCodeRoutes w pętli
 import promoCodeRoutes from "./promoCode.js";
 
 // Import organized route modules
@@ -27,11 +31,6 @@ import * as externalRoutesModule from "./external/index.js";
 // New Enterprise Admin Panel
 import enterpriseAdminRoutes from "../admin/routes/index.js";
 
-/**
- * MINIMAL API Routes Configuration - HTTP 431 FIX
- * Usunięte długie JSON responses które powodowały ogromne nagłówki
- */
-
 export default (app) => {
   // ========================================
   // 🚀 ENTERPRISE ADMIN PANEL
@@ -41,10 +40,9 @@ export default (app) => {
   // ========================================
   // 📊 MAIN API ROUTES (v1) - MINIMAL
   // ========================================
-
   const coreRoutes = {
     users: userRoutes,
-    ads: adRoutes, // POPRAWIONE: używamy pełnego routera z featured/rotated
+    ads: adRoutes,
     comments: commentRoutes,
     images: imageRoutes,
     "car-brands": carBrandsRoutes,
@@ -54,7 +52,7 @@ export default (app) => {
     payments: paymentRoutes,
     favorites: favoriteRoutes,
     cepik: cepikRoutes,
-    "promo-codes": promoCodeRoutes,
+    // ❌ usuwamy "promo-codes" z pętli, żeby nie montować pod wieloma bazami
   };
 
   // ========================================
@@ -67,6 +65,7 @@ export default (app) => {
 
   // ========================================
   // 🔗 ROUTE REGISTRATION - MINIMAL
+  // (zostawiam jak było dla reszty usług)
   // ========================================
   Object.entries(coreRoutes).forEach(([path, router]) => {
     app.use(`/api/v1/${path}`, router);
@@ -75,6 +74,9 @@ export default (app) => {
       app.use(`/${path}`, router); // Legacy support
     }
   });
+
+  // ✅ PROMO CODES — JEDNA BAZA I KONIEC
+  app.use("/api/promo-codes", promoCodeRoutes);
 
   // Authentication aliases
   const authAliases = ["/api/v1/auth", "/api/auth", "/auth"];
@@ -85,9 +87,7 @@ export default (app) => {
   // ========================================
   // 📋 MINIMAL API DOCUMENTATION - HTTP 431 FIX
   // ========================================
-
-  // MINIMAL API info - usunięte długie JSON responses
-  app.get("/api", (req, res) => {
+  app.get("/api", (_req, res) => {
     res.json({
       service: "Marketplace API",
       version: "2.0.0",
@@ -95,23 +95,16 @@ export default (app) => {
     });
   });
 
-  // MINIMAL health check
-  app.get("/api/health", (req, res) => {
-    res.json({
-      status: "healthy",
-      timestamp: new Date().toISOString(),
-    });
+  app.get("/api/health", (_req, res) => {
+    res.json({ status: "healthy", timestamp: new Date().toISOString() });
   });
 
   // ========================================
   // 🚨 MINIMAL ERROR HANDLING
   // ========================================
-
-  // MINIMAL 404 handler
   app.use("/api/*", (req, res) => {
-    res.status(404).json({
-      error: "API endpoint not found",
-      path: req.originalUrl,
-    });
+    res
+      .status(404)
+      .json({ error: "API endpoint not found", path: req.originalUrl });
   });
 };

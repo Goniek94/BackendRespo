@@ -27,6 +27,14 @@ export const getListingsStats = async (_req, res) => {
     });
     const rejected = await Ad.countDocuments({ status: "rejected" });
     const archived = await Ad.countDocuments({ status: "archived" });
+    const hidden = await Ad.countDocuments({
+      $or: [{ status: "hidden" }, { hidden: true }, { isHidden: true }],
+    });
+    const deleted = await Ad.countDocuments({ status: "deleted" });
+    const featured = await Ad.countDocuments({
+      $or: [{ featured: true }, { isFeatured: true }],
+    });
+    const reported = await Ad.countDocuments({ reported: true });
 
     const lastMonth = new Date();
     lastMonth.setMonth(lastMonth.getMonth() - 1);
@@ -63,8 +71,15 @@ export const getListingsStats = async (_req, res) => {
         total,
         pending,
         approved,
+        active: approved, // alias
         rejected,
         archived,
+        expired: archived, // alias - zakończone = archived
+        hidden,
+        deleted,
+        featured,
+        standard: total - featured, // zwykłe = wszystkie - wyróżnione
+        reported,
         totalChange: ch(total, totalLast),
         pendingChange: ch(pending, pendLast),
         approvedChange: ch(approved, apprLast),

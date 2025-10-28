@@ -7,16 +7,10 @@ import {
 
 const router = express.Router();
 
-/**
- * POST /api/promo-codes/validate
- * Waliduje kod promocyjny (publiczny endpoint)
- */
+// POST /api/promo-codes/validate
 router.post("/validate", validatePromoCode);
 
-/**
- * POST /api/promo-codes/use
- * Oznacza kod jako użyty (po opłaceniu)
- */
+// POST /api/promo-codes/use
 router.post("/use", usePromoCode);
 
 export default router;

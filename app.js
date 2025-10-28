@@ -27,11 +27,24 @@ const createApp = () => {
   // Za reverse proxy (NGINX/ELB)
   app.set("trust proxy", 1);
 
-  // --- Parsowanie body ---
-  app.use(express.json({ limit: "1mb", strict: true }));
-  app.use(
-    express.urlencoded({ limit: "1mb", extended: true, parameterLimit: 100 })
-  );
+  // --- Parsowanie body (SKIP dla multipart/form-data!) ---
+  app.use((req, res, next) => {
+    const contentType = req.get("Content-Type") || "";
+    console.log("🔍 Request Content-Type:", contentType); // DEBUG
+    if (contentType.includes("multipart/form-data")) {
+      console.log("✅ Pomijam parsowanie dla multipart/form-data"); // DEBUG
+      return next();
+    }
+    console.log("📝 Parsowanie JSON/urlencoded"); // DEBUG
+    // Parsuj tylko gdy NIE jest multipart
+    express.json({ limit: "1mb", strict: true })(req, res, () => {
+      express.urlencoded({ limit: "1mb", extended: true, parameterLimit: 100 })(
+        req,
+        res,
+        next
+      );
+    });
+  });
 
   // --- Sanitizacja NoSQL operators ($, .) w body/query/params ---
   app.use(
@@ -64,9 +77,12 @@ const createApp = () => {
         "Accept",
         "Cache-Control",
         "X-CSRF-Token",
+        "multipart/form-data",
       ],
       exposedHeaders: ["X-Total-Count"],
       maxAge: 86400,
+      preflightContinue: false,
+      optionsSuccessStatus: 204,
     })
   );
   // gwarantujemy Vary: Origin

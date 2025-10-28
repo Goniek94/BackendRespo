@@ -50,6 +50,14 @@ const PromotionSchema = new mongoose.Schema(
     usedCount: { type: Number, default: 0 },
     maxUsagePerUser: { type: Number, default: 1 },
 
+    // Track which users have used this promo code
+    usedByUsers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
     targetType: {
       type: String,
       enum: [

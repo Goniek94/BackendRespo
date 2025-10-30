@@ -28,10 +28,6 @@ router.get(
     // Tylko aktywne ogłoszenia - bez dodatkowych filtrów (frontend je obsłuży)
     const filter = { status: getActiveStatusFilter() };
 
-    console.log(
-      "Pobieranie wszystkich aktywnych ogłoszeń dla frontendowej wyszukiwarki"
-    );
-
     try {
       // Uproszczone zapytanie - pobieramy wszystkie aktywne ogłoszenia
       const query = Ad.aggregate([
@@ -84,8 +80,6 @@ router.get(
       const ads = await query;
       const totalAds = ads.length;
 
-      console.log("Zwrócono ogłoszeń dla frontendowej wyszukiwarki:", totalAds);
-
       // Uproszczona odpowiedź - frontend nie potrzebuje paginacji
       res.status(200).json({
         ads,
@@ -93,7 +87,6 @@ router.get(
         message: `Pobrano ${totalAds} aktywnych ogłoszeń dla frontendowego filtrowania`,
       });
     } catch (err) {
-      console.error("Błąd podczas pobierania ogłoszeń:", err);
       next(err);
     }
   },
@@ -108,12 +101,8 @@ router.get(
       const filter = createAdFilter(req.query);
       const count = await Ad.countDocuments(filter);
 
-      console.log("Zapytanie o liczbę ogłoszeń z filtrami:", req.query);
-      console.log("Znaleziono pasujących ogłoszeń:", count);
-
       res.status(200).json({ count });
     } catch (err) {
-      console.error("Błąd podczas liczenia ogłoszeń:", err);
       next(err);
     }
   },
@@ -127,16 +116,12 @@ router.get(
     try {
       const activeCount = await getActiveAdsCount(Ad);
 
-      console.log("Zapytanie o liczbę aktywnych ogłoszeń");
-      console.log("Liczba aktywnych ogłoszeń:", activeCount);
-
       res.status(200).json({
         activeCount,
         message: `Znaleziono ${activeCount} aktywnych ogłoszeń w bazie danych`,
         timestamp: new Date().toISOString(),
       });
     } catch (err) {
-      console.error("Błąd podczas liczenia aktywnych ogłoszeń:", err);
       next(err);
     }
   },
@@ -155,7 +140,6 @@ router.get(
       );
       res.status(200).json(filteredBodyTypes.sort());
     } catch (err) {
-      console.error("Błąd podczas pobierania typów nadwozi:", err);
       next(err);
     }
   },
@@ -234,10 +218,6 @@ router.get(
 
       res.status(200).json(carData);
     } catch (err) {
-      console.error(
-        "Błąd podczas pobierania danych o markach i modelach:",
-        err
-      );
       next(err);
     }
   },
@@ -254,8 +234,6 @@ router.get(
       sortBy = "createdAt",
       order = "desc",
     } = req.query;
-
-    console.log("Wyszukiwanie ogłoszeń z parametrami:", req.query);
 
     try {
       // Tworzenie filtra na podstawie parametrów zapytania
@@ -325,10 +303,6 @@ router.get(
       const totalAds = await Ad.countDocuments(filter);
       const totalPages = Math.ceil(totalAds / parseInt(limit));
 
-      console.log(
-        `Znaleziono ${ads.length} ogłoszeń na stronie ${page}/${totalPages} (łącznie: ${totalAds})`
-      );
-
       res.status(200).json({
         ads,
         totalAds,
@@ -339,7 +313,6 @@ router.get(
         message: `Pobrano ${ads.length} ogłoszeń`,
       });
     } catch (err) {
-      console.error("Błąd podczas wyszukiwania ogłoszeń:", err);
       next(err);
     }
   },

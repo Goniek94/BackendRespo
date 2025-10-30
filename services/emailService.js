@@ -1,24 +1,15 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import crypto from "crypto";
 import config from "../config/index.js";
 import logger from "../utils/logger.js";
 
 /**
- * Email Service for sending various types of emails
+ * Email Service using Resend for sending various types of emails
+ * Resend is a modern email API with better deliverability than traditional SMTP
  */
 
-// Create transporter with configuration
-const createTransporter = () => {
-  return nodemailer.createTransport({
-    host: config.email.host,
-    port: config.email.port,
-    secure: config.email.secure,
-    auth: {
-      user: config.email.user,
-      pass: config.email.password,
-    },
-  });
-};
+// Initialize Resend client
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
  * Generate a secure reset token
@@ -39,50 +30,128 @@ export const generateVerificationCode = () => {
  */
 export const sendPasswordResetEmail = async (email, resetToken, userName) => {
   try {
-    const transporter = createTransporter();
-
     const resetUrl = `${config.app.frontendUrl}/reset-password?token=${resetToken}`;
 
-    const mailOptions = {
-      from: `"AutoSell" <${config.email.from}>`,
-      to: email,
+    const { data, error } = await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || "AutoSell <onboarding@resend.dev>",
+      to: [email],
       subject: "Reset hasła - AutoSell",
       html: `
         <!DOCTYPE html>
         <html>
         <head>
           <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #35530A; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
-            .button { display: inline-block; padding: 12px 30px; background: #35530A; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-            .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
-            .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin: 20px 0; }
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+              line-height: 1.6; 
+              color: #333;
+              margin: 0;
+              padding: 0;
+              background-color: #f5f5f5;
+            }
+            .container { 
+              max-width: 600px; 
+              margin: 40px auto; 
+              background: white;
+              border-radius: 12px;
+              overflow: hidden;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }
+            .header { 
+              background: linear-gradient(135deg, #35530A 0%, #5A7D2A 100%);
+              color: white; 
+              padding: 40px 30px; 
+              text-align: center;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 28px;
+              font-weight: 600;
+            }
+            .content { 
+              padding: 40px 30px;
+              background: white;
+            }
+            .content p {
+              margin: 0 0 16px 0;
+              font-size: 16px;
+            }
+            .button-container {
+              text-align: center;
+              margin: 32px 0;
+            }
+            .button { 
+              display: inline-block; 
+              padding: 14px 32px; 
+              background: linear-gradient(135deg, #35530A 0%, #5A7D2A 100%);
+              color: white !important; 
+              text-decoration: none; 
+              border-radius: 8px;
+              font-weight: 600;
+              font-size: 16px;
+              transition: transform 0.2s;
+            }
+            .button:hover {
+              transform: translateY(-2px);
+            }
+            .link-box {
+              background: #f9f9f9;
+              padding: 16px;
+              border-radius: 8px;
+              margin: 24px 0;
+              word-break: break-all;
+              font-size: 14px;
+              color: #35530A;
+              border: 1px solid #e0e0e0;
+            }
+            .warning { 
+              background: #fff3cd; 
+              border-left: 4px solid #ffc107; 
+              padding: 16px; 
+              margin: 24px 0;
+              border-radius: 4px;
+            }
+            .warning strong {
+              color: #856404;
+            }
+            .footer { 
+              text-align: center; 
+              padding: 24px 30px;
+              font-size: 14px; 
+              color: #666;
+              background: #f9f9f9;
+              border-top: 1px solid #e0e0e0;
+            }
+            .footer a {
+              color: #35530A;
+              text-decoration: none;
+            }
           </style>
         </head>
         <body>
           <div class="container">
             <div class="header">
-              <h1>Reset hasła</h1>
+              <h1>🔐 Reset hasła</h1>
             </div>
             <div class="content">
-              <p>Cześć ${userName},</p>
-              <p>Otrzymaliśmy prośbę o reset hasła do Twojego konta w serwisie AutoSell.</p>
+              <p>Cześć <strong>${userName}</strong>,</p>
+              <p>Otrzymaliśmy prośbę o reset hasła do Twojego konta w serwisie <strong>AutoSell</strong>.</p>
               <p>Kliknij w poniższy przycisk, aby ustawić nowe hasło:</p>
-              <div style="text-align: center;">
+              <div class="button-container">
                 <a href="${resetUrl}" class="button">Zresetuj hasło</a>
               </div>
-              <p>Lub skopiuj i wklej ten link w przeglądarce:</p>
-              <p style="word-break: break-all; color: #35530A;">${resetUrl}</p>
+              <p style="font-size: 14px; color: #666;">Lub skopiuj i wklej ten link w przeglądarce:</p>
+              <div class="link-box">${resetUrl}</div>
               <div class="warning">
-                <strong>⚠️ Uwaga!</strong> Link jest ważny przez 1 godzinę. Jeśli nie prosiłeś o reset hasła, zignoruj tę wiadomość.
+                <strong>⚠️ Uwaga!</strong> Link jest ważny przez <strong>1 godzinę</strong>. Jeśli nie prosiłeś o reset hasła, zignoruj tę wiadomość.
               </div>
-              <p>Jeśli masz pytania, skontaktuj się z nami: <a href="mailto:kontakt@autosell.pl">kontakt@autosell.pl</a></p>
+              <p>Jeśli masz pytania, skontaktuj się z nami: <a href="mailto:kontakt@autosell.pl" style="color: #35530A;">kontakt@autosell.pl</a></p>
             </div>
             <div class="footer">
               <p>&copy; ${new Date().getFullYear()} AutoSell. Wszystkie prawa zastrzeżone.</p>
+              <p><a href="${config.app.frontendUrl}">Odwiedź autosell.pl</a></p>
             </div>
           </div>
         </body>
@@ -104,16 +173,23 @@ export const sendPasswordResetEmail = async (email, resetToken, userName) => {
         
         © ${new Date().getFullYear()} AutoSell
       `,
-    };
-
-    await transporter.sendMail(mailOptions);
-
-    logger.info("Password reset email sent successfully", {
-      to: email,
-      userName,
     });
 
-    return { success: true };
+    if (error) {
+      logger.error("Failed to send password reset email via Resend", {
+        error: error.message,
+        email,
+      });
+      throw error;
+    }
+
+    logger.info("Password reset email sent successfully via Resend", {
+      to: email,
+      userName,
+      emailId: data?.id,
+    });
+
+    return { success: true, data };
   } catch (error) {
     logger.error("Failed to send password reset email", {
       error: error.message,
@@ -132,37 +208,98 @@ export const sendEmailChangeVerification = async (
   userName
 ) => {
   try {
-    const transporter = createTransporter();
-
-    const mailOptions = {
-      from: `"AutoSell" <${config.email.from}>`,
-      to: newEmail,
+    const { data, error } = await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || "AutoSell <onboarding@resend.dev>",
+      to: [newEmail],
       subject: "Weryfikacja nowego adresu email - AutoSell",
       html: `
         <!DOCTYPE html>
         <html>
         <head>
           <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #35530A; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
-            .code { font-size: 32px; font-weight: bold; color: #35530A; text-align: center; padding: 20px; background: white; border-radius: 5px; letter-spacing: 8px; }
-            .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+              line-height: 1.6; 
+              color: #333;
+              margin: 0;
+              padding: 0;
+              background-color: #f5f5f5;
+            }
+            .container { 
+              max-width: 600px; 
+              margin: 40px auto; 
+              background: white;
+              border-radius: 12px;
+              overflow: hidden;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }
+            .header { 
+              background: linear-gradient(135deg, #35530A 0%, #5A7D2A 100%);
+              color: white; 
+              padding: 40px 30px; 
+              text-align: center;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 28px;
+              font-weight: 600;
+            }
+            .content { 
+              padding: 40px 30px;
+              background: white;
+            }
+            .content p {
+              margin: 0 0 16px 0;
+              font-size: 16px;
+            }
+            .code-container {
+              text-align: center;
+              margin: 32px 0;
+            }
+            .code { 
+              display: inline-block;
+              font-size: 42px; 
+              font-weight: bold; 
+              color: #35530A;
+              padding: 24px 40px; 
+              background: linear-gradient(135deg, #f0f7e8 0%, #e8f3dc 100%);
+              border-radius: 12px;
+              letter-spacing: 12px;
+              border: 2px solid #35530A;
+              font-family: 'Courier New', monospace;
+            }
+            .timer {
+              text-align: center;
+              color: #666;
+              font-size: 14px;
+              margin-top: 16px;
+              font-weight: 500;
+            }
+            .footer { 
+              text-align: center; 
+              padding: 24px 30px;
+              font-size: 14px; 
+              color: #666;
+              background: #f9f9f9;
+              border-top: 1px solid #e0e0e0;
+            }
           </style>
         </head>
         <body>
           <div class="container">
             <div class="header">
-              <h1>Weryfikacja email</h1>
+              <h1>📧 Weryfikacja email</h1>
             </div>
             <div class="content">
-              <p>Cześć ${userName},</p>
-              <p>Otrzymaliśmy prośbę o zmianę adresu email w Twoim koncie AutoSell.</p>
+              <p>Cześć <strong>${userName}</strong>,</p>
+              <p>Otrzymaliśmy prośbę o zmianę adresu email w Twoim koncie <strong>AutoSell</strong>.</p>
               <p>Użyj poniższego kodu weryfikacyjnego:</p>
-              <div class="code">${verificationCode}</div>
-              <p style="text-align: center; color: #666; margin-top: 20px;">Kod jest ważny przez 15 minut</p>
+              <div class="code-container">
+                <div class="code">${verificationCode}</div>
+                <div class="timer">⏱️ Kod jest ważny przez <strong>15 minut</strong></div>
+              </div>
               <p>Jeśli nie prosiłeś o zmianę email, zignoruj tę wiadomość.</p>
             </div>
             <div class="footer">
@@ -183,16 +320,23 @@ export const sendEmailChangeVerification = async (
         
         © ${new Date().getFullYear()} AutoSell
       `,
-    };
-
-    await transporter.sendMail(mailOptions);
-
-    logger.info("Email change verification sent successfully", {
-      to: newEmail,
-      userName,
     });
 
-    return { success: true };
+    if (error) {
+      logger.error("Failed to send email change verification via Resend", {
+        error: error.message,
+        email: newEmail,
+      });
+      throw error;
+    }
+
+    logger.info("Email change verification sent successfully via Resend", {
+      to: newEmail,
+      userName,
+      emailId: data?.id,
+    });
+
+    return { success: true, data };
   } catch (error) {
     logger.error("Failed to send email change verification", {
       error: error.message,
@@ -240,42 +384,108 @@ export const sendProfileChangeNotification = async (
   changes
 ) => {
   try {
-    const transporter = createTransporter();
-
     const changesList = changes.map((change) => `<li>${change}</li>`).join("");
 
-    const mailOptions = {
-      from: `"AutoSell" <${config.email.from}>`,
-      to: email,
+    const { data, error } = await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || "AutoSell <onboarding@resend.dev>",
+      to: [email],
       subject: "Powiadomienie o zmianie danych - AutoSell",
       html: `
         <!DOCTYPE html>
         <html>
         <head>
           <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #35530A; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
-            .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
-            .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin: 20px 0; }
-            ul { background: white; padding: 20px; border-radius: 5px; }
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+              line-height: 1.6; 
+              color: #333;
+              margin: 0;
+              padding: 0;
+              background-color: #f5f5f5;
+            }
+            .container { 
+              max-width: 600px; 
+              margin: 40px auto; 
+              background: white;
+              border-radius: 12px;
+              overflow: hidden;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }
+            .header { 
+              background: linear-gradient(135deg, #35530A 0%, #5A7D2A 100%);
+              color: white; 
+              padding: 40px 30px; 
+              text-align: center;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 28px;
+              font-weight: 600;
+            }
+            .content { 
+              padding: 40px 30px;
+              background: white;
+            }
+            .content p {
+              margin: 0 0 16px 0;
+              font-size: 16px;
+            }
+            .changes-list {
+              background: #f9f9f9;
+              padding: 20px;
+              border-radius: 8px;
+              margin: 24px 0;
+            }
+            .changes-list ul {
+              margin: 0;
+              padding-left: 20px;
+            }
+            .changes-list li {
+              margin: 8px 0;
+              color: #35530A;
+              font-weight: 500;
+            }
+            .warning { 
+              background: #fff3cd; 
+              border-left: 4px solid #ffc107; 
+              padding: 16px; 
+              margin: 24px 0;
+              border-radius: 4px;
+            }
+            .warning strong {
+              color: #856404;
+            }
+            .footer { 
+              text-align: center; 
+              padding: 24px 30px;
+              font-size: 14px; 
+              color: #666;
+              background: #f9f9f9;
+              border-top: 1px solid #e0e0e0;
+            }
+            .footer a {
+              color: #35530A;
+              text-decoration: none;
+            }
           </style>
         </head>
         <body>
           <div class="container">
             <div class="header">
-              <h1>Zmiana danych konta</h1>
+              <h1>🔔 Zmiana danych konta</h1>
             </div>
             <div class="content">
-              <p>Cześć ${userName},</p>
-              <p>Informujemy, że w Twoim koncie AutoSell zostały zmienione następujące dane:</p>
-              <ul>${changesList}</ul>
+              <p>Cześć <strong>${userName}</strong>,</p>
+              <p>Informujemy, że w Twoim koncie <strong>AutoSell</strong> zostały zmienione następujące dane:</p>
+              <div class="changes-list">
+                <ul>${changesList}</ul>
+              </div>
               <div class="warning">
                 <strong>⚠️ Uwaga!</strong> Jeśli to nie Ty dokonałeś tych zmian, natychmiast skontaktuj się z nami!
               </div>
-              <p>Kontakt: <a href="mailto:kontakt@autosell.pl">kontakt@autosell.pl</a></p>
+              <p>Kontakt: <a href="mailto:kontakt@autosell.pl" style="color: #35530A;">kontakt@autosell.pl</a></p>
             </div>
             <div class="footer">
               <p>&copy; ${new Date().getFullYear()} AutoSell. Wszystkie prawa zastrzeżone.</p>
@@ -296,19 +506,195 @@ export const sendProfileChangeNotification = async (
         
         © ${new Date().getFullYear()} AutoSell
       `,
-    };
+    });
 
-    await transporter.sendMail(mailOptions);
+    if (error) {
+      logger.error("Failed to send profile change notification via Resend", {
+        error: error.message,
+        email,
+      });
+      throw error;
+    }
 
-    logger.info("Profile change notification sent successfully", {
+    logger.info("Profile change notification sent successfully via Resend", {
       to: email,
       userName,
       changes,
+      emailId: data?.id,
     });
 
-    return { success: true };
+    return { success: true, data };
   } catch (error) {
     logger.error("Failed to send profile change notification", {
+      error: error.message,
+      email,
+    });
+    throw error;
+  }
+};
+
+/**
+ * Send registration verification code email
+ */
+export const sendRegistrationVerificationCode = async (
+  email,
+  verificationCode,
+  userName
+) => {
+  try {
+    const { data, error } = await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || "AutoSell <onboarding@resend.dev>",
+      to: [email],
+      subject: "Kod weryfikacyjny rejestracji - AutoSell",
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+              line-height: 1.6; 
+              color: #333;
+              margin: 0;
+              padding: 0;
+              background-color: #f5f5f5;
+            }
+            .container { 
+              max-width: 600px; 
+              margin: 40px auto; 
+              background: white;
+              border-radius: 12px;
+              overflow: hidden;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }
+            .header { 
+              background: linear-gradient(135deg, #35530A 0%, #5A7D2A 100%);
+              color: white; 
+              padding: 40px 30px; 
+              text-align: center;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 28px;
+              font-weight: 600;
+            }
+            .content { 
+              padding: 40px 30px;
+              background: white;
+            }
+            .content p {
+              margin: 0 0 16px 0;
+              font-size: 16px;
+            }
+            .code-container {
+              text-align: center;
+              margin: 32px 0;
+            }
+            .code { 
+              display: inline-block;
+              font-size: 42px; 
+              font-weight: bold; 
+              color: #35530A;
+              padding: 24px 40px; 
+              background: linear-gradient(135deg, #f0f7e8 0%, #e8f3dc 100%);
+              border-radius: 12px;
+              letter-spacing: 12px;
+              border: 2px solid #35530A;
+              font-family: 'Courier New', monospace;
+            }
+            .timer {
+              text-align: center;
+              color: #666;
+              font-size: 14px;
+              margin-top: 16px;
+              font-weight: 500;
+            }
+            .warning { 
+              background: #e3f2fd; 
+              border-left: 4px solid #2196f3; 
+              padding: 16px; 
+              margin: 24px 0;
+              border-radius: 4px;
+            }
+            .warning strong {
+              color: #1565c0;
+            }
+            .footer { 
+              text-align: center; 
+              padding: 24px 30px;
+              font-size: 14px; 
+              color: #666;
+              background: #f9f9f9;
+              border-top: 1px solid #e0e0e0;
+            }
+            .footer a {
+              color: #35530A;
+              text-decoration: none;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🎉 Witaj w AutoSell!</h1>
+            </div>
+            <div class="content">
+              <p>Cześć <strong>${userName}</strong>,</p>
+              <p>Dziękujemy za rejestrację w serwisie <strong>AutoSell</strong>!</p>
+              <p>Aby dokończyć proces rejestracji, wprowadź poniższy kod weryfikacyjny:</p>
+              <div class="code-container">
+                <div class="code">${verificationCode}</div>
+                <div class="timer">⏱️ Kod jest ważny przez <strong>15 minut</strong></div>
+              </div>
+              <div class="warning">
+                <strong>ℹ️ Ważne!</strong> Jeśli nie prosiłeś o rejestrację w AutoSell, zignoruj tę wiadomość.
+              </div>
+              <p>Jeśli masz pytania, skontaktuj się z nami: <a href="mailto:kontakt@autosell.pl" style="color: #35530A;">kontakt@autosell.pl</a></p>
+            </div>
+            <div class="footer">
+              <p>&copy; ${new Date().getFullYear()} AutoSell. Wszystkie prawa zastrzeżone.</p>
+              <p><a href="${config.app.frontendUrl}">Odwiedź autosell.pl</a></p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `
+        Witaj w AutoSell!
+        
+        Cześć ${userName},
+        
+        Dziękujemy za rejestrację w serwisie AutoSell.
+        
+        Kod weryfikacyjny: ${verificationCode}
+        
+        Kod jest ważny przez 15 minut.
+        
+        Jeśli nie prosiłeś o rejestrację, zignoruj tę wiadomość.
+        
+        © ${new Date().getFullYear()} AutoSell
+      `,
+    });
+
+    if (error) {
+      logger.error("Failed to send registration verification code via Resend", {
+        error: error.message,
+        email,
+      });
+      throw error;
+    }
+
+    logger.info("Registration verification code sent successfully via Resend", {
+      to: email,
+      userName,
+      emailId: data?.id,
+    });
+
+    return { success: true, data };
+  } catch (error) {
+    logger.error("Failed to send registration verification code", {
       error: error.message,
       email,
     });
@@ -321,6 +707,7 @@ export default {
   sendEmailChangeVerification,
   sendPhoneChangeVerification,
   sendProfileChangeNotification,
+  sendRegistrationVerificationCode,
   generateResetToken,
   generateVerificationCode,
 };

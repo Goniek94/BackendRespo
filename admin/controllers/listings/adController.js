@@ -32,7 +32,11 @@ export const getListingsStats = async (_req, res) => {
     });
     const deleted = await Ad.countDocuments({ status: "deleted" });
     const featured = await Ad.countDocuments({
-      $or: [{ featured: true }, { isFeatured: true }],
+      $or: [
+        { featured: true },
+        { isFeatured: true },
+        { listingType: "wyróżnione" },
+      ],
     });
     const reported = await Ad.countDocuments({ reported: true });
 
@@ -296,6 +300,7 @@ export const getAds = async (req, res) => {
         // Other
         featured: d.featured || false,
         featuredAt: d.featuredAt,
+        listingType: d.listingType, // ← DODANE! Frontend tego potrzebuje
         sellerType: d.sellerType,
         countryOfOrigin: d.countryOfOrigin,
         imported: d.imported,

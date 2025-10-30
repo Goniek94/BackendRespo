@@ -13,6 +13,10 @@ import {
   rejectAd,
   moderateAd,
 } from "../controllers/listings/adController.js";
+import {
+  featureAd,
+  unfeatureAd,
+} from "../controllers/listings/featureController.js";
 
 const router = express.Router();
 
@@ -28,47 +32,9 @@ router.post("/:adId/approve", approveAd);
 router.post("/:adId/reject", rejectAd);
 router.post("/:adId/moderate", moderateAd);
 
-// Additional admin actions for listings
-router.post("/:adId/feature", async (req, res) => {
-  try {
-    const Ad = (await import("../../models/listings/ad.js")).default;
-    const ad = await Ad.findById(req.params.adId);
-    if (!ad)
-      return res
-        .status(404)
-        .json({ success: false, error: "Ogłoszenie nie znalezione" });
-
-    ad.featured = true;
-    ad.isFeatured = true;
-    if (!ad.promotion) ad.promotion = {};
-    ad.promotion.featured = true;
-    await ad.save();
-
-    res.json({ success: true, message: "Ogłoszenie wyróżnione" });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-router.post("/:adId/unfeature", async (req, res) => {
-  try {
-    const Ad = (await import("../../models/listings/ad.js")).default;
-    const ad = await Ad.findById(req.params.adId);
-    if (!ad)
-      return res
-        .status(404)
-        .json({ success: false, error: "Ogłoszenie nie znalezione" });
-
-    ad.featured = false;
-    ad.isFeatured = false;
-    if (ad.promotion) ad.promotion.featured = false;
-    await ad.save();
-
-    res.json({ success: true, message: "Usunięto wyróżnienie" });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+// Additional admin actions for listings - WYRÓŻNIANIE (zmienia listingType)
+router.post("/:adId/feature", featureAd);
+router.post("/:adId/unfeature", unfeatureAd);
 
 router.post("/:adId/hide", async (req, res) => {
   try {

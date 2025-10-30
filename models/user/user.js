@@ -233,12 +233,36 @@ const userSchema = new mongoose.Schema(
     suspensionReason: {
       type: String,
     },
+    // Structured suspension data (for detailed info)
+    suspension: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    suspensionEndDate: {
+      type: Date,
+    },
+    suspensionInfo: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
     bannedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
+    bannedAt: {
+      type: Date,
+    },
     banReason: {
       type: String,
+    },
+    // Structured ban data (for detailed info)
+    ban: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    banInfo: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
     },
     // Blocking fields
     blockedAt: {
@@ -254,6 +278,9 @@ const userSchema = new mongoose.Schema(
     blockUntil: {
       type: Date,
     },
+    statusReason: {
+      type: String,
+    },
     // Deletion fields
     deletedAt: {
       type: Date,
@@ -261,6 +288,18 @@ const userSchema = new mongoose.Schema(
     deletedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
+    },
+    deletionReason: {
+      type: String,
+    },
+    // Structured deletion data (for detailed info)
+    deletion: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    deletionInfo: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
     },
     favorites: [
       {
@@ -344,4 +383,6 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-export default mongoose.model("User", userSchema);
+// Use existing model if already compiled, otherwise compile it
+// This prevents OverwriteModelError when module is imported multiple times
+export default mongoose.models.User || mongoose.model("User", userSchema);

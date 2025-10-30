@@ -27,22 +27,41 @@ const createApp = () => {
   // Za reverse proxy (NGINX/ELB)
   app.set("trust proxy", 1);
 
-  // --- Parsowanie body (SKIP dla multipart/form-data!) ---
+  // --- Parsowanie body (SKIP dla route'ów z file upload!) ---
   app.use((req, res, next) => {
     const contentType = req.get("Content-Type") || "";
-    console.log("🔍 Request Content-Type:", contentType); // DEBUG
+    const url = req.originalUrl || req.url;
+
+    console.log("🔍 Request Content-Type:", contentType);
+    console.log("🔍 Request URL:", url);
+    console.log("🔍 Request Method:", req.method);
+
+    // ZAWSZE pomijaj parsowanie dla multipart/form-data (file upload)
     if (contentType.includes("multipart/form-data")) {
-      console.log("✅ Pomijam parsowanie dla multipart/form-data"); // DEBUG
+      console.log("✅✅✅ POMIJAM PARSOWANIE - multipart/form-data detected!");
       return next();
     }
-    console.log("📝 Parsowanie JSON/urlencoded"); // DEBUG
+
+    // Dodatkowa ochrona: sprawdź URL dla endpointów z uploadem plików
+    // Comment upload: POST /api/comments/:adId
+    if (req.method === "POST" && url.match(/^\/api\/comments\/[^\/]+$/)) {
+      console.log("✅ POMIJAM PARSOWANIE - comment upload endpoint");
+      return next();
+    }
+
+    console.log("📝 Parsowanie JSON/urlencoded");
     // Parsuj tylko gdy NIE jest multipart
-    express.json({ limit: "1mb", strict: true })(req, res, () => {
-      express.urlencoded({ limit: "1mb", extended: true, parameterLimit: 100 })(
-        req,
-        res,
-        next
-      );
+    express.json({
+      limit: "1mb",
+      strict: true,
+      type: "application/json", // Parsuj TYLKO JSON
+    })(req, res, () => {
+      express.urlencoded({
+        limit: "1mb",
+        extended: true,
+        parameterLimit: 100,
+        type: "application/x-www-form-urlencoded", // Parsuj TYLKO urlencoded
+      })(req, res, next);
     });
   });
 
@@ -77,7 +96,6 @@ const createApp = () => {
         "Accept",
         "Cache-Control",
         "X-CSRF-Token",
-        "multipart/form-data",
       ],
       exposedHeaders: ["X-Total-Count"],
       maxAge: 86400,

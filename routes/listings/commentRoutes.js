@@ -30,8 +30,8 @@ const upload = multer({
   },
 });
 
-// Max 5 zdjęć w jednym komentarzu
-const uploadMultiple = upload.array("images", 5);
+// Max 3 zdjęcia w jednym komentarzu
+const uploadMultiple = upload.array("images", 3);
 
 const createNotification = async (
   userId,
@@ -58,6 +58,13 @@ const createNotification = async (
 
 // Dodawanie komentarza - UŻYWA SUPABASE STORAGE + WIELE ZDJĘĆ
 router.post("/:adId", auth, uploadMultiple, async (req, res) => {
+  console.log("🔍 === DEBUG UPLOAD ===");
+  console.log("req.files:", req.files);
+  console.log("req.file:", req.file);
+  console.log("req.body:", req.body);
+  console.log("Content-Type:", req.get("Content-Type"));
+  console.log("🔍 === END DEBUG ===");
+
   try {
     console.log("🚀 === BACKEND V2.0: NOWY KOD COMMENT UPLOAD ===");
     console.log("⚡ TIMESTAMP:", new Date().toISOString());
@@ -136,14 +143,22 @@ router.post("/:adId", auth, uploadMultiple, async (req, res) => {
       "✅ Użytkownik może dodać komentarz (limit: " + userCommentsCount + "/5)"
     );
 
+    // WALIDACJA: Komentarz musi mieć przynajmniej jedno zdjęcie
+    if (!req.files || req.files.length === 0) {
+      console.log("❌ BŁĄD: Brak zdjęć w komentarzu");
+      return res.status(400).json({
+        message: "Komentarz musi zawierać przynajmniej jedno zdjęcie",
+      });
+    }
+
     // Upload zdjęć do Supabase Storage (jeśli są)
     const imageUrls = [];
     if (req.files && req.files.length > 0) {
-      if (req.files.length > 5) {
+      if (req.files.length > 3) {
         console.log("❌ BŁĄD: Zbyt wiele plików");
         return res
           .status(400)
-          .json({ message: "Maksymalnie 5 zdjęć na komentarz" });
+          .json({ message: "Maksymalnie 3 zdjęcia na komentarz" });
       }
 
       console.log(
@@ -163,13 +178,15 @@ router.post("/:adId", auth, uploadMultiple, async (req, res) => {
           );
           console.log(`  - Buffer size: ${file.buffer?.length || 0} bajtów`);
 
-          // Upload to Supabase - directly to 'autosell' bucket (NO subfolder)
+          // Upload to Supabase - directly to 'autosell' bucket (no subfolder)
+          // Add "comment-" prefix to filename to distinguish from listing photos
+          const prefixedFilename = `comment-${file.originalname}`;
           const imageUrl = await uploadToSupabase(
             file.buffer,
-            file.originalname,
+            prefixedFilename,
             "autosell", // Main bucket name
             file.mimetype,
-            null // NO subfolder - upload directly to bucket root
+            null // No subfolder - upload directly to bucket root
           );
 
           imageUrls.push(imageUrl);
@@ -207,8 +224,6 @@ router.post("/:adId", auth, uploadMultiple, async (req, res) => {
               : undefined,
         });
       }
-    } else {
-      console.log("ℹ️ Komentarz bez zdjęć");
     }
 
     console.log("💾 Zapisuję komentarz do bazy danych...");
@@ -222,15 +237,6 @@ router.post("/:adId", auth, uploadMultiple, async (req, res) => {
 
     await comment.save();
     console.log("✅ Komentarz zapisany z ID:", comment._id);
-
-    console.log("🔔 Tworzę powiadomienie dla właściciela ogłoszenia...");
-    await createNotification(
-      ad.owner,
-      "Nowy komentarz",
-      `Nowy komentarz do "${ad.make} ${ad.model}" czeka na moderację.`,
-      "new_comment",
-      adId
-    );
 
     const populatedComment = await Comment.findById(comment._id).populate(
       "user",
@@ -366,9 +372,9 @@ router.patch("/admin/:id/approve", requireAdminAuth, async (req, res) => {
 
     await createNotification(
       comment.user._id,
-      "Komentarz zatwierdzony",
-      `Twój komentarz do ogłoszenia "${comment.ad.make} ${comment.ad.model}" został zatwierdzony!`,
-      "new_comment",
+      "Komentarz zaakceptowany",
+      `Twój komentarz do ogłoszenia "${comment.ad.make} ${comment.ad.model}" został zaakceptowany!`,
+      "comment_added",
       comment.ad._id
     );
 
@@ -376,7 +382,7 @@ router.patch("/admin/:id/approve", requireAdminAuth, async (req, res) => {
       comment.ad.owner,
       "Nowy komentarz",
       `Nowy komentarz do Twojego ogłoszenia "${comment.ad.make} ${comment.ad.model}" został opublikowany.`,
-      "new_comment",
+      "comment_added",
       comment.ad._id
     );
 
@@ -408,7 +414,7 @@ router.patch("/admin/:id/reject", requireAdminAuth, async (req, res) => {
       comment.user._id,
       "Komentarz odrzucony",
       `Twój komentarz do ogłoszenia "${comment.ad.make} ${comment.ad.model}" został odrzucony przez moderatora.`,
-      "new_comment",
+      "comment_added",
       comment.ad._id
     );
 
@@ -496,7 +502,7 @@ router.delete("/admin/:id", requireAdminAuth, async (req, res) => {
       userId,
       "Komentarz usunięty",
       "Twój komentarz został usunięty przez administratora.",
-      "system_notification"
+      "comment_added"
     );
 
     res.status(200).json({ message: "Komentarz usunięty" });

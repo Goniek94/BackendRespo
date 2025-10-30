@@ -83,6 +83,23 @@ export const validateAndFilterUpdateData = (updateData) => {
     "blockedBy",
     "blockReason",
     "statusReason",
+    // Suspension fields
+    "suspension",
+    "suspensionReason",
+    "suspensionEndDate",
+    "suspensionInfo",
+    // Ban fields
+    "ban",
+    "banReason",
+    "bannedAt",
+    "bannedBy",
+    "banInfo",
+    // Deletion fields
+    "deletion",
+    "deletionInfo",
+    "deletedAt",
+    "deletedBy",
+    "deletionReason",
   ];
 
   const filteredData = {};

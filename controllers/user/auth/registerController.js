@@ -17,10 +17,15 @@ import {
  * - Terms acceptance tracking
  */
 export const registerUser = async (req, res) => {
+  console.log("\n🟣 ==========================================");
+  console.log("🟣 [BACKEND] /register - START");
+  console.log("🟣 ==========================================");
+
   try {
     // Validate input
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log("❌ Błędy walidacji:", errors.array());
       logger.warn("Registration validation failed", {
         errors: errors.array(),
         ip: req.ip,
@@ -46,8 +51,17 @@ export const registerUser = async (req, res) => {
       phoneVerified,
     } = req.body;
 
+    console.log("📦 Otrzymane dane rejestracyjne:");
+    console.log("   Imię:", name);
+    console.log("   Nazwisko:", lastName);
+    console.log("   Email:", email);
+    console.log("   Telefon:", phone);
+    console.log("   Data urodzenia:", dob);
+    console.log("   Regulamin zaakceptowany:", termsAccepted);
+
     // Validate terms acceptance
     if (!termsAccepted) {
+      console.log("❌ Regulamin nie zaakceptowany");
       return res.status(400).json({
         success: false,
         message: "Musisz zaakceptować regulamin, aby się zarejestrować",
@@ -86,6 +100,10 @@ export const registerUser = async (req, res) => {
     }
 
     // Check if user already exists
+    console.log("🔍 Sprawdzam czy użytkownik już istnieje...");
+    console.log("   Szukam email:", email.toLowerCase().trim());
+    console.log("   Szukam telefon:", formattedPhone);
+
     const existingUser = await User.findOne({
       $or: [
         { email: email.toLowerCase().trim() },
@@ -94,11 +112,14 @@ export const registerUser = async (req, res) => {
     });
 
     if (existingUser) {
+      const duplicateField =
+        existingUser.email === email.toLowerCase().trim() ? "email" : "phone";
+      console.log("❌ Użytkownik już istnieje! Duplikat:", duplicateField);
+
       logger.warn("Registration attempt with existing credentials", {
         email: email.toLowerCase().trim(),
         phone: formattedPhone,
-        existingField:
-          existingUser.email === email.toLowerCase().trim() ? "email" : "phone",
+        existingField: duplicateField,
         ip: req.ip,
         userAgent: req.get("User-Agent"),
       });
@@ -106,15 +127,19 @@ export const registerUser = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          existingUser.email === email.toLowerCase().trim()
+          duplicateField === "email"
             ? "Użytkownik z tym adresem email już istnieje"
             : "Użytkownik z tym numerem telefonu już istnieje",
       });
     }
+    console.log("✅ Email i telefon są wolne");
 
-    // Generate secure verification tokens using cryptographic functions
-    const emailVerificationToken = generateEmailVerificationToken();
-    const smsVerificationCode = generateSecureCode(6);
+    // Generate secure verification codes using cryptographic functions
+    console.log("🔐 Generuję bezpieczne kody weryfikacyjne...");
+    const emailVerificationCode = generateSecureCode(6); // 6-digit code for email
+    const smsVerificationCode = generateSecureCode(6); // 6-digit code for SMS
+    console.log("✅ Kod email:", emailVerificationCode);
+    console.log("✅ Kod SMS:", smsVerificationCode);
 
     // Create new user with email verification required
     // Password will be automatically hashed by User model middleware
@@ -129,13 +154,13 @@ export const registerUser = async (req, res) => {
       termsAcceptedAt: new Date(),
       registrationStep: "email_verification",
 
-      // Email verification token (24 hours validity)
-      emailVerificationToken: emailVerificationToken,
-      emailVerificationTokenExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      // Email verification code (15 minutes validity)
+      emailVerificationCode: emailVerificationCode,
+      emailVerificationCodeExpires: new Date(Date.now() + 15 * 60 * 1000),
 
-      // SMS verification code (10 minutes validity)
+      // SMS verification code (15 minutes validity)
       smsVerificationCode: smsVerificationCode,
-      smsVerificationCodeExpires: new Date(Date.now() + 10 * 60 * 1000),
+      smsVerificationCodeExpires: new Date(Date.now() + 15 * 60 * 1000),
 
       // Verification status - both email and phone require verification
       isEmailVerified: false,
@@ -153,39 +178,40 @@ export const registerUser = async (req, res) => {
       accountLocked: false,
     });
 
+    console.log("💾 Zapisuję użytkownika w bazie danych...");
     await newUser.save();
+    console.log("✅ Użytkownik zapisany! ID:", newUser._id);
 
-    // Send email verification link
+    // Send email verification code
+    console.log("📤 Wysyłam kod weryfikacyjny na email...");
     try {
-      const { sendVerificationLinkEmail } = await import(
-        "../../../config/nodemailer.js"
+      const { sendRegistrationVerificationCode } = await import(
+        "../../../services/emailService.js"
       );
-      const verificationLink = `${
-        process.env.FRONTEND_URL || "http://localhost:3001"
-      }/verify-email?token=${emailVerificationToken}&email=${encodeURIComponent(
-        email
-      )}`;
 
-      const emailSent = await sendVerificationLinkEmail(
+      const emailSent = await sendRegistrationVerificationCode(
         newUser.email,
-        verificationLink,
+        emailVerificationCode,
         newUser.name
       );
 
       if (emailSent) {
-        logger.info("Email verification link sent successfully", {
+        console.log("✅ Email z kodem wysłany pomyślnie!");
+        logger.info("Email verification code sent successfully", {
           userId: newUser._id,
           email: newUser.email,
-          tokenLength: emailVerificationToken.length,
+          codeLength: emailVerificationCode.length,
         });
       } else {
-        logger.error("Failed to send email verification link", {
+        console.log("❌ Nie udało się wysłać emaila");
+        logger.error("Failed to send email verification code", {
           userId: newUser._id,
           email: newUser.email,
         });
       }
     } catch (emailError) {
-      logger.error("Error sending email verification link", {
+      console.error("❌ Błąd wysyłania emaila:", emailError);
+      logger.error("Error sending email verification code", {
         userId: newUser._id,
         email: newUser.email,
         error: emailError.message,
@@ -216,19 +242,35 @@ export const registerUser = async (req, res) => {
       userAgent: req.get("User-Agent"),
     });
 
+    console.log("✅ Zwracam odpowiedź do frontendu");
+    console.log("🟣 ==========================================");
+    console.log("🟣 [BACKEND] /register - SUCCESS");
+    console.log("🟣 ==========================================\n");
+
     res.status(201).json({
       success: true,
       message:
-        "Rejestracja rozpoczęta pomyślnie! Sprawdź swój email, aby otrzymać link weryfikacyjny.",
+        "Rejestracja rozpoczęta pomyślnie! Sprawdź swój email, aby otrzymać kod weryfikacyjny.",
       user: userData,
       nextStep: "email_verification",
       verificationInfo: {
         emailSent: true,
         emailAddress: newUser.email,
-        tokenExpires: newUser.emailVerificationTokenExpires,
+        codeExpires: newUser.emailVerificationCodeExpires,
       },
+      // Include code in development for testing
+      ...(process.env.NODE_ENV !== "production" && {
+        devCode: emailVerificationCode,
+      }),
     });
   } catch (error) {
+    console.error("❌ ==========================================");
+    console.error("❌ [BACKEND] /register - ERROR");
+    console.error("❌ ==========================================");
+    console.error("❌ Registration error:", error);
+    console.error("❌ Message:", error.message);
+    console.error("❌ Stack:", error.stack);
+
     logger.error("Registration error", {
       error: error.message,
       stack: error.stack,

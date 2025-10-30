@@ -5,6 +5,9 @@
 
 import express from "express";
 import { verifyEmailCode } from "../../../controllers/user/index.js";
+import User from "../../../models/user/user.js";
+import logger from "../../../utils/logger.js";
+import { generateEmailVerificationToken } from "../../../utils/securityTokens.js";
 
 const router = express.Router();
 
@@ -25,7 +28,6 @@ router.get("/verify-email/:token", async (req, res) => {
     }
 
     // Find user by token and email
-    const User = (await import("../../../models/user/User.js")).default;
     const user = await User.findOne({
       emailVerificationToken: token,
       email: email ? email.toLowerCase().trim() : undefined,
@@ -56,7 +58,6 @@ router.get("/verify-email/:token", async (req, res) => {
 
     await user.save();
 
-    const logger = (await import("../../../utils/logger.js")).default;
     logger.info("Email verified successfully", {
       userId: user._id,
       email: user.email,
@@ -75,7 +76,6 @@ router.get("/verify-email/:token", async (req, res) => {
       },
     });
   } catch (error) {
-    const logger = (await import("../../../utils/logger.js")).default;
     logger.error("Email verification error", {
       error: error.message,
       stack: error.stack,
@@ -110,7 +110,6 @@ router.post("/send-email-verification-link", async (req, res) => {
       });
     }
 
-    const User = (await import("../../../models/user/User.js")).default;
     const user = await User.findOne({ email: email.toLowerCase().trim() });
 
     if (!user) {
@@ -128,9 +127,6 @@ router.post("/send-email-verification-link", async (req, res) => {
     }
 
     // Generate new verification token using secure method
-    const { generateEmailVerificationToken } = await import(
-      "../../../utils/securityTokens.js"
-    );
     const emailVerificationToken = generateEmailVerificationToken();
     user.emailVerificationToken = emailVerificationToken;
     user.emailVerificationTokenExpires = new Date(
@@ -163,14 +159,12 @@ router.post("/send-email-verification-link", async (req, res) => {
         });
       }
 
-      const logger = (await import("../../../utils/logger.js")).default;
       logger.info("Email verification link resent successfully", {
         userId: user._id,
         email: user.email,
         ip: req.ip,
       });
     } catch (emailError) {
-      const logger = (await import("../../../utils/logger.js")).default;
       logger.error("Failed to send email verification link", {
         error: emailError.message,
         userId: user._id,
@@ -190,7 +184,6 @@ router.post("/send-email-verification-link", async (req, res) => {
       tokenExpires: user.emailVerificationTokenExpires,
     });
   } catch (error) {
-    const logger = (await import("../../../utils/logger.js")).default;
     logger.error("Send email verification link error", {
       error: error.message,
       stack: error.stack,
@@ -204,12 +197,18 @@ router.post("/send-email-verification-link", async (req, res) => {
   }
 });
 
-// Resend email verification code
+// Resend email verification code (for registration)
 router.post("/resend-email-code", async (req, res) => {
+  console.log("\n🔵 ==========================================");
+  console.log("🔵 [BACKEND] /resend-email-code - START");
+  console.log("🔵 ==========================================");
+
   try {
     const { email } = req.body;
+    console.log("📧 Otrzymany email:", email);
 
     if (!email) {
+      console.log("❌ Brak emaila w request body");
       return res.status(400).json({
         success: false,
         message: "Email jest wymagany",
@@ -217,67 +216,102 @@ router.post("/resend-email-code", async (req, res) => {
     }
 
     // Find user
-    const User = (await import("../../../models/user/User.js")).default;
+    console.log("🔍 Szukam użytkownika w bazie...");
     const user = await User.findOne({ email: email.toLowerCase().trim() });
 
     if (!user) {
+      console.log("❌ Użytkownik nie znaleziony w bazie");
       return res.status(404).json({
         success: false,
         message: "Użytkownik nie został znaleziony",
       });
     }
 
+    console.log("✅ Użytkownik znaleziony:", {
+      id: user._id,
+      email: user.email,
+      isEmailVerified: user.isEmailVerified,
+    });
+
     if (user.isEmailVerified) {
+      console.log("⚠️ Email już zweryfikowany");
       return res.status(400).json({
         success: false,
         message: "Email jest już zweryfikowany",
       });
     }
 
-    // Generate new code
-    const emailVerificationCode = require("crypto")
-      .randomInt(100000, 999999)
-      .toString();
+    // Generate new code using crypto
+    console.log("🔐 Generuję nowy kod weryfikacyjny...");
+    const { generateSecureCode } = await import(
+      "../../../utils/securityTokens.js"
+    );
+    const emailVerificationCode = generateSecureCode(6);
+    console.log("✅ Kod wygenerowany:", emailVerificationCode);
+
+    console.log("💾 Zapisuję kod w bazie danych...");
     user.emailVerificationCode = emailVerificationCode;
-    user.emailVerificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    user.emailVerificationCodeExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+    console.log("⏰ Kod ważny do:", user.emailVerificationCodeExpires);
 
     await user.save();
+    console.log("✅ Kod zapisany w bazie");
 
-    // Send email - SYMULACJA W TRYBIE DEWELOPERSKIM
-    if (process.env.NODE_ENV !== "production") {
-      // W trybie deweloperskim tylko symulujemy wysyłanie
-      console.log(
-        "MOCK MODE: Symulacja wysyłania kodu weryfikacyjnego na email:",
-        user.email,
-        "Kod:",
-        emailVerificationCode
+    // Send email with Resend
+    console.log("📤 Wysyłam email z kodem...");
+    try {
+      const { sendRegistrationVerificationCode } = await import(
+        "../../../services/emailService.js"
       );
-    } else {
-      // W trybie produkcyjnym wysyłamy prawdziwy email
-      try {
-        const { sendVerificationEmail } = await import(
-          "../../../config/nodemailer.js"
-        );
-        await sendVerificationEmail(
-          user.email,
-          emailVerificationCode,
-          user.name
-        );
-      } catch (emailError) {
-        console.error("Failed to resend email verification code:", emailError);
-      }
+      await sendRegistrationVerificationCode(
+        user.email,
+        emailVerificationCode,
+        user.name
+      );
+
+      console.log("✅ Email wysłany pomyślnie przez Resend");
+      logger.info("✅ Email verification code sent via Resend", {
+        email: user.email,
+        userId: user._id,
+      });
+    } catch (emailError) {
+      console.error("❌ Błąd wysyłania emaila:", emailError);
+      logger.error("❌ Failed to send email verification code", {
+        error: emailError.message,
+        email: user.email,
+      });
+      return res.status(500).json({
+        success: false,
+        message: "Błąd wysyłania kodu weryfikacyjnego",
+      });
     }
+
+    console.log("✅ Zwracam odpowiedź do frontendu");
+    console.log("🔵 ==========================================");
+    console.log("🔵 [BACKEND] /resend-email-code - SUCCESS");
+    console.log("🔵 ==========================================\n");
 
     res.status(200).json({
       success: true,
       message: "Nowy kod weryfikacyjny został wysłany na email",
+      codeExpires: user.emailVerificationCodeExpires,
       devCode:
         process.env.NODE_ENV !== "production"
           ? emailVerificationCode
           : undefined,
     });
   } catch (error) {
-    console.error("Resend email code error:", error);
+    console.error("❌ ==========================================");
+    console.error("❌ [BACKEND] /resend-email-code - ERROR");
+    console.error("❌ ==========================================");
+    console.error("❌ Error:", error);
+    console.error("❌ Message:", error.message);
+    console.error("❌ Stack:", error.stack);
+
+    logger.error("Resend email code error", {
+      error: error.message,
+      stack: error.stack,
+    });
     res.status(500).json({
       success: false,
       message: "Błąd serwera podczas wysyłania kodu",

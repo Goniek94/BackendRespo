@@ -248,6 +248,9 @@ router.post(
         negotiable: req.body.negotiable || "Nie", // <-- added negotiable field
         listingType,
         sellerType, // <-- added sellerType field
+        // ✅ UJEDNOLICENIE: Ustaw featured=true jeśli listingType to "wyróżnione"
+        featured: listingType === "wyróżnione",
+        featuredAt: listingType === "wyróżnione" ? new Date() : null,
 
         // Technical data
         condition,

@@ -8,7 +8,7 @@ import userRoutes from "./userRoutes.js";
 import listingRoutes from "./listingRoutes.js";
 import reportRoutes from "./reportRoutes.js";
 import promotionRoutes from "./promotionRoutes.js";
-import statisticsRoutes from "./statistics/statisticsRoutes.js";
+import statisticsRoutes from "./statisticsRoutes.js";
 import settingsRoutes from "./settingsRoutes.js";
 import cleanupRoutes from "./cleanupRoutes.js";
 

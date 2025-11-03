@@ -477,16 +477,17 @@ export const requestPasswordReset = async (req, res, next) => {
  */
 export const resetPassword = async (req, res, next) => {
   try {
-    const { token, newPassword } = req.body;
+    const { token, password, newPassword } = req.body;
+    const finalPassword = password || newPassword; // Akceptuj oba
 
-    if (!token || !newPassword) {
+    if (!token || !finalPassword) {
       return res.status(400).json({
         success: false,
         message: "Token i nowe hasło są wymagane",
       });
     }
 
-    if (newPassword.length < 8) {
+    if (finalPassword.length < 8) {
       return res.status(400).json({
         success: false,
         message: "Hasło musi mieć co najmniej 8 znaków",
@@ -506,7 +507,7 @@ export const resetPassword = async (req, res, next) => {
     }
 
     // Update password (will be hashed by pre-save hook)
-    user.password = newPassword;
+    user.password = finalPassword;
     user.passwordResetToken = undefined;
     user.passwordResetTokenExpires = undefined;
     user.failedLoginAttempts = 0;

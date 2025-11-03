@@ -5,6 +5,8 @@ import {
   generateEmailVerificationToken,
   generateSecureCode,
 } from "../../../utils/securityTokens.js";
+import { verifyBothTokens } from "../../../utils/verification/tokenGenerator.js";
+import { cleanupVerificationCodes } from "../../../routes/user/verification/preRegistrationVerification.js";
 
 /**
  * Register new user with advanced verification
@@ -49,6 +51,8 @@ export const registerUser = async (req, res) => {
       termsAccepted,
       emailVerified,
       phoneVerified,
+      emailVerificationToken,
+      phoneVerificationToken,
     } = req.body;
 
     console.log("📦 Otrzymane dane rejestracyjne:");
@@ -58,6 +62,14 @@ export const registerUser = async (req, res) => {
     console.log("   Telefon:", phone);
     console.log("   Data urodzenia:", dob);
     console.log("   Regulamin zaakceptowany:", termsAccepted);
+    console.log(
+      "   Email Verification Token:",
+      emailVerificationToken ? "✅ Present" : "❌ Missing"
+    );
+    console.log(
+      "   Phone Verification Token:",
+      phoneVerificationToken ? "✅ Present" : "❌ Missing"
+    );
 
     // Validate terms acceptance
     if (!termsAccepted) {
@@ -66,6 +78,40 @@ export const registerUser = async (req, res) => {
         success: false,
         message: "Musisz zaakceptować regulamin, aby się zarejestrować",
       });
+    }
+
+    // NEW: Verify JWT tokens from pre-registration verification
+    if (emailVerificationToken && phoneVerificationToken) {
+      console.log("🔐 Weryfikuję tokeny JWT z pre-registration...");
+
+      // Format phone for verification
+      let formattedPhoneForVerification = phone;
+      if (phone.startsWith("48") && !phone.startsWith("+48")) {
+        formattedPhoneForVerification = "+" + phone;
+      } else if (phone.match(/^[0-9]{9}$/)) {
+        formattedPhoneForVerification = "+48" + phone;
+      } else if (!phone.startsWith("+")) {
+        formattedPhoneForVerification = "+48" + phone.replace(/^0+/, "");
+      }
+
+      const tokensValid = verifyBothTokens(
+        emailVerificationToken,
+        phoneVerificationToken,
+        email,
+        formattedPhoneForVerification
+      );
+
+      if (!tokensValid) {
+        console.log("❌ Tokeny JWT są nieprawidłowe lub wygasłe");
+        return res.status(400).json({
+          success: false,
+          message:
+            "Tokeny weryfikacyjne są nieprawidłowe lub wygasłe. Zweryfikuj email i telefon ponownie.",
+        });
+      }
+
+      console.log("✅ Tokeny JWT zweryfikowane pomyślnie!");
+      console.log("✅ Email i telefon zostały zweryfikowane PRZED rejestracją");
     }
 
     // Format phone number to ensure +48 prefix for Polish numbers
@@ -181,6 +227,12 @@ export const registerUser = async (req, res) => {
     console.log("💾 Zapisuję użytkownika w bazie danych...");
     await newUser.save();
     console.log("✅ Użytkownik zapisany! ID:", newUser._id);
+
+    // NEW: Clean up verification codes after successful registration
+    if (emailVerificationToken && phoneVerificationToken) {
+      console.log("🧹 Czyszczę kody weryfikacyjne z pre-registration...");
+      await cleanupVerificationCodes(newUser.email, newUser.phoneNumber);
+    }
 
     // Send email verification code
     console.log("📤 Wysyłam kod weryfikacyjny na email...");

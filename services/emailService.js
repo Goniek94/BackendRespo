@@ -5,11 +5,15 @@ import logger from "../utils/logger.js";
 
 /**
  * Email Service using Resend for sending various types of emails
- * Resend is a modern email API with better deliverability than traditional SMTP
+ * (weryfikacja rejestracji, reset hasła, zmiana e-maila, powiadomienia profilu)
  */
 
 // Initialize Resend client
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+// Stałe nadawcy (zweryfikowana domena autosell.pl)
+const FROM = process.env.RESEND_FROM_EMAIL || "AutoSell <noreply@autosell.pl>";
+const REPLY_TO = process.env.RESEND_REPLY_TO || "kontakt@autosell.pl";
 
 /**
  * Generate a secure reset token
@@ -33,7 +37,8 @@ export const sendPasswordResetEmail = async (email, resetToken, userName) => {
     const resetUrl = `${config.app.frontendUrl}/reset-password?token=${resetToken}`;
 
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || "AutoSell <onboarding@resend.dev>",
+      from: FROM,
+      reply_to: REPLY_TO,
       to: [email],
       subject: "Reset hasła - AutoSell",
       html: `
@@ -147,7 +152,7 @@ export const sendPasswordResetEmail = async (email, resetToken, userName) => {
               <div class="warning">
                 <strong>⚠️ Uwaga!</strong> Link jest ważny przez <strong>1 godzinę</strong>. Jeśli nie prosiłeś o reset hasła, zignoruj tę wiadomość.
               </div>
-              <p>Jeśli masz pytania, skontaktuj się z nami: <a href="mailto:kontakt@autosell.pl" style="color: #35530A;">kontakt@autosell.pl</a></p>
+              <p>Masz pytania? <a href="mailto:${REPLY_TO}" style="color: #35530A;">${REPLY_TO}</a></p>
             </div>
             <div class="footer">
               <p>&copy; ${new Date().getFullYear()} AutoSell. Wszystkie prawa zastrzeżone.</p>
@@ -164,24 +169,17 @@ export const sendPasswordResetEmail = async (email, resetToken, userName) => {
         
         Otrzymaliśmy prośbę o reset hasła do Twojego konta.
         
-        Użyj poniższego linku, aby ustawić nowe hasło:
+        Użyj poniższego linku, aby ustawić nowe hasło (ważny 1h):
         ${resetUrl}
         
-        Link jest ważny przez 1 godzinę.
-        
-        Jeśli nie prosiłeś o reset hasła, zignoruj tę wiadomość.
+        Jeśli to nie Ty, zignoruj tę wiadomość.
         
         © ${new Date().getFullYear()} AutoSell
       `,
+      tags: [{ name: "template", value: "reset-password" }],
     });
 
-    if (error) {
-      logger.error("Failed to send password reset email via Resend", {
-        error: error.message,
-        email,
-      });
-      throw error;
-    }
+    if (error) throw error;
 
     logger.info("Password reset email sent successfully via Resend", {
       to: email,
@@ -192,7 +190,10 @@ export const sendPasswordResetEmail = async (email, resetToken, userName) => {
     return { success: true, data };
   } catch (error) {
     logger.error("Failed to send password reset email", {
-      error: error.message,
+      name: error?.name,
+      statusCode: error?.statusCode,
+      message: error?.message,
+      body: error?.body,
       email,
     });
     throw error;
@@ -209,7 +210,8 @@ export const sendEmailChangeVerification = async (
 ) => {
   try {
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || "AutoSell <onboarding@resend.dev>",
+      from: FROM,
+      reply_to: REPLY_TO,
       to: [newEmail],
       subject: "Weryfikacja nowego adresu email - AutoSell",
       html: `
@@ -300,7 +302,7 @@ export const sendEmailChangeVerification = async (
                 <div class="code">${verificationCode}</div>
                 <div class="timer">⏱️ Kod jest ważny przez <strong>15 minut</strong></div>
               </div>
-              <p>Jeśli nie prosiłeś o zmianę email, zignoruj tę wiadomość.</p>
+              <p>Jeśli to nie Ty, zignoruj tę wiadomość.</p>
             </div>
             <div class="footer">
               <p>&copy; ${new Date().getFullYear()} AutoSell. Wszystkie prawa zastrzeżone.</p>
@@ -315,20 +317,16 @@ export const sendEmailChangeVerification = async (
         Cześć ${userName},
         
         Kod weryfikacyjny: ${verificationCode}
+        (Ważny 15 minut)
         
-        Kod jest ważny przez 15 minut.
+        Jeśli to nie Ty, zignoruj tę wiadomość.
         
         © ${new Date().getFullYear()} AutoSell
       `,
+      tags: [{ name: "template", value: "email-change" }],
     });
 
-    if (error) {
-      logger.error("Failed to send email change verification via Resend", {
-        error: error.message,
-        email: newEmail,
-      });
-      throw error;
-    }
+    if (error) throw error;
 
     logger.info("Email change verification sent successfully via Resend", {
       to: newEmail,
@@ -339,7 +337,10 @@ export const sendEmailChangeVerification = async (
     return { success: true, data };
   } catch (error) {
     logger.error("Failed to send email change verification", {
-      error: error.message,
+      name: error?.name,
+      statusCode: error?.statusCode,
+      message: error?.message,
+      body: error?.body,
       email: newEmail,
     });
     throw error;
@@ -354,13 +355,13 @@ export const sendPhoneChangeVerification = async (
   verificationCode
 ) => {
   try {
-    // TODO: Implement SMS sending with provider like Twilio, AWS SNS, etc.
+    // TODO: Integracja z providerem SMS (SMSAPI/Twilio/SNS)
     logger.info("Phone verification code generated", {
       phoneNumber,
       code: verificationCode,
     });
 
-    // For now, just log - in production, use SMS provider
+    // Tymczasowo: log do konsoli
     console.log(
       `📱 SMS to ${phoneNumber}: Your verification code is ${verificationCode}`
     );
@@ -368,7 +369,10 @@ export const sendPhoneChangeVerification = async (
     return { success: true };
   } catch (error) {
     logger.error("Failed to send phone verification", {
-      error: error.message,
+      name: error?.name,
+      statusCode: error?.statusCode,
+      message: error?.message,
+      body: error?.body,
       phoneNumber,
     });
     throw error;
@@ -387,7 +391,8 @@ export const sendProfileChangeNotification = async (
     const changesList = changes.map((change) => `<li>${change}</li>`).join("");
 
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || "AutoSell <onboarding@resend.dev>",
+      from: FROM,
+      reply_to: REPLY_TO,
       to: [email],
       subject: "Powiadomienie o zmianie danych - AutoSell",
       html: `
@@ -485,7 +490,7 @@ export const sendProfileChangeNotification = async (
               <div class="warning">
                 <strong>⚠️ Uwaga!</strong> Jeśli to nie Ty dokonałeś tych zmian, natychmiast skontaktuj się z nami!
               </div>
-              <p>Kontakt: <a href="mailto:kontakt@autosell.pl" style="color: #35530A;">kontakt@autosell.pl</a></p>
+              <p>Kontakt: <a href="mailto:${REPLY_TO}" style="color: #35530A;">${REPLY_TO}</a></p>
             </div>
             <div class="footer">
               <p>&copy; ${new Date().getFullYear()} AutoSell. Wszystkie prawa zastrzeżone.</p>
@@ -502,19 +507,14 @@ export const sendProfileChangeNotification = async (
         W Twoim koncie zostały zmienione następujące dane:
         ${changes.join("\n")}
         
-        Jeśli to nie Ty, skontaktuj się z nami: kontakt@autosell.pl
+        Jeśli to nie Ty, skontaktuj się z nami: ${REPLY_TO}
         
         © ${new Date().getFullYear()} AutoSell
       `,
+      tags: [{ name: "template", value: "profile-change" }],
     });
 
-    if (error) {
-      logger.error("Failed to send profile change notification via Resend", {
-        error: error.message,
-        email,
-      });
-      throw error;
-    }
+    if (error) throw error;
 
     logger.info("Profile change notification sent successfully via Resend", {
       to: email,
@@ -526,7 +526,10 @@ export const sendProfileChangeNotification = async (
     return { success: true, data };
   } catch (error) {
     logger.error("Failed to send profile change notification", {
-      error: error.message,
+      name: error?.name,
+      statusCode: error?.statusCode,
+      message: error?.message,
+      body: error?.body,
       email,
     });
     throw error;
@@ -543,7 +546,8 @@ export const sendRegistrationVerificationCode = async (
 ) => {
   try {
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || "AutoSell <onboarding@resend.dev>",
+      from: FROM,
+      reply_to: REPLY_TO,
       to: [email],
       subject: "Kod weryfikacyjny rejestracji - AutoSell",
       html: `
@@ -649,9 +653,8 @@ export const sendRegistrationVerificationCode = async (
                 <div class="timer">⏱️ Kod jest ważny przez <strong>15 minut</strong></div>
               </div>
               <div class="warning">
-                <strong>ℹ️ Ważne!</strong> Jeśli nie prosiłeś o rejestrację w AutoSell, zignoruj tę wiadomość.
-              </div>
-              <p>Jeśli masz pytania, skontaktuj się z nami: <a href="mailto:kontakt@autosell.pl" style="color: #35530A;">kontakt@autosell.pl</a></p>
+                <strong>ℹ️ Ważne!</strong> Jeśli to nie Ty, zignoruj tę wiadomość.</div>
+              <p>Pytania? Napisz: <a href="mailto:${REPLY_TO}" style="color: #35530A;">${REPLY_TO}</a></p>
             </div>
             <div class="footer">
               <p>&copy; ${new Date().getFullYear()} AutoSell. Wszystkie prawa zastrzeżone.</p>
@@ -669,22 +672,16 @@ export const sendRegistrationVerificationCode = async (
         Dziękujemy za rejestrację w serwisie AutoSell.
         
         Kod weryfikacyjny: ${verificationCode}
+        (Ważny 15 minut)
         
-        Kod jest ważny przez 15 minut.
-        
-        Jeśli nie prosiłeś o rejestrację, zignoruj tę wiadomość.
+        Jeśli to nie Ty, zignoruj tę wiadomość.
         
         © ${new Date().getFullYear()} AutoSell
       `,
+      tags: [{ name: "template", value: "register-verify" }],
     });
 
-    if (error) {
-      logger.error("Failed to send registration verification code via Resend", {
-        error: error.message,
-        email,
-      });
-      throw error;
-    }
+    if (error) throw error;
 
     logger.info("Registration verification code sent successfully via Resend", {
       to: email,
@@ -695,7 +692,10 @@ export const sendRegistrationVerificationCode = async (
     return { success: true, data };
   } catch (error) {
     logger.error("Failed to send registration verification code", {
-      error: error.message,
+      name: error?.name,
+      statusCode: error?.statusCode,
+      message: error?.message,
+      body: error?.body,
       email,
     });
     throw error;

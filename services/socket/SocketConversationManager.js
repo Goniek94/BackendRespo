@@ -7,6 +7,15 @@ class SocketConversationManager {
   constructor() {
     this.activeConversations = new Map(); // userId -> Set of conversationId/participantId
     this.conversationNotificationState = new Map(); // "userId:participantId" -> lastNotificationTime
+    this.socketService = null;
+  }
+
+  /**
+   * Ustawia referencję do socketService
+   * @param {Object} socketService - Instancja socketService
+   */
+  setSocketService(socketService) {
+    this.socketService = socketService;
   }
 
   /**
@@ -262,6 +271,60 @@ class SocketConversationManager {
         participantId.toString(),
         conversationId
       );
+
+      // NOWE: Oznacz powiadomienia o wiadomościach jako przeczytane
+      try {
+        const Notification = (
+          await import("../../models/communication/notification.js")
+        ).default;
+
+        // Oznacz tylko nieprzeczytane powiadomienia typu "new_message"
+        // od tego konkretnego uczestnika konwersacji
+        const result = await Notification.updateMany(
+          {
+            $or: [{ userId: userId }, { user: userId }],
+            type: "new_message",
+            "metadata.senderId": participantId.toString(),
+            isRead: false,
+          },
+          { $set: { isRead: true } }
+        );
+
+        if (result.modifiedCount > 0) {
+          logger.info(
+            `📬 Marked ${result.modifiedCount} message notifications as read`,
+            {
+              userId,
+              conversationId,
+              senderId: participantId.toString(),
+            }
+          );
+
+          // Pobierz zaktualizowaną liczbę nieprzeczytanych powiadomień
+          const unreadCount = await Notification.countDocuments({
+            $or: [{ userId: userId }, { user: userId }],
+            isRead: false,
+          });
+
+          // Wyślij zaktualizowaną liczbę do klienta przez socketService
+          if (this.socketService && this.socketService.io) {
+            this.socketService.io
+              .to(`user_${userId}`)
+              .emit("notifications:count", { count: unreadCount });
+
+            logger.info(
+              `🔔 Updated notification count for user ${userId}: ${unreadCount}`
+            );
+          }
+        }
+      } catch (notificationError) {
+        logger.error("Error marking notifications as read", {
+          error: notificationError.message,
+          stack: notificationError.stack,
+          userId,
+          conversationId,
+        });
+      }
     } catch (error) {
       logger.error("Error handling conversation:opened", {
         error: error.message,

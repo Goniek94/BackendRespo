@@ -40,6 +40,26 @@ const commentSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    reported: {
+      type: Boolean,
+      default: false,
+    },
+    reportedBy: [
+      {
+        userId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        reason: {
+          type: String,
+          default: "",
+        },
+        reportedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
   },
   { timestamps: true }
 );

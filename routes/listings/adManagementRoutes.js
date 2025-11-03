@@ -9,6 +9,7 @@ import auth from "../../middleware/auth.js";
 import Ad from "../../models/listings/ad.js";
 import errorHandler from "../../middleware/errors/errorHandler.js";
 import notificationManager from "../../services/notificationManager.js";
+import logger from "../../utils/logger.js";
 
 const router = Router();
 
@@ -20,9 +21,6 @@ router.get(
     try {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
-
-      console.log("Pobieranie ogłoszeń użytkownika:", req.user.userId);
-      console.log("Parametry zapytania:", { page, limit });
 
       const userListings = await Ad.find({ owner: req.user.userId })
         .select(
@@ -37,53 +35,19 @@ router.get(
       const processedListings = userListings.map((ad) => {
         const adObject = ad.toObject();
 
-        // Debug: Check original values
-        console.log(`\n📋 Processing ad ${adObject._id}:`);
-        console.log(`  - Original headline: "${adObject.headline}"`);
-        console.log(
-          `  - Original description: "${
-            adObject.description
-              ? adObject.description.substring(0, 100)
-              : "BRAK"
-          }"`
-        );
-
         // BUILD HEADLINE if missing or empty
         if (!adObject.headline || adObject.headline.trim() === "") {
           if (adObject.description && adObject.description.trim() !== "") {
             adObject.headline = adObject.description.substring(0, 50) + "...";
-            console.log(
-              `  ✅ Built headline from description: "${adObject.headline}"`
-            );
           } else {
             adObject.headline = `${adObject.year}, ${adObject.mileage || 0} km`;
-            console.log(`  ⚠️ Used fallback headline: "${adObject.headline}"`);
           }
-        } else {
-          console.log(`  ✓ Using existing headline: "${adObject.headline}"`);
         }
 
         return adObject;
       });
 
-      console.log(
-        "Znalezione ogłoszenia użytkownika:",
-        processedListings.length
-      );
-      console.log(
-        "Szczegóły ogłoszeń:",
-        processedListings.map((ad) => ({
-          id: ad._id,
-          brand: ad.brand,
-          model: ad.model,
-          headline: ad.headline,
-          listingType: ad.listingType,
-          status: ad.status,
-        }))
-      );
-
       const total = await Ad.countDocuments({ owner: req.user.userId });
-      console.log("Całkowita liczba ogłoszeń użytkownika:", total);
 
       res.status(200).json({
         ads: processedListings,
@@ -92,7 +56,10 @@ router.get(
         totalAds: total,
       });
     } catch (err) {
-      console.error("Błąd podczas pobierania ogłoszeń użytkownika:", err);
+      logger.error("Błąd podczas pobierania ogłoszeń użytkownika", {
+        error: err.message,
+        userId: req.user?.userId,
+      });
       next(err);
     }
   },
@@ -154,14 +121,12 @@ router.put(
             adTitle,
             status
           );
-          console.log(
-            `Utworzono powiadomienie o zmianie statusu ogłoszenia dla użytkownika ${ad.owner}`
-          );
         } catch (notificationError) {
-          console.error(
-            "Błąd podczas tworzenia powiadomienia:",
-            notificationError
-          );
+          logger.error("Błąd podczas tworzenia powiadomienia", {
+            error: notificationError.message,
+            adId: ad._id,
+            userId: ad.owner,
+          });
           // Nie przerywamy głównego procesu w przypadku błędu powiadomienia
         }
       }
@@ -307,7 +272,11 @@ router.delete(
         ad: ad,
       });
     } catch (err) {
-      console.error("Błąd podczas usuwania zdjęcia:", err);
+      logger.error("Błąd podczas usuwania zdjęcia", {
+        error: err.message,
+        adId: req.params.id,
+        userId: req.user?.userId,
+      });
       next(err);
     }
   },
@@ -364,14 +333,12 @@ router.post(
           adTitle,
           "odnowione"
         );
-        console.log(
-          `Utworzono powiadomienie o odnowieniu ogłoszenia dla użytkownika ${ad.owner}`
-        );
       } catch (notificationError) {
-        console.error(
-          "Błąd podczas tworzenia powiadomienia:",
-          notificationError
-        );
+        logger.error("Błąd podczas tworzenia powiadomienia", {
+          error: notificationError.message,
+          adId: ad._id,
+          userId: ad.owner,
+        });
         // Nie przerywamy głównego procesu w przypadku błędu powiadomienia
       }
 
@@ -381,7 +348,11 @@ router.post(
         expiresAt: ad.expiresAt,
       });
     } catch (err) {
-      console.error("Błąd podczas odnawiania ogłoszenia:", err);
+      logger.error("Błąd podczas odnawiania ogłoszenia", {
+        error: err.message,
+        adId: req.params.id,
+        userId: req.user?.userId,
+      });
       next(err);
     }
   },

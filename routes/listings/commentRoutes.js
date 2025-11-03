@@ -15,9 +15,12 @@ const router = express.Router();
 const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
+  console.log("🔍 MULTER fileFilter - sprawdzam plik:", file);
   if (file.mimetype.startsWith("image/")) {
+    console.log("✅ Plik zaakceptowany");
     cb(null, true);
   } else {
+    console.log("❌ Plik odrzucony - zły MIME type");
     cb(new Error("Dozwolone są tylko pliki graficzne!"), false);
   }
 };
@@ -32,6 +35,48 @@ const upload = multer({
 
 // Max 3 zdjęcia w jednym komentarzu
 const uploadMultiple = upload.array("images", 3);
+
+// Middleware debug - sprawdź co multer dostaje
+const multerDebug = (req, res, next) => {
+  console.log("🚨🚨🚨 MULTER DEBUG WYWOŁANY! 🚨🚨🚨");
+  console.log("🔍 PRZED MULTEREM:");
+  console.log("  - Content-Type:", req.get("Content-Type"));
+  console.log("  - req.body PRZED:", req.body);
+  console.log("  - typeof req.body:", typeof req.body);
+  console.log(
+    "  - req.body keys:",
+    req.body ? Object.keys(req.body) : "undefined"
+  );
+  console.log("  - req.files PRZED:", req.files);
+
+  uploadMultiple(req, res, (err) => {
+    console.log("🚨🚨🚨 MULTER SKOŃCZYŁ! 🚨🚨🚨");
+    console.log("🔍 PO MULTERZE:");
+    console.log("  - req.body PO:", req.body);
+    console.log(
+      "  - req.body keys PO:",
+      req.body ? Object.keys(req.body) : "undefined"
+    );
+    console.log("  - req.files PO:", req.files);
+    console.log(
+      "  - req.files length:",
+      req.files ? req.files.length : "undefined"
+    );
+    console.log("  - req.file PO:", req.file);
+
+    if (err) {
+      console.error("❌ MULTER ERROR:", err);
+      console.error("❌ Error stack:", err.stack);
+      return res.status(400).json({
+        message: "Błąd podczas przesyłania plików",
+        error: err.message,
+      });
+    }
+
+    console.log("✅ MULTER ZAKOŃCZYŁ BEZ BŁĘDÓW - wywołuję next()");
+    next();
+  });
+};
 
 const createNotification = async (
   userId,
@@ -57,7 +102,7 @@ const createNotification = async (
 };
 
 // Dodawanie komentarza - UŻYWA SUPABASE STORAGE + WIELE ZDJĘĆ
-router.post("/:adId", auth, uploadMultiple, async (req, res) => {
+router.post("/:adId", auth, multerDebug, async (req, res) => {
   console.log("🔍 === DEBUG UPLOAD ===");
   console.log("req.files:", req.files);
   console.log("req.file:", req.file);
@@ -178,15 +223,13 @@ router.post("/:adId", auth, uploadMultiple, async (req, res) => {
           );
           console.log(`  - Buffer size: ${file.buffer?.length || 0} bajtów`);
 
-          // Upload to Supabase - directly to 'autosell' bucket (no subfolder)
-          // Add "comment-" prefix to filename to distinguish from listing photos
-          const prefixedFilename = `comment-${file.originalname}`;
+          // Upload to Supabase - to 'comments' folder in 'autosell' bucket
           const imageUrl = await uploadToSupabase(
             file.buffer,
-            prefixedFilename,
+            file.originalname,
             "autosell", // Main bucket name
             file.mimetype,
-            null // No subfolder - upload directly to bucket root
+            "comments" // Subfolder for comment images
           );
 
           imageUrls.push(imageUrl);
@@ -262,7 +305,7 @@ router.post("/:adId", auth, uploadMultiple, async (req, res) => {
   }
 });
 
-// Pobieranie komentarzy - zwraca approved dla wszystkich + pending dla zalogowanego użytkownika
+// Pobieranie komentarzy - zwraca TYLKO approved dla zwykłych użytkowników, WSZYSTKIE dla adminów
 router.get("/:adId", async (req, res) => {
   const { adId } = req.params;
 
@@ -272,29 +315,36 @@ router.get("/:adId", async (req, res) => {
       return res.status(404).json({ message: "Ogłoszenie nie istnieje" });
     }
 
-    // Pobierz zatwierdzone komentarze
-    let comments = await Comment.find({
-      ad: adId,
-      status: "approved",
-    }).populate("user", "name lastName");
+    // Sprawdź czy użytkownik jest adminem (sprawdzamy token jeśli istnieje)
+    let isAdmin = false;
+    const token =
+      req.cookies?.token || req.headers.authorization?.split(" ")[1];
 
-    // Jeśli użytkownik jest zalogowany, dodaj jego pending komentarze
-    const userId = req.headers.authorization
-      ? req.headers.userId || req.user?.userId
-      : null;
-
-    if (userId) {
-      const userPendingComments = await Comment.find({
-        ad: adId,
-        user: userId,
-        status: "pending",
-      }).populate("user", "name lastName");
-
-      comments = [...comments, ...userPendingComments];
+    if (token) {
+      try {
+        const jwt = await import("jsonwebtoken");
+        const decoded = jwt.default.verify(token, process.env.JWT_SECRET);
+        isAdmin = decoded.role === "admin";
+      } catch (error) {
+        // Token invalid or expired - nie jest adminem
+        isAdmin = false;
+      }
     }
 
-    res.status(200).json(comments);
+    // Dla adminów zwracamy wszystkie komentarze, dla zwykłych użytkowników tylko approved
+    const filter = isAdmin ? { ad: adId } : { ad: adId, status: "approved" };
+
+    const comments = await Comment.find(filter)
+      .populate("user", "name lastName")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      comments,
+      isAdmin,
+      totalCount: comments.length,
+    });
   } catch (err) {
+    console.error("Błąd podczas pobierania komentarzy:", err);
     res.status(500).json({ message: "Błąd serwera" });
   }
 });
@@ -428,7 +478,7 @@ router.patch("/admin/:id/reject", requireAdminAuth, async (req, res) => {
   }
 });
 
-// Edycja komentarza (user) - wraca do pending po edycji
+// Edycja komentarza (user) - wraca do pending po edycji, tylko do 30 minut od utworzenia
 router.patch("/:id", auth, async (req, res) => {
   try {
     const { content } = req.body;
@@ -442,6 +492,17 @@ router.patch("/:id", auth, async (req, res) => {
       return res
         .status(403)
         .json({ message: "Brak dostępu do tego komentarza" });
+    }
+
+    // Sprawdź czy minęło 30 minut od utworzenia komentarza
+    const timeDiff = Date.now() - new Date(comment.createdAt).getTime();
+    const minutesDiff = timeDiff / (1000 * 60);
+
+    if (minutesDiff > 30) {
+      return res.status(403).json({
+        message:
+          "Nie możesz edytować komentarza po upływie 30 minut od jego dodania",
+      });
     }
 
     // Aktualizuj treść i zmień status na pending
@@ -508,6 +569,92 @@ router.delete("/admin/:id", requireAdminAuth, async (req, res) => {
     res.status(200).json({ message: "Komentarz usunięty" });
   } catch (err) {
     console.error("Błąd podczas usuwania komentarza przez admina:", err);
+    res.status(500).json({ message: "Błąd serwera" });
+  }
+});
+
+// Zgłoszenie komentarza przez użytkownika
+router.post("/:id/report", auth, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const comment = await Comment.findById(req.params.id);
+
+    if (!comment) {
+      return res.status(404).json({ message: "Komentarz nie znaleziony" });
+    }
+
+    // Sprawdź czy użytkownik już zgłosił ten komentarz
+    const alreadyReported = comment.reportedBy.some(
+      (report) => report.userId.toString() === req.user.userId
+    );
+
+    if (alreadyReported) {
+      return res.status(400).json({
+        message: "Ten komentarz został już przez Ciebie zgłoszony",
+      });
+    }
+
+    // Dodaj zgłoszenie
+    comment.reportedBy.push({
+      userId: req.user.userId,
+      reason: reason || "Brak powodu",
+      reportedAt: new Date(),
+    });
+
+    // Oznacz jako zgłoszony
+    comment.reported = true;
+    await comment.save();
+
+    // Powiadom adminów o zgłoszeniu (możesz dodać logic powiadomień admina)
+    console.log(
+      `Komentarz ${comment._id} został zgłoszony przez użytkownika ${req.user.userId}`
+    );
+
+    res.status(200).json({
+      message: "Komentarz został zgłoszony do moderacji",
+      success: true,
+    });
+  } catch (err) {
+    console.error("Błąd podczas zgłaszania komentarza:", err);
+    res.status(500).json({ message: "Błąd serwera" });
+  }
+});
+
+// Pobieranie zgłoszonych komentarzy (admin)
+router.get("/admin/reported", requireAdminAuth, async (req, res) => {
+  try {
+    const reportedComments = await Comment.find({ reported: true })
+      .populate("user", "name lastName email")
+      .populate("ad", "make model title")
+      .populate("reportedBy.userId", "name lastName email")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(reportedComments);
+  } catch (err) {
+    console.error("Błąd podczas pobierania zgłoszonych komentarzy:", err);
+    res.status(500).json({ message: "Błąd serwera" });
+  }
+});
+
+// Odznaczenie zgłoszenia (admin zatwierdził komentarz jako OK)
+router.patch("/admin/:id/clear-reports", requireAdminAuth, async (req, res) => {
+  try {
+    const comment = await Comment.findById(req.params.id);
+
+    if (!comment) {
+      return res.status(404).json({ message: "Komentarz nie znaleziony" });
+    }
+
+    comment.reported = false;
+    comment.reportedBy = [];
+    await comment.save();
+
+    res.status(200).json({
+      message: "Zgłoszenia wyczyszczone",
+      comment,
+    });
+  } catch (err) {
+    console.error("Błąd podczas czyszczenia zgłoszeń:", err);
     res.status(500).json({ message: "Błąd serwera" });
   }
 });

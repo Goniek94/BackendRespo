@@ -344,22 +344,20 @@ router.post("/send-sms-code", async (req, res) => {
 
     console.log("🔐 Nowy kod SMS:", smsVerificationCode);
 
-    // Wyślij SMS przez SMSAPI (lub MOCK)
-    if (process.env.MOCK_SMS !== "false") {
-      // MOCK MODE - tylko konsola
-      console.log("📱 MOCK SMS do:", phone);
-      console.log("Twój kod weryfikacyjny:", smsVerificationCode);
-      console.log("Kod ważny przez 15 minut.\n");
-    } else {
-      // PRAWDZIWY SMS przez SMSAPI
-      try {
-        const { sendVerificationSMS } = await import("../../config/smsapi.js");
-        await sendVerificationSMS(phone, smsVerificationCode, user.name);
-      } catch (smsError) {
-        console.error("❌ Błąd wysyłania SMS:", smsError);
+    // Wyślij SMS przez SMSAPI
+    try {
+      const { sendVerificationSMS } = await import("../../config/smsapi.js");
+      const smsResult = await sendVerificationSMS(
+        phone,
+        smsVerificationCode,
+        user.name
+      );
+
+      if (!smsResult.success && !smsResult.mock) {
+        console.error("❌ Błąd wysyłania SMS:", smsResult.error);
         const logger = (await import("../../utils/logger.js")).default;
         logger.error("SMS send error", {
-          error: smsError.message,
+          error: smsResult.error,
           phone,
         });
         return res.status(500).json({
@@ -367,6 +365,17 @@ router.post("/send-sms-code", async (req, res) => {
           message: "Błąd wysyłania kodu SMS",
         });
       }
+    } catch (smsError) {
+      console.error("❌ Błąd wysyłania SMS:", smsError);
+      const logger = (await import("../../utils/logger.js")).default;
+      logger.error("SMS send error", {
+        error: smsError.message,
+        phone,
+      });
+      return res.status(500).json({
+        success: false,
+        message: "Błąd wysyłania kodu SMS",
+      });
     }
 
     const logger = (await import("../../utils/logger.js")).default;
@@ -512,25 +521,22 @@ router.post("/resend-sms-code", async (req, res) => {
 
     await user.save();
 
-    // Send SMS - obsługa MOCK_SMS
-    if (process.env.MOCK_SMS !== "false") {
-      console.log(
-        "📱 MOCK SMS do:",
+    // Send SMS przez SMSAPI
+    try {
+      const { sendVerificationSMS } = await import("../../config/smsapi.js");
+      const smsResult = await sendVerificationSMS(
         user.phoneNumber,
-        "| Kod:",
-        smsVerificationCode
+        smsVerificationCode,
+        user.name
       );
-    } else {
-      try {
-        const { sendVerificationSMS } = await import("../../config/smsapi.js");
-        await sendVerificationSMS(
-          user.phoneNumber,
-          smsVerificationCode,
-          user.name
-        );
-      } catch (smsError) {
-        console.error("Failed to resend SMS verification code:", smsError);
+
+      if (!smsResult.success && !smsResult.mock) {
+        console.error("❌ Błąd ponownego wysyłania SMS:", smsResult.error);
+        // Don't fail the request - code is already saved
       }
+    } catch (smsError) {
+      console.error("❌ Błąd ponownego wysyłania SMS:", smsError);
+      // Don't fail the request - code is already saved
     }
 
     res.status(200).json({

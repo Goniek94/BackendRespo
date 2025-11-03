@@ -155,12 +155,16 @@ router.post(
   requestPasswordReset
 );
 
-// Resetowanie hasła
+// Resetowanie hasła (bez rate limitera - token już zapewnia bezpieczeństwo)
 router.post(
   "/reset-password",
-  authLimiter,
   [
     body("password")
+      .optional()
+      .isLength({ min: 8 })
+      .withMessage("Hasło musi mieć co najmniej 8 znaków."),
+    body("newPassword")
+      .optional()
       .isLength({ min: 8 })
       .withMessage("Hasło musi mieć co najmniej 8 znaków."),
     body("token").notEmpty().withMessage("Token resetu hasła jest wymagany."),

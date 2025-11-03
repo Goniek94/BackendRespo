@@ -64,6 +64,9 @@ class SocketService {
       this.conversationManager
     );
 
+    // Przekaż referencję do socketService do conversationManager
+    this.conversationManager.setSocketService(this);
+
     // Middleware do uwierzytelniania połączeń
     this.io.use(SocketAuth.authMiddleware);
 

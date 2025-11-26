@@ -333,9 +333,9 @@ router.post("/send-sms-code", async (req, res) => {
       });
     }
 
-    // Wygeneruj nowy kod (6 cyfr)
+    // Wygeneruj nowy kod (4 cyfry dla Twilio)
     const smsVerificationCode = Math.floor(
-      100000 + Math.random() * 900000
+      1000 + Math.random() * 9000
     ).toString();
     user.smsVerificationCode = smsVerificationCode;
     user.smsVerificationCodeExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 min
@@ -344,19 +344,15 @@ router.post("/send-sms-code", async (req, res) => {
 
     console.log("🔐 Nowy kod SMS:", smsVerificationCode);
 
-    // Wyślij SMS przez SMSAPI
+    // Wyślij SMS przez Twilio
     try {
-      const { sendVerificationSMS } = await import("../../config/smsapi.js");
-      const smsResult = await sendVerificationSMS(
-        phone,
-        smsVerificationCode,
-        user.name
-      );
+      const { sendVerificationCode } = await import("../../config/twilio.js");
+      const smsResult = await sendVerificationCode(phone, smsVerificationCode);
 
-      if (!smsResult.success && !smsResult.mock) {
+      if (!smsResult.success) {
         console.error("❌ Błąd wysyłania SMS:", smsResult.error);
         const logger = (await import("../../utils/logger.js")).default;
-        logger.error("SMS send error", {
+        logger.error("SMS send error via Twilio", {
           error: smsResult.error,
           phone,
         });
@@ -365,10 +361,19 @@ router.post("/send-sms-code", async (req, res) => {
           message: "Błąd wysyłania kodu SMS",
         });
       }
+
+      console.log("✅ SMS wysłany przez Twilio!");
+      const logger = (await import("../../utils/logger.js")).default;
+      logger.info("SMS code sent via Twilio", {
+        userId: user._id,
+        phone,
+        sid: smsResult.sid,
+        simulated: smsResult.simulated || false,
+      });
     } catch (smsError) {
       console.error("❌ Błąd wysyłania SMS:", smsError);
       const logger = (await import("../../utils/logger.js")).default;
-      logger.error("SMS send error", {
+      logger.error("SMS send error via Twilio", {
         error: smsError.message,
         phone,
       });
@@ -512,27 +517,35 @@ router.post("/resend-sms-code", async (req, res) => {
       });
     }
 
-    // Generate new code
+    // Generate new code (4 digits for Twilio)
     const smsVerificationCode = Math.floor(
-      100000 + Math.random() * 900000
+      1000 + Math.random() * 9000
     ).toString();
     user.smsVerificationCode = smsVerificationCode;
     user.smsVerificationCodeExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
     await user.save();
 
-    // Send SMS przez SMSAPI
+    // Send SMS przez Twilio
     try {
-      const { sendVerificationSMS } = await import("../../config/smsapi.js");
-      const smsResult = await sendVerificationSMS(
+      const { sendVerificationCode } = await import("../../config/twilio.js");
+      const smsResult = await sendVerificationCode(
         user.phoneNumber,
-        smsVerificationCode,
-        user.name
+        smsVerificationCode
       );
 
-      if (!smsResult.success && !smsResult.mock) {
+      if (!smsResult.success) {
         console.error("❌ Błąd ponownego wysyłania SMS:", smsResult.error);
         // Don't fail the request - code is already saved
+      } else {
+        console.log("✅ SMS ponownie wysłany przez Twilio!");
+        const logger = (await import("../../utils/logger.js")).default;
+        logger.info("SMS code resent via Twilio", {
+          userId: user._id,
+          phone: user.phoneNumber,
+          sid: smsResult.sid,
+          simulated: smsResult.simulated || false,
+        });
       }
     } catch (smsError) {
       console.error("❌ Błąd ponownego wysyłania SMS:", smsError);

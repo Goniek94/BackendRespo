@@ -54,16 +54,39 @@ router.post(
       .isLength({ max: 100 })
       .withMessage("Email nie może być dłuższy niż 100 znaków."),
 
-    body("confirmEmail")
-      .isEmail()
-      .withMessage("Podaj prawidłowy adres email w potwierdzeniu.")
-      .normalizeEmail({ gmail_remove_dots: false })
-      .custom((value, { req }) => {
-        if (value !== req.body.email) {
-          throw new Error("Adresy email nie są identyczne.");
-        }
+    // confirmEmail - walidacja tylko gdy NIE ma tokena weryfikacji
+    body("confirmEmail").custom((value, { req }) => {
+      // Jeśli token weryfikacji email jest obecny, pomiń całą walidację confirmEmail
+      if (req.body.emailVerificationToken) {
         return true;
-      }),
+      }
+      // Jeśli nie ma tokena, wymagaj confirmEmail
+      if (!value) {
+        throw new Error("Potwierdzenie emaila jest wymagane.");
+      }
+      // Sprawdź format email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(value)) {
+        throw new Error("Podaj prawidłowy adres email w potwierdzeniu.");
+      }
+      // Sprawdź czy emaile są identyczne
+      if (value !== req.body.email) {
+        throw new Error("Adresy email nie są identyczne.");
+      }
+      return true;
+    }),
+
+    // Token weryfikacji email (wymagany w nowym flow)
+    body("emailVerificationToken")
+      .optional()
+      .isString()
+      .withMessage("Token weryfikacji email musi być tekstem."),
+
+    // Token weryfikacji telefonu (wymagany w nowym flow)
+    body("phoneVerificationToken")
+      .optional()
+      .isString()
+      .withMessage("Token weryfikacji telefonu musi być tekstem."),
 
     body("password")
       .isLength({ min: 8, max: 128 })

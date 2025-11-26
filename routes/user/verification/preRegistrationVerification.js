@@ -356,9 +356,9 @@ router.post("/send-phone-verification", async (req, res) => {
 
     console.log("✅ Telefon wolny");
 
-    // Generate 6-digit code
-    console.log("🔐 Generuję kod SMS...");
-    const code = generateCode();
+    // Generate 4-digit code for Twilio
+    console.log("🔐 Generuję kod SMS (4 cyfry dla Twilio)...");
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
     const hashedCode = await hashCode(code);
     console.log("✅ Kod wygenerowany i zahashowany");
 
@@ -379,13 +379,15 @@ router.post("/send-phone-verification", async (req, res) => {
     });
     console.log("💾 Kod zapisany w bazie (10 minut)");
 
-    // Send SMS przez SMSAPI
-    console.log("📱 Wysyłam SMS...");
+    // Send SMS przez Twilio
+    console.log("📱 Wysyłam SMS przez Twilio...");
     try {
-      const { sendVerificationSMS } = await import("../../../config/smsapi.js");
-      const smsResult = await sendVerificationSMS(phone, code, "");
+      const { sendVerificationCode } = await import(
+        "../../../config/twilio.js"
+      );
+      const smsResult = await sendVerificationCode(phone, code);
 
-      if (!smsResult.success && !smsResult.mock) {
+      if (!smsResult.success) {
         console.error("❌ Błąd wysyłania SMS:", smsResult.error);
         await VerificationCode.deleteOne({
           identifier: phone,
@@ -396,9 +398,19 @@ router.post("/send-phone-verification", async (req, res) => {
           message: "Błąd wysyłania kodu SMS",
         });
       }
-      console.log("✅ SMS wysłany przez SMSAPI");
+      console.log("✅ SMS wysłany przez Twilio!");
+      logger.info("SMS verification code sent via Twilio", {
+        phone: phone,
+        sid: smsResult.sid,
+        simulated: smsResult.simulated || false,
+      });
     } catch (smsError) {
       console.error("❌ Błąd wysyłania SMS:", smsError);
+      logger.error("Error sending SMS via Twilio", {
+        phone: phone,
+        error: smsError.message,
+        stack: smsError.stack,
+      });
       await VerificationCode.deleteOne({
         identifier: phone,
         type: "phone",

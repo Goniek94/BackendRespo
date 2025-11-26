@@ -20,8 +20,25 @@ import { cleanupVerificationCodes } from "../../../routes/user/verification/preR
  */
 export const registerUser = async (req, res) => {
   console.log("\n🟣 ==========================================");
-  console.log("🟣 [BACKEND] /register - START");
+  console.log("🟣 [STEP 4 - FINALIZE] /register - START");
   console.log("🟣 ==========================================");
+
+  // DEBUG: Pokaż wszystkie dane z body
+  console.log("📦 req.body (wszystkie pola):", {
+    name: req.body.name,
+    lastName: req.body.lastName,
+    email: req.body.email,
+    confirmEmail: req.body.confirmEmail,
+    phone: req.body.phone,
+    dob: req.body.dob,
+    termsAccepted: req.body.termsAccepted,
+    emailVerificationToken: req.body.emailVerificationToken
+      ? `✅ Present (${req.body.emailVerificationToken.length} chars)`
+      : "❌ Missing",
+    phoneVerificationToken: req.body.phoneVerificationToken
+      ? `✅ Present (${req.body.phoneVerificationToken.length} chars)`
+      : "❌ Missing",
+  });
 
   try {
     // Validate input
@@ -49,8 +66,6 @@ export const registerUser = async (req, res) => {
       phone,
       dob,
       termsAccepted,
-      emailVerified,
-      phoneVerified,
       emailVerificationToken,
       phoneVerificationToken,
     } = req.body;
@@ -71,48 +86,59 @@ export const registerUser = async (req, res) => {
       phoneVerificationToken ? "✅ Present" : "❌ Missing"
     );
 
+    // STEP 4: Validate required fields
+    if (!emailVerificationToken || !phoneVerificationToken) {
+      console.log("❌ Brak tokenów weryfikacyjnych");
+      return res.status(400).json({
+        success: false,
+        message:
+          "Musisz zweryfikować email i telefon przed rejestracją (Krok 2 i 3)",
+        code: "MISSING_VERIFICATION_TOKENS",
+      });
+    }
+
     // Validate terms acceptance
     if (!termsAccepted) {
       console.log("❌ Regulamin nie zaakceptowany");
       return res.status(400).json({
         success: false,
         message: "Musisz zaakceptować regulamin, aby się zarejestrować",
+        code: "TERMS_NOT_ACCEPTED",
       });
     }
 
-    // NEW: Verify JWT tokens from pre-registration verification
-    if (emailVerificationToken && phoneVerificationToken) {
-      console.log("🔐 Weryfikuję tokeny JWT z pre-registration...");
+    // STEP 4: Verify JWT tokens from pre-registration verification (Step 2 & 3)
+    console.log("🔐 Weryfikuję tokeny JWT z Kroku 2 i 3...");
 
-      // Format phone for verification
-      let formattedPhoneForVerification = phone;
-      if (phone.startsWith("48") && !phone.startsWith("+48")) {
-        formattedPhoneForVerification = "+" + phone;
-      } else if (phone.match(/^[0-9]{9}$/)) {
-        formattedPhoneForVerification = "+48" + phone;
-      } else if (!phone.startsWith("+")) {
-        formattedPhoneForVerification = "+48" + phone.replace(/^0+/, "");
-      }
-
-      const tokensValid = verifyBothTokens(
-        emailVerificationToken,
-        phoneVerificationToken,
-        email,
-        formattedPhoneForVerification
-      );
-
-      if (!tokensValid) {
-        console.log("❌ Tokeny JWT są nieprawidłowe lub wygasłe");
-        return res.status(400).json({
-          success: false,
-          message:
-            "Tokeny weryfikacyjne są nieprawidłowe lub wygasłe. Zweryfikuj email i telefon ponownie.",
-        });
-      }
-
-      console.log("✅ Tokeny JWT zweryfikowane pomyślnie!");
-      console.log("✅ Email i telefon zostały zweryfikowane PRZED rejestracją");
+    // Format phone for verification
+    let formattedPhoneForVerification = phone;
+    if (phone.startsWith("48") && !phone.startsWith("+48")) {
+      formattedPhoneForVerification = "+" + phone;
+    } else if (phone.match(/^[0-9]{9}$/)) {
+      formattedPhoneForVerification = "+48" + phone;
+    } else if (!phone.startsWith("+")) {
+      formattedPhoneForVerification = "+48" + phone.replace(/^0+/, "");
     }
+
+    const tokensValid = verifyBothTokens(
+      emailVerificationToken,
+      phoneVerificationToken,
+      email,
+      formattedPhoneForVerification
+    );
+
+    if (!tokensValid) {
+      console.log("❌ Tokeny JWT są nieprawidłowe lub wygasłe");
+      return res.status(400).json({
+        success: false,
+        message:
+          "Tokeny weryfikacyjne są nieprawidłowe lub wygasłe. Rozpocznij proces rejestracji od nowa (Krok 2).",
+        code: "INVALID_VERIFICATION_TOKENS",
+      });
+    }
+
+    console.log("✅ Tokeny JWT zweryfikowane pomyślnie!");
+    console.log("✅ Email i telefon zostały zweryfikowane w Krokach 2 i 3");
 
     // Format phone number to ensure +48 prefix for Polish numbers
     let formattedPhone = phone;
@@ -145,8 +171,8 @@ export const registerUser = async (req, res) => {
       });
     }
 
-    // Check if user already exists
-    console.log("🔍 Sprawdzam czy użytkownik już istnieje...");
+    // STEP 4: Double-check if user already exists (race condition protection)
+    console.log("🔍 Sprawdzam czy użytkownik już istnieje (final check)...");
     console.log("   Szukam email:", email.toLowerCase().trim());
     console.log("   Szukam telefon:", formattedPhone);
 
@@ -176,18 +202,12 @@ export const registerUser = async (req, res) => {
           duplicateField === "email"
             ? "Użytkownik z tym adresem email już istnieje"
             : "Użytkownik z tym numerem telefonu już istnieje",
+        code: "USER_ALREADY_EXISTS",
       });
     }
     console.log("✅ Email i telefon są wolne");
 
-    // Generate secure verification codes using cryptographic functions
-    console.log("🔐 Generuję bezpieczne kody weryfikacyjne...");
-    const emailVerificationCode = generateSecureCode(6); // 6-digit code for email
-    const smsVerificationCode = generateSecureCode(6); // 6-digit code for SMS
-    console.log("✅ Kod email:", emailVerificationCode);
-    console.log("✅ Kod SMS:", smsVerificationCode);
-
-    // Create new user with email verification required
+    // STEP 4: Create new user - FULLY VERIFIED (tokens were validated)
     // Password will be automatically hashed by User model middleware
     const newUser = new User({
       name: name.trim(),
@@ -198,22 +218,16 @@ export const registerUser = async (req, res) => {
       dob: new Date(dob),
       termsAccepted: true,
       termsAcceptedAt: new Date(),
-      registrationStep: "email_verification",
+      dataProcessingAccepted: true,
+      dataProcessingAcceptedAt: new Date(),
 
-      // Email verification code (15 minutes validity)
-      emailVerificationCode: emailVerificationCode,
-      emailVerificationCodeExpires: new Date(Date.now() + 15 * 60 * 1000),
-
-      // SMS verification code (15 minutes validity)
-      smsVerificationCode: smsVerificationCode,
-      smsVerificationCodeExpires: new Date(Date.now() + 15 * 60 * 1000),
-
-      // Verification status - both email and phone require verification
-      isEmailVerified: false,
-      emailVerified: false,
-      isPhoneVerified: false,
-      phoneVerified: false,
-      isVerified: false,
+      // STEP 4: Mark as FULLY VERIFIED (tokens were validated in Step 2 & 3)
+      isEmailVerified: true,
+      emailVerified: true,
+      isPhoneVerified: true,
+      phoneVerified: true,
+      isVerified: true,
+      registrationStep: "completed",
 
       role: "user",
       status: "active",
@@ -228,50 +242,24 @@ export const registerUser = async (req, res) => {
     await newUser.save();
     console.log("✅ Użytkownik zapisany! ID:", newUser._id);
 
-    // NEW: Clean up verification codes after successful registration
-    if (emailVerificationToken && phoneVerificationToken) {
-      console.log("🧹 Czyszczę kody weryfikacyjne z pre-registration...");
-      await cleanupVerificationCodes(newUser.email, newUser.phoneNumber);
-    }
+    // STEP 4: Clean up verification codes after successful registration
+    console.log("🧹 Czyszczę kody weryfikacyjne z Kroku 2 i 3...");
+    await cleanupVerificationCodes(newUser.email, newUser.phoneNumber);
 
-    // Send email verification code
-    console.log("📤 Wysyłam kod weryfikacyjny na email...");
-    try {
-      const { sendRegistrationVerificationCode } = await import(
-        "../../../services/emailService.js"
-      );
-
-      const emailSent = await sendRegistrationVerificationCode(
-        newUser.email,
-        emailVerificationCode,
-        newUser.name
-      );
-
-      if (emailSent) {
-        console.log("✅ Email z kodem wysłany pomyślnie!");
-        logger.info("Email verification code sent successfully", {
-          userId: newUser._id,
-          email: newUser.email,
-          codeLength: emailVerificationCode.length,
-        });
-      } else {
-        console.log("❌ Nie udało się wysłać emaila");
-        logger.error("Failed to send email verification code", {
-          userId: newUser._id,
-          email: newUser.email,
-        });
-      }
-    } catch (emailError) {
-      console.error("❌ Błąd wysyłania emaila:", emailError);
-      logger.error("Error sending email verification code", {
+    // STEP 4: Generate auth token for immediate login
+    console.log("🎟️ Generuję token autoryzacyjny...");
+    const jwt = await import("jsonwebtoken");
+    const authToken = jwt.default.sign(
+      {
         userId: newUser._id,
         email: newUser.email,
-        error: emailError.message,
-        stack: emailError.stack,
-      });
-    }
+        role: newUser.role,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
 
-    // Return user data (without sensitive information)
+    // STEP 4: Return user data (without sensitive information)
     const userData = {
       id: newUser._id,
       name: newUser.name,
@@ -283,10 +271,11 @@ export const registerUser = async (req, res) => {
       isPhoneVerified: newUser.isPhoneVerified,
       isVerified: newUser.isVerified,
       role: newUser.role,
+      status: newUser.status,
       createdAt: newUser.createdAt,
     };
 
-    logger.info("Advanced user registration initiated", {
+    logger.info("Multi-step wizard registration completed successfully", {
       userId: newUser._id,
       email: newUser.email,
       phone: newUser.phoneNumber,
@@ -296,34 +285,24 @@ export const registerUser = async (req, res) => {
 
     console.log("✅ Zwracam odpowiedź do frontendu");
     console.log("🟣 ==========================================");
-    console.log("🟣 [BACKEND] /register - SUCCESS");
+    console.log("🟣 [STEP 4 - FINALIZE] /register - SUCCESS");
     console.log("🟣 ==========================================\n");
 
     res.status(201).json({
       success: true,
-      message:
-        "Rejestracja rozpoczęta pomyślnie! Sprawdź swój email, aby otrzymać kod weryfikacyjny.",
+      message: "Rejestracja zakończona pomyślnie! Witamy w AutoSell!",
       user: userData,
-      nextStep: "email_verification",
-      verificationInfo: {
-        emailSent: true,
-        emailAddress: newUser.email,
-        codeExpires: newUser.emailVerificationCodeExpires,
-      },
-      // Include code in development for testing
-      ...(process.env.NODE_ENV !== "production" && {
-        devCode: emailVerificationCode,
-      }),
+      authToken,
     });
   } catch (error) {
     console.error("❌ ==========================================");
-    console.error("❌ [BACKEND] /register - ERROR");
+    console.error("❌ [STEP 4 - FINALIZE] /register - ERROR");
     console.error("❌ ==========================================");
     console.error("❌ Registration error:", error);
     console.error("❌ Message:", error.message);
     console.error("❌ Stack:", error.stack);
 
-    logger.error("Registration error", {
+    logger.error("Registration finalization error", {
       error: error.message,
       stack: error.stack,
       ip: req.ip,
@@ -332,7 +311,8 @@ export const registerUser = async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: "Błąd serwera podczas rejestracji",
+      message: "Błąd serwera podczas finalizacji rejestracji",
+      code: "SERVER_ERROR",
     });
   }
 };

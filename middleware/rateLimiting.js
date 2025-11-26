@@ -146,13 +146,48 @@ export const passwordResetLimiter = makeLimiter({
   message: "Zbyt wiele prób resetowania hasła. Spróbuj ponownie później.",
 });
 
-/** Rejestracja */
+/** Rejestracja - stary endpoint (backward compatibility) */
 export const registrationLimiter = makeLimiter({
   windowMs: 60 * 60 * 1000, // 1h
   max: 20,
   keyGenerator: emailAwareKey,
   code: "REGISTRATION_LIMIT_EXCEEDED",
   message: "Zbyt wiele prób rejestracji. Spróbuj ponownie później.",
+});
+
+/** Registration Step 2: Email Verification - Send/Verify */
+export const registrationStep2Limiter = makeLimiter({
+  windowMs: 5 * 60 * 1000, // 5 min
+  max: 5,
+  keyGenerator: emailAwareKey,
+  code: "REGISTRATION_STEP2_LIMIT_EXCEEDED",
+  message:
+    "Zbyt wiele prób weryfikacji email. Spróbuj ponownie za kilka minut.",
+});
+
+/** Registration Step 3: Phone Verification - Send/Verify */
+export const registrationStep3Limiter = makeLimiter({
+  windowMs: 5 * 60 * 1000, // 5 min
+  max: 5,
+  keyGenerator: (req) => {
+    const phone = req.body?.phone || "";
+    return `${getClientIp(req)}:${crypto
+      .createHmac("sha256", secret)
+      .update(phone.trim())
+      .digest("base64url")}`;
+  },
+  code: "REGISTRATION_STEP3_LIMIT_EXCEEDED",
+  message:
+    "Zbyt wiele prób weryfikacji telefonu. Spróbuj ponownie za kilka minut.",
+});
+
+/** Registration Step 4: Finalize Registration */
+export const registrationStep4Limiter = makeLimiter({
+  windowMs: 60 * 60 * 1000, // 1h
+  max: 10,
+  keyGenerator: ipOnlyKey,
+  code: "REGISTRATION_STEP4_LIMIT_EXCEEDED",
+  message: "Zbyt wiele prób finalizacji rejestracji. Spróbuj ponownie później.",
 });
 
 /** Wiadomości - 5s cooldown */
@@ -200,6 +235,9 @@ export default {
   adminLoginLimiter,
   passwordResetLimiter,
   registrationLimiter,
+  registrationStep2Limiter,
+  registrationStep3Limiter,
+  registrationStep4Limiter,
   apiLimiter,
   messageRateLimiter,
   messageHourlyLimiter,

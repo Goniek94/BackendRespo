@@ -21,6 +21,7 @@ export const NotificationType = {
 
   // Powiadomienia związane z komentarzami
   NEW_COMMENT: "new_comment",
+  COMMENT_APPROVED: "comment_approved",
 
   // Powiadomienia związane z płatnościami
   PAYMENT_COMPLETED: "payment_completed",
@@ -43,6 +44,7 @@ export const NotificationTypeNames = {
   [NotificationType.LISTING_LIKED]: "Dodano do ulubionych",
   [NotificationType.NEW_MESSAGE]: "Nowa wiadomość",
   [NotificationType.NEW_COMMENT]: "Nowy komentarz",
+  [NotificationType.COMMENT_APPROVED]: "Komentarz zaakceptowany",
   [NotificationType.PAYMENT_COMPLETED]: "Płatność zrealizowana",
   [NotificationType.PAYMENT_FAILED]: "Płatność nieudana",
   [NotificationType.PAYMENT_REFUNDED]: "Zwrot płatności",
@@ -64,6 +66,7 @@ export const NotificationTypeDescriptions = {
   [NotificationType.LISTING_LIKED]: "Ktoś dodał Twoje ogłoszenie do ulubionych",
   [NotificationType.NEW_MESSAGE]: "Otrzymałeś nową wiadomość",
   [NotificationType.NEW_COMMENT]: "Ktoś skomentował Twoje ogłoszenie",
+  [NotificationType.COMMENT_APPROVED]: "Twój komentarz został zaakceptowany",
   [NotificationType.PAYMENT_COMPLETED]: "Płatność została zrealizowana",
   [NotificationType.PAYMENT_FAILED]: "Płatność nie powiodła się",
   [NotificationType.PAYMENT_REFUNDED]: "Otrzymałeś zwrot płatności",

@@ -204,7 +204,7 @@ export const sendMessage = async (req, res) => {
     }
 
     // Walidacja i upload załączników do Supabase
-    let attachments = [];
+    let newMessage;
 
     if (req.files && req.files.length > 0) {
       // Sprawdź czy Supabase jest dostępny
@@ -227,14 +227,20 @@ export const sendMessage = async (req, res) => {
 
       try {
         // Utwórz tymczasową wiadomość, aby mieć ID dla uploadu
-        const tempMessage = new Message({
+        const messageData = {
           sender: senderObjectId,
           recipient: recipientUser._id,
           subject,
-          content,
           attachments: [], // Początkowo puste
           relatedAd: adId,
-        });
+        };
+
+        // Dodaj content tylko jeśli istnieje (nie pusty string)
+        if (content && content.trim()) {
+          messageData.content = content.trim();
+        }
+
+        const tempMessage = new Message(messageData);
 
         const savedTempMessage = await tempMessage.save();
 
@@ -249,8 +255,7 @@ export const sendMessage = async (req, res) => {
         );
 
         // Aktualizuj wiadomość z załącznikami
-        attachments = uploadedImages;
-        savedTempMessage.attachments = attachments;
+        savedTempMessage.attachments = uploadedImages;
         await savedTempMessage.save();
 
         console.log(
@@ -258,7 +263,7 @@ export const sendMessage = async (req, res) => {
         );
 
         // Użyj zapisanej wiadomości
-        var newMessage = savedTempMessage;
+        newMessage = savedTempMessage;
       } catch (uploadError) {
         console.error("❌ Błąd uploadu zdjęć:", uploadError);
         return res.status(500).json({
@@ -269,7 +274,7 @@ export const sendMessage = async (req, res) => {
       }
     } else {
       // Brak załączników - standardowe tworzenie wiadomości
-      const messageWithoutAttachments = new Message({
+      newMessage = new Message({
         sender: senderObjectId,
         recipient: recipientUser._id,
         subject,
@@ -278,8 +283,7 @@ export const sendMessage = async (req, res) => {
         relatedAd: adId,
       });
 
-      await messageWithoutAttachments.save();
-      var newMessage = messageWithoutAttachments;
+      await newMessage.save();
     }
 
     // Emit realtime event do odbiorcy (socket.io)
@@ -354,7 +358,16 @@ export const sendMessage = async (req, res) => {
       // Nie przerywamy głównego procesu w przypadku błędu powiadomienia
     }
 
-    res.status(201).json({ message: "Wiadomość wysłana" });
+    // Zwróć pełne dane wiadomości z załącznikami
+    const populatedMessage = await Message.findById(newMessage._id)
+      .populate("sender", "name email")
+      .populate("recipient", "name email")
+      .populate("relatedAd", "headline brand model");
+
+    res.status(201).json({
+      message: "Wiadomość wysłana",
+      data: populatedMessage,
+    });
   } catch (error) {
     console.error("Błąd podczas wysyłania wiadomości:", error);
     res.status(500).json({ message: "Błąd serwera" });

@@ -87,13 +87,21 @@ router.get(
       const now = new Date();
 
       // Pobierz WSZYSTKIE wyróżnione ogłoszenia (bez limitu)
+      // Uwzględniamy zarówno listingType jak i pole featured
       const allFeaturedAds = await Ad.find({
         status: { $in: ["active", "approved", "opublikowane"] },
-        listingType: { $in: ["wyróżnione", "featured", "premium"] },
         $or: [
-          { expiresAt: { $gt: now } },
-          { expiresAt: null },
-          { ownerRole: "admin" },
+          { listingType: { $in: ["wyróżnione", "featured", "premium"] } },
+          { featured: true },
+        ],
+        $and: [
+          {
+            $or: [
+              { expiresAt: { $exists: false } },
+              { expiresAt: { $gt: now } },
+              { expiresAt: null },
+            ],
+          },
         ],
       });
 
@@ -163,11 +171,15 @@ router.post(
 
       // Get all active ads with mainImageIndex consideration
       const allAds = await Ad.find({
-        status: { $in: ["active", "opublikowane", "pending"] }, // Include all possible active statuses
-        $or: [
-          { expiresAt: { $gt: now } }, // Non-expired ads
-          { expiresAt: null }, // Ads without expiry date (admin)
-          { ownerRole: "admin" }, // All admin ads, regardless of expiry date
+        status: { $in: ["active", "approved", "opublikowane"] }, // Include all possible active statuses
+        $and: [
+          {
+            $or: [
+              { expiresAt: { $exists: false } },
+              { expiresAt: { $gt: now } },
+              { expiresAt: null },
+            ],
+          },
         ],
       })
         .select({
@@ -186,6 +198,8 @@ router.post(
           images: 1,
           mainImage: 1,
           listingType: 1,
+          featured: 1,
+          featuredAt: 1,
           condition: 1,
           power: 1,
           engineSize: 1,
@@ -260,9 +274,17 @@ router.post(
         `After image filtering: ${adsWithImages.length} ads with valid images`
       );
 
-      // More flexible filtering - considers different possible values for listingType field
+      // More flexible filtering - considers different possible values for listingType field AND featured flag
       const featuredAds = adsWithImages.filter((ad) => {
-        // Check different possible values for featured ads
+        // Check featured flag first
+        if (ad.featured === true) {
+          console.log(
+            `Ad ${ad._id}: featured=true, listingType=${ad.listingType}, isFeatured=true`
+          );
+          return true;
+        }
+
+        // Check different possible values for featured ads by listingType
         if (!ad.listingType) return false;
 
         // Don't use toLowerCase() for Polish characters
@@ -278,7 +300,7 @@ router.post(
           listingType.includes("featured");
 
         console.log(
-          `Ad ${ad._id}: listingType=${ad.listingType}, isFeatured=${isFeatured}`
+          `Ad ${ad._id}: featured=${ad.featured}, listingType=${ad.listingType}, isFeatured=${isFeatured}`
         );
         return isFeatured;
       });

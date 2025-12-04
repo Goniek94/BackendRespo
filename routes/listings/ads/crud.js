@@ -17,11 +17,12 @@ import AdController from "../../../controllers/listings/adController.js";
 
 const router = Router();
 
-// Rate limiter for adding ads - 1 ad per 5 minutes per user
+// Rate limiter for adding ads - 5 ads per 5 minutes per user
 const createAdLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 minutes
-  max: 1, // 1 ad per 5 minutes
-  message: "You can only add 1 ad per 5 minutes. Please try again later.",
+  max: 5, // 5 ads per 5 minutes (more reasonable for testing)
+  message:
+    "Zbyt wiele prób dodania ogłoszenia. Spróbuj ponownie za kilka minut.",
   // Use user ID as key if user is logged in
   keyGenerator: function (req) {
     // If user is logged in, use their ID as key
@@ -116,216 +117,18 @@ router.get(
   errorHandler
 );
 
+// Import nowych handlerów z createAdHandler
+import { createAd, finalizePayment } from "../handlers/createAdHandler.js";
+
 /**
- * POST /add - Add new ad with Supabase image URLs
+ * POST /add - Create draft ad (nie zapisuje do bazy, czeka na płatność)
  */
-router.post(
-  "/add",
-  auth,
-  createAdLimiter,
-  validate(adValidationSchema),
-  async (req, res, next) => {
-    try {
-      console.log("Started adding ad with Supabase");
-      console.log("Original data from frontend:", req.body);
+router.post("/add", createAdLimiter, createAd);
 
-      // Map data from frontend to backend
-      const mappedData = mapFormDataToBackend(req.body);
-
-      const {
-        brand,
-        model,
-        generation,
-        version,
-        year,
-        price,
-        mileage,
-        fuelType,
-        transmission,
-        vin,
-        registrationNumber,
-        headline,
-        description,
-        purchaseOptions,
-        listingType,
-        condition,
-        accidentStatus,
-        damageStatus,
-        tuning,
-        imported,
-        registeredInPL,
-        firstOwner,
-        disabledAdapted,
-        bodyType,
-        color,
-        lastOfficialMileage,
-        power,
-        engineSize,
-        drive,
-        doors,
-        weight,
-        voivodeship,
-        city,
-        rentalPrice,
-        status,
-        sellerType,
-        countryOfOrigin,
-        images,
-        mainImage, // Receive URL array and main image
-      } = mappedData;
-
-      console.log("Data after mapping:", {
-        brand,
-        model,
-        year,
-        price,
-        mileage,
-        fuelType,
-        transmission,
-        description,
-        purchaseOptions,
-        listingType,
-        sellerType,
-        images,
-      });
-
-      // Get user data
-      const user = await User.findById(req.user.userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      // Validate that `images` array exists and is not empty
-      if (!images || !Array.isArray(images) || images.length === 0) {
-        return res
-          .status(400)
-          .json({ message: "Ad must contain at least one image." });
-      }
-      console.log(
-        `Received ${images.length} image URLs from Supabase:`,
-        images
-      );
-
-      // Validate that `mainImage` is one of the URLs in `images`
-      if (!mainImage || !images.includes(mainImage)) {
-        // If no `mainImage` or it's not in `images`, set first image as main
-        console.log(
-          "No `mainImage` or invalid URL. Setting first image as main."
-        );
-        req.body.mainImage = images[0];
-      }
-
-      // Generate short description from headline (up to 120 characters)
-      const shortDescription = headline ? headline.substring(0, 120) : "";
-
-      // Calculate expiry date - 30 days for regular users, no expiry for admins/moderators
-      let expiresAt = null;
-      if (user.role !== "admin" && user.role !== "moderator") {
-        expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 30);
-      }
-
-      // Create new ad
-      const newAd = new Ad({
-        // Basic data
-        brand,
-        model,
-        generation,
-        version,
-        year: parseInt(year),
-        price: parseFloat(price),
-        mileage: parseInt(mileage),
-        fuelType,
-        transmission,
-        vin: vin || "",
-        registrationNumber: registrationNumber || "",
-        headline,
-        description,
-        shortDescription, // <-- added field
-        images,
-        mainImage: req.body.mainImage, // Use validated or default mainImage
-        purchaseOptions,
-        negotiable: req.body.negotiable || "Nie", // <-- added negotiable field
-        listingType,
-        sellerType, // <-- added sellerType field
-        // ✅ UJEDNOLICENIE: Ustaw featured=true jeśli listingType to "wyróżnione"
-        featured: listingType === "wyróżnione",
-        featuredAt: listingType === "wyróżnione" ? new Date() : null,
-
-        // Technical data
-        condition,
-        accidentStatus,
-        damageStatus,
-        tuning,
-        imported,
-        registeredInPL,
-        firstOwner,
-        disabledAdapted,
-        bodyType,
-        color,
-        lastOfficialMileage: lastOfficialMileage
-          ? parseInt(lastOfficialMileage)
-          : undefined,
-        power: power ? parseInt(power) : undefined,
-        engineSize: engineSize ? parseInt(engineSize) : undefined,
-        drive,
-        doors: doors ? parseInt(doors) : undefined,
-        weight: weight ? parseInt(weight) : undefined,
-
-        // Location
-        voivodeship,
-        city,
-
-        // Country of origin
-        countryOfOrigin,
-
-        // Rental
-        rentalPrice: rentalPrice ? parseFloat(rentalPrice) : undefined,
-
-        // Owner data
-        owner: req.user.userId,
-        ownerName: user.name,
-        ownerLastName: user.lastName,
-        ownerEmail: user.email,
-        ownerPhone: user.phoneNumber,
-        ownerRole: user.role, // Add owner role
-
-        // Expiry date
-        expiresAt: expiresAt,
-
-        // Status - approved immediately for all users
-        status: "approved",
-      });
-
-      console.log("Created ad object, attempting to save to database");
-
-      // Save ad to database
-      const ad = await newAd.save();
-      console.log("Ad saved to database:", ad._id);
-
-      // Create notification about ad creation
-      try {
-        await notificationManager.createListingPublishedNotification(
-          req.user.userId,
-          ad
-        );
-        console.log(
-          `Created notification about ad creation for user ${req.user.userId}`
-        );
-      } catch (notificationError) {
-        console.error("Error creating notification:", notificationError);
-        // Don't interrupt main process in case of notification error
-      }
-
-      // Response with created ad
-      res.status(201).json(ad);
-    } catch (err) {
-      console.error("Error adding ad:", err);
-      next(err);
-    }
-  },
-  errorHandler
-);
+/**
+ * POST /finalize-payment - Finalizacja płatności i publikacja ogłoszenia
+ */
+router.post("/finalize-payment", finalizePayment);
 
 /**
  * PUT /:id/status - Change ad status

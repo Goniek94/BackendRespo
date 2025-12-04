@@ -15,8 +15,8 @@ export const publicActiveFilter = () => {
   const now = new Date();
 
   return {
-    // 1) Only ads with "active" status (not approved, pending, rejected, hidden)
-    status: "active",
+    // 1) Ads with "active" OR "approved" status (both are considered active/visible)
+    status: { $in: ["active", "approved"] },
 
     // 2) Not expired - either no expiry date or expiry date is in the future
     $or: [
@@ -62,10 +62,26 @@ export const getPublicActiveCount = async (AdModel) => {
  *
  * @returns {Object} MongoDB query object
  */
-export const publicFeaturedFilter = () => ({
-  ...publicActiveFilter(),
-  $or: [
-    { featured: true }, // Featured flag
-    { listingType: "wyróżnione" }, // Or listing type set to "wyróżnione"
-  ],
-});
+export const publicFeaturedFilter = () => {
+  const now = new Date();
+
+  return {
+    // 1) Ads with "active" OR "approved" status (both are considered active/visible)
+    status: { $in: ["active", "approved"] },
+
+    // 2) Must be featured (either by flag or listingType)
+    $or: [{ featured: true }, { listingType: "wyróżnione" }],
+
+    // 3) Not expired - either no expiry date or expiry date is in the future
+    // Using $and to combine with the $or above
+    $and: [
+      {
+        $or: [
+          { expiresAt: { $exists: false } },
+          { expiresAt: null },
+          { expiresAt: { $gt: now } },
+        ],
+      },
+    ],
+  };
+};

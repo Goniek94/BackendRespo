@@ -150,7 +150,14 @@ class AdController {
       // Calculate match score for each ad
       const adsWithScore = allAds.map((ad) => {
         const match_score = calculateMatchScore(ad, req.query);
-        const is_featured = ad.listingType === "wyróżnione" ? 1 : 0;
+        // Check both listingType and featured flag for featured status
+        const is_featured =
+          ad.listingType === "wyróżnione" ||
+          ad.listingType === "featured" ||
+          ad.listingType === "premium" ||
+          ad.featured === true
+            ? 1
+            : 0;
         return {
           ...ad.toObject(),
           match_score,

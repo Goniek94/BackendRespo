@@ -3,7 +3,11 @@ import User from "../../models/user/user.js";
 import Ad from "../../models/listings/ad.js";
 import mongoose from "mongoose";
 import notificationManager from "../../services/notificationManager.js";
-import { uploadMessageImages } from "./messageImageUpload.js";
+import {
+  uploadMessageImages,
+  validateMessageFiles,
+  isImageUploadAvailable,
+} from "./messageImageUpload.js";
 
 // Pobieranie konwersacji między dwoma użytkownikami (opcjonalnie dla konkretnego ogłoszenia)
 export const getConversation = async (req, res) => {
@@ -143,6 +147,12 @@ export const replyToConversation = async (req, res) => {
 
     console.log("=== replyToConversation START ===");
     console.log("userId:", userId, "adId:", adId, "senderId:", senderId);
+    console.log(
+      "📎 req.files:",
+      req.files ? `${req.files.length} plików` : "BRAK/undefined"
+    );
+    console.log("📎 req.file:", req.file ? "1 plik" : "BRAK/undefined");
+    console.log("📎 req.body keys:", Object.keys(req.body));
 
     // Sprawdź czy użytkownik nie próbuje wysłać wiadomości do samego siebie
     if (senderId === userId || senderId.toString() === userId.toString()) {
@@ -172,39 +182,17 @@ export const replyToConversation = async (req, res) => {
       return res.status(404).json({ message: "Nie znaleziono nadawcy" });
     }
 
-    // Przetwarzanie załączników - upload do Supabase
-    let attachments = [];
-    if (req.files && req.files.length > 0) {
-      try {
-        const uploadedImages = await uploadMessageImages(
-          req.files,
-          senderId,
-          `temp-${Date.now()}`
-        );
-        attachments = uploadedImages.map((img) => ({
-          name: img.name,
-          url: img.path,
-          thumbnailUrl: img.thumbnailPath,
-          size: img.size,
-          type: img.mimetype,
-          width: img.width,
-          height: img.height,
-        }));
-      } catch (uploadError) {
-        console.error("Błąd uploadu załączników:", uploadError);
-        return res
-          .status(500)
-          .json({ message: "Błąd podczas przesyłania załączników" });
-      }
-    }
-
-    // Przygotuj dane wiadomości
+    // Przygotuj dane wiadomości (bez załączników na razie)
     const messageData = {
       sender: senderObjectId,
       recipient: recipientObjectId,
-      content,
-      attachments,
+      attachments: [], // Początkowo puste
     };
+
+    // Dodaj content tylko jeśli istnieje (nie pusty string)
+    if (content && content.trim()) {
+      messageData.content = content.trim();
+    }
 
     // Jeśli podano adId, dodaj powiązanie z ogłoszeniem
     if (adId && adId !== "no-ad") {
@@ -234,6 +222,48 @@ export const replyToConversation = async (req, res) => {
     await newMessage.save();
 
     console.log("Wiadomość zapisana:", newMessage._id);
+
+    // Przetwarzanie załączników - upload do Supabase AFTER saving message
+    console.log("📎 Sprawdzanie załączników...");
+    console.log("📎 req.files:", req.files);
+    console.log(
+      "📎 req.files length:",
+      req.files ? req.files.length : "undefined"
+    );
+
+    if (req.files && req.files.length > 0) {
+      console.log("📎 Pierwszy plik:", {
+        originalname: req.files[0].originalname,
+        mimetype: req.files[0].mimetype,
+        size: req.files[0].size,
+        hasBuffer: !!req.files[0].buffer,
+        bufferLength: req.files[0].buffer ? req.files[0].buffer.length : 0,
+        path: req.files[0].path,
+      });
+
+      try {
+        console.log(
+          `🔄 Uploading ${req.files.length} images to Supabase for message ${newMessage._id}`
+        );
+        const uploadedImages = await uploadMessageImages(
+          req.files,
+          senderId,
+          newMessage._id.toString()
+        );
+
+        // Aktualizuj wiadomość z załącznikami
+        newMessage.attachments = uploadedImages;
+        await newMessage.save();
+
+        console.log(
+          `✅ Successfully uploaded ${uploadedImages.length} images for message ${newMessage._id}`
+        );
+      } catch (uploadError) {
+        console.error("❌ Błąd uploadu załączników:", uploadError);
+        // Nie usuwamy wiadomości, tylko logujemy błąd
+        console.log("⚠️ Wiadomość została zapisana bez załączników");
+      }
+    }
 
     // Tworzenie powiadomienia o nowej wiadomości
     try {
@@ -288,6 +318,13 @@ export const replyToMessage = async (req, res) => {
     const { content } = req.body;
     const senderId = req.user.userId;
 
+    console.log("=== replyToMessage START ===");
+    console.log("messageId:", messageId, "senderId:", senderId);
+    console.log(
+      "📎 req.files:",
+      req.files ? `${req.files.length} plików` : "BRAK/undefined"
+    );
+
     // Konwertuj senderId na ObjectId
     const senderObjectId = mongoose.Types.ObjectId.isValid(senderId)
       ? new mongoose.Types.ObjectId(senderId)
@@ -330,29 +367,66 @@ export const replyToMessage = async (req, res) => {
     const recipientObjectId =
       typeof recipientId === "object" ? recipientId._id : recipientId;
 
-    // Przetwarzanie załączników
-    const attachments = req.files
-      ? req.files.map((file) => ({
-          name: file.originalname,
-          path: file.path,
-          size: file.size,
-          mimetype: file.mimetype,
-        }))
-      : [];
-
-    // Utwórz nową wiadomość jako odpowiedź
-    const newMessage = new Message({
+    // Przygotuj dane wiadomości (bez załączników na razie)
+    const messageData = {
       sender: senderObjectId,
       recipient: recipientObjectId,
       subject: originalMessage.subject.startsWith("Re:")
         ? originalMessage.subject
         : `Re: ${originalMessage.subject}`,
-      content,
-      attachments,
+      attachments: [],
       relatedAd: originalMessage.relatedAd,
-    });
+    };
 
+    // Dodaj content tylko jeśli istnieje (nie pusty string)
+    if (content && content.trim()) {
+      messageData.content = content.trim();
+    }
+
+    // Utwórz nową wiadomość jako odpowiedź
+    const newMessage = new Message(messageData);
     await newMessage.save();
+
+    console.log("Wiadomość zapisana:", newMessage._id);
+
+    // Przetwarzanie załączników - upload do Supabase AFTER saving message
+    if (req.files && req.files.length > 0) {
+      if (!isImageUploadAvailable()) {
+        console.log(
+          "⚠️ Supabase niedostępny - wiadomość zapisana bez załączników"
+        );
+      } else {
+        const validation = validateMessageFiles(req.files);
+        if (validation.valid) {
+          try {
+            console.log(
+              `🔄 Uploading ${validation.files.length} images to Supabase for message ${newMessage._id}`
+            );
+            const uploadedImages = await uploadMessageImages(
+              validation.files,
+              senderId,
+              newMessage._id.toString()
+            );
+
+            // Aktualizuj wiadomość z załącznikami
+            newMessage.attachments = uploadedImages;
+            await newMessage.save();
+
+            console.log(
+              `✅ Successfully uploaded ${uploadedImages.length} images for message ${newMessage._id}`
+            );
+          } catch (uploadError) {
+            console.error("❌ Błąd uploadu załączników:", uploadError);
+            console.log("⚠️ Wiadomość została zapisana bez załączników");
+          }
+        } else {
+          console.log(
+            "⚠️ Walidacja plików nie powiodła się:",
+            validation.errors
+          );
+        }
+      }
+    }
 
     // Znajdź dane nadawcy dla powiadomienia
     const sender = await User.findById(senderId);
@@ -386,7 +460,21 @@ export const replyToMessage = async (req, res) => {
       // Nie przerywamy głównego procesu w przypadku błędu powiadomienia
     }
 
-    res.status(201).json({ message: "Odpowiedź wysłana" });
+    console.log("=== replyToMessage END ===");
+    res.status(201).json({
+      message: "Odpowiedź wysłana",
+      data: {
+        _id: newMessage._id,
+        content: newMessage.content,
+        attachments: newMessage.attachments,
+        createdAt: newMessage.createdAt,
+        sender: {
+          _id: sender._id,
+          name: sender.name,
+          email: sender.email,
+        },
+      },
+    });
   } catch (error) {
     console.error("Błąd podczas wysyłania odpowiedzi:", error);
     res.status(500).json({ message: "Błąd serwera" });

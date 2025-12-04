@@ -1,6 +1,11 @@
 import Message from "../../models/communication/message.js";
 import User from "../../models/user/user.js";
 import mongoose from "mongoose";
+import {
+  uploadMessageImages,
+  validateMessageFiles,
+  isImageUploadAvailable,
+} from "./messageImageUpload.js";
 
 // Cache dla liczby nieprzeczytanych wiadomości
 const unreadCountCache = new Map();
@@ -215,6 +220,13 @@ export const saveDraft = async (req, res) => {
     const { recipient, subject, content, draftId } = req.body;
     const senderId = req.user.userId;
 
+    console.log("=== saveDraft START ===");
+    console.log("senderId:", senderId, "draftId:", draftId);
+    console.log(
+      "📎 req.files:",
+      req.files ? `${req.files.length} plików` : "BRAK/undefined"
+    );
+
     // Konwertuj senderId na ObjectId, aby zapewnić poprawne porównanie w MongoDB
     const senderObjectId = mongoose.Types.ObjectId.isValid(senderId)
       ? new mongoose.Types.ObjectId(senderId)
@@ -226,17 +238,8 @@ export const saveDraft = async (req, res) => {
       subject: subject || "",
       content: content || "",
       draft: true,
+      attachments: [],
     };
-
-    // Dodaj załączniki, jeśli są
-    if (req.files && req.files.length > 0) {
-      draftData.attachments = req.files.map((file) => ({
-        name: file.originalname,
-        path: file.path,
-        size: file.size,
-        mimetype: file.mimetype,
-      }));
-    }
 
     // Znajdź odbiorcę, jeśli podano
     if (recipient) {
@@ -272,7 +275,50 @@ export const saveDraft = async (req, res) => {
       await draft.save();
     }
 
-    res.status(200).json({ draftId: draft._id });
+    console.log("Szkic zapisany:", draft._id);
+
+    // Przetwarzanie załączników - upload do Supabase AFTER saving draft
+    if (req.files && req.files.length > 0) {
+      if (!isImageUploadAvailable()) {
+        console.log("⚠️ Supabase niedostępny - szkic zapisany bez załączników");
+      } else {
+        const validation = validateMessageFiles(req.files);
+        if (validation.valid) {
+          try {
+            console.log(
+              `🔄 Uploading ${validation.files.length} images to Supabase for draft ${draft._id}`
+            );
+            const uploadedImages = await uploadMessageImages(
+              validation.files,
+              senderId,
+              draft._id.toString()
+            );
+
+            // Aktualizuj szkic z załącznikami
+            draft.attachments = uploadedImages;
+            await draft.save();
+
+            console.log(
+              `✅ Successfully uploaded ${uploadedImages.length} images for draft ${draft._id}`
+            );
+          } catch (uploadError) {
+            console.error("❌ Błąd uploadu załączników:", uploadError);
+            console.log("⚠️ Szkic został zapisany bez załączników");
+          }
+        } else {
+          console.log(
+            "⚠️ Walidacja plików nie powiodła się:",
+            validation.errors
+          );
+        }
+      }
+    }
+
+    console.log("=== saveDraft END ===");
+    res.status(200).json({
+      draftId: draft._id,
+      attachments: draft.attachments,
+    });
   } catch (error) {
     console.error("Błąd podczas zapisywania szkicu:", error);
     res.status(500).json({ message: "Błąd serwera" });

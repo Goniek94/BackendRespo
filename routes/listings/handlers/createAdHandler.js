@@ -4,11 +4,14 @@
 
 import Ad from "../../../models/listings/ad.js";
 import User from "../../../models/user/user.js";
+import Transaction from "../../../models/payments/Transaction.js";
+import Promotion from "../../../admin/models/admin/Promotion.js";
 import auth from "../../../middleware/auth.js";
 import validate from "../../../middleware/validation/validate.js";
 import adValidationSchema from "../../../validationSchemas/adValidation.js";
 import errorHandler from "../../../middleware/errors/errorHandler.js";
 import notificationManager from "../../../services/notificationManager.js";
+import { v4 as uuidv4 } from "uuid";
 
 /**
  * Funkcja do kapitalizacji tekstu (pierwsza litera duża, reszta mała)
@@ -165,19 +168,28 @@ export const mapFormDataToBackend = (data) => {
   };
 
   const driveMapping = {
-    "RWD (tylny)": "RWD",
-    "FWD (przedni)": "FWD",
-    "AWD (na cztery koła)": "AWD",
-    "Na cztery koła stały": "4WD",
-    "Na cztery koła dołączany": "AWD",
-    Przedni: "FWD",
-    przedni: "FWD",
-    Tylny: "RWD",
-    tylny: "RWD",
-    "4x4": "4WD",
-    "Napęd na przód": "FWD",
-    "Napęd na tył": "RWD",
-    "Napęd na cztery koła": "AWD",
+    // Nowe wartości z frontendu
+    "FWD (Przedni)": "FWD (Przedni)",
+    "RWD (Tylny)": "RWD (Tylny)",
+    "AWD (4x4)": "AWD (4x4)",
+    // Stare wartości dla kompatybilności
+    "RWD (tylny)": "RWD (Tylny)",
+    "FWD (przedni)": "FWD (Przedni)",
+    "AWD (na cztery koła)": "AWD (4x4)",
+    "Na cztery koła stały": "AWD (4x4)",
+    "Na cztery koła dołączany": "AWD (4x4)",
+    Przedni: "FWD (Przedni)",
+    przedni: "FWD (Przedni)",
+    Tylny: "RWD (Tylny)",
+    tylny: "RWD (Tylny)",
+    "4x4": "AWD (4x4)",
+    "Napęd na przód": "FWD (Przedni)",
+    "Napęd na tył": "RWD (Tylny)",
+    "Napęd na cztery koła": "AWD (4x4)",
+    FWD: "FWD (Przedni)",
+    RWD: "RWD (Tylny)",
+    AWD: "AWD (4x4)",
+    "4WD": "AWD (4x4)",
   };
 
   const bodyTypeMapping = {
@@ -292,6 +304,27 @@ export const mapFormDataToBackend = (data) => {
     // NAPRAWIONE: Wykończenie lakieru - DUŻE LITERY
     paintFinish:
       paintFinishMapping[data.paintFinish] || toUpperCase(data.paintFinish),
+
+    // NAPRAWIONE: Jawne mapowanie pól cesji
+    leasingCompany: data.leasingCompany || null,
+    remainingInstallments: data.remainingInstallments
+      ? parseInt(data.remainingInstallments)
+      : null,
+    installmentAmount: data.installmentAmount
+      ? parseFloat(data.installmentAmount)
+      : null,
+    cessionFee: data.cessionFee ? parseFloat(data.cessionFee) : null,
+
+    // NAPRAWIONE: Jawne mapowanie pól zamiany
+    exchangeOffer: data.exchangeOffer || null,
+    exchangeValue: data.exchangeValue ? parseFloat(data.exchangeValue) : null,
+    exchangePayment: data.exchangePayment
+      ? parseFloat(data.exchangePayment)
+      : null,
+    exchangeConditions: data.exchangeConditions || null,
+
+    // NAPRAWIONE: Jawne mapowanie pól najmu
+    rentalPrice: data.rentalPrice ? parseFloat(data.rentalPrice) : null,
   };
 };
 
@@ -305,6 +338,14 @@ export const createAd = [
     try {
       console.log("Rozpoczęto dodawanie ogłoszenia z Supabase");
       console.log("Oryginalne dane z frontendu:", req.body);
+      console.log("🔍 POLA CESJI Z FRONTENDU:", {
+        leasingCompany: req.body.leasingCompany,
+        remainingInstallments: req.body.remainingInstallments,
+        installmentAmount: req.body.installmentAmount,
+        cessionFee: req.body.cessionFee,
+        purchaseOptions: req.body.purchaseOptions,
+        purchaseOption: req.body.purchaseOption,
+      });
 
       // Mapowanie danych
       const mappedData = mapFormDataToBackend(req.body);
@@ -386,6 +427,12 @@ export const createAd = [
         lastOfficialMileage,
         leasingCompany,
         exchangeOffer,
+      });
+      console.log("🔍 POLA CESJI PO MAPOWANIU:", {
+        leasingCompany,
+        remainingInstallments,
+        installmentAmount,
+        cessionFee,
       });
 
       // Pobieranie danych użytkownika
@@ -488,25 +535,23 @@ export const createAd = [
         city,
 
         // Najem
-        rentalPrice: rentalPrice ? parseFloat(rentalPrice) : undefined,
+        rentalPrice: rentalPrice ? parseFloat(rentalPrice) : null,
 
-        // NAPRAWIONE: Pola cesji
-        leasingCompany,
+        // Pola cesji - używamy wartości z mappedData (null jeśli brak)
+        leasingCompany: leasingCompany || null,
         remainingInstallments: remainingInstallments
           ? parseInt(remainingInstallments)
-          : undefined,
+          : null,
         installmentAmount: installmentAmount
           ? parseFloat(installmentAmount)
-          : undefined,
-        cessionFee: cessionFee ? parseFloat(cessionFee) : undefined,
+          : null,
+        cessionFee: cessionFee ? parseFloat(cessionFee) : null,
 
-        // NAPRAWIONE: Pola zamiany
-        exchangeOffer,
-        exchangeValue: exchangeValue ? parseFloat(exchangeValue) : undefined,
-        exchangePayment: exchangePayment
-          ? parseFloat(exchangePayment)
-          : undefined,
-        exchangeConditions,
+        // Pola zamiany - używamy wartości z mappedData (null jeśli brak)
+        exchangeOffer: exchangeOffer || null,
+        exchangeValue: exchangeValue ? parseFloat(exchangeValue) : null,
+        exchangePayment: exchangePayment ? parseFloat(exchangePayment) : null,
+        exchangeConditions: exchangeConditions || null,
 
         // Dane właściciela
         owner: req.user.userId,
@@ -541,7 +586,8 @@ export const createAd = [
         exchangeOffer: newAd.exchangeOffer,
       });
 
-      // Zapisz ogłoszenie w bazie danych
+      // ZAPISUJEMY OGŁOSZENIE DO BAZY
+      // Frontend wysyła dane dopiero po kliknięciu "Zapłać" w modalu płatności
       const ad = await newAd.save();
       console.log("Ogłoszenie zapisane w bazie danych:", ad._id);
 
@@ -564,8 +610,241 @@ export const createAd = [
         // Nie przerywamy głównego procesu w przypadku błędu powiadomienia
       }
 
-      // Odpowiedź z utworzonym ogłoszeniem
-      res.status(201).json(ad);
+      // Odpowiedź z zapisanym ogłoszeniem
+      res.status(201).json({
+        ...ad.toObject(),
+        message: "Ogłoszenie zostało pomyślnie utworzone",
+      });
+    } catch (err) {
+      console.error("Błąd podczas tworzenia draftu ogłoszenia:", err);
+      next(err);
+    }
+  },
+  errorHandler,
+];
+
+/**
+ * Handler dla POST /ads/finalize-payment - Finalizacja płatności i publikacja ogłoszenia
+ */
+export const finalizePayment = [
+  auth,
+  async (req, res, next) => {
+    try {
+      console.log("Rozpoczęto finalizację płatności i publikację ogłoszenia");
+
+      const { draftId, draftData, paymentData } = req.body;
+
+      if (!draftId || !draftData) {
+        return res.status(400).json({
+          message: "Brak danych draftu ogłoszenia",
+        });
+      }
+
+      // Weryfikacja użytkownika
+      const user = await User.findById(req.user.userId);
+      if (!user) {
+        return res.status(404).json({ message: "Użytkownik nie znaleziony" });
+      }
+
+      // Tworzenie nowego ogłoszenia z danych draftu
+      const newAd = new Ad({
+        ...draftData,
+        owner: req.user.userId,
+        ownerName: user.name,
+        ownerLastName: user.lastName,
+        ownerEmail: user.email,
+        ownerPhone: user.phoneNumber,
+        ownerRole: user.role,
+        // Status zależy od roli użytkownika
+        status:
+          user.role === "admin" || user.role === "moderator"
+            ? "approved"
+            : "approved", // Zmienione na "approved" po płatności
+      });
+
+      // Zapisz ogłoszenie w bazie danych
+      const ad = await newAd.save();
+      console.log("Ogłoszenie zapisane w bazie danych po płatności:", ad._id);
+
+      // Pobierz dane z draftData dla powiadomień
+      const headline = draftData.headline || "";
+      const brand = draftData.brand || "";
+      const model = draftData.model || "";
+
+      // Tworzenie transakcji dla ogłoszenia
+      // Pobierz dane płatności z paymentData lub req.body
+      let paymentAmount = paymentData?.amount || req.body.paymentAmount || 50;
+      const paymentMethod =
+        paymentData?.method || req.body.paymentMethod || "card";
+      const transactionType =
+        paymentData?.type || req.body.transactionType || "standard_listing";
+      const promoCode = paymentData?.promoCode || req.body.promoCode;
+
+      // Walidacja i stosowanie kodu promocyjnego
+      let appliedPromotion = null;
+      let originalAmount = paymentAmount;
+      let discountAmount = 0;
+
+      if (promoCode && typeof promoCode === "string" && promoCode.trim()) {
+        try {
+          const normalized = promoCode.trim().toUpperCase();
+          console.log(`Sprawdzanie kodu promocyjnego: ${normalized}`);
+
+          // Szukaj aktywnej promocji
+          const promotion = await Promotion.findOne({
+            promoCode: normalized,
+            status: "active",
+          });
+
+          if (promotion) {
+            // Sprawdź czy promocja jest aktywna w danym okresie
+            const now = new Date();
+            const isValidPeriod =
+              (!promotion.validFrom || now >= promotion.validFrom) &&
+              (!promotion.validTo || now <= promotion.validTo);
+
+            // Sprawdź limit użyć globalny
+            const usedCount = Number(promotion.usedCount ?? 0);
+            const hasGlobalLimit =
+              !promotion.usageLimit || usedCount < promotion.usageLimit;
+
+            // Sprawdź limit użyć per użytkownik
+            const userUsageCount = promotion.usedByUsers.filter(
+              (id) => id.toString() === req.user.userId.toString()
+            ).length;
+            const hasUserLimit =
+              !promotion.maxUsagePerUser ||
+              userUsageCount < promotion.maxUsagePerUser;
+
+            if (isValidPeriod && hasGlobalLimit && hasUserLimit) {
+              // Zastosuj zniżkę
+              if (promotion.type === "percentage") {
+                discountAmount = (originalAmount * promotion.value) / 100;
+                paymentAmount = originalAmount - discountAmount;
+              } else if (promotion.type === "fixed_amount") {
+                discountAmount = promotion.value;
+                paymentAmount = Math.max(0, originalAmount - discountAmount);
+              } else if (promotion.type === "free_listing") {
+                discountAmount = originalAmount;
+                paymentAmount = 0;
+              }
+
+              appliedPromotion = {
+                code: promotion.promoCode,
+                type: promotion.type,
+                value: promotion.value,
+                title: promotion.title,
+              };
+
+              // Oznacz kod jako użyty
+              promotion.usedCount = usedCount + 1;
+              if (!promotion.usedByUsers.includes(req.user.userId)) {
+                promotion.usedByUsers.push(req.user.userId);
+              }
+              await promotion.save();
+
+              console.log(
+                `Zastosowano kod promocyjny ${normalized}: zniżka ${discountAmount.toFixed(
+                  2
+                )} zł, nowa kwota: ${paymentAmount.toFixed(2)} zł`
+              );
+            } else {
+              console.log(
+                `Kod promocyjny ${normalized} jest nieważny lub wyczerpany`
+              );
+            }
+          } else {
+            console.log(`Kod promocyjny ${normalized} nie został znaleziony`);
+          }
+        } catch (promoError) {
+          console.error(
+            "Błąd podczas walidacji kodu promocyjnego:",
+            promoError
+          );
+          // Kontynuuj bez kodu promocyjnego
+        }
+      }
+
+      try {
+        // Generuj unikalny ID transakcji
+        const transactionId = `TXN_${Date.now()}_${uuidv4().slice(0, 8)}`;
+
+        // Utwórz transakcję
+        const transaction = new Transaction({
+          userId: req.user.userId,
+          adId: ad._id,
+          amount: parseFloat(paymentAmount),
+          type: transactionType,
+          status: "completed", // Symulacja udanej płatności
+          paymentMethod: paymentMethod,
+          transactionId: transactionId,
+          metadata: {
+            adTitle: headline || `${brand} ${model}`,
+            createdBy: "listing_creation_system",
+            simulatedPayment: true, // Oznaczenie że to symulowana płatność
+            originalAmount: originalAmount,
+            discountAmount: discountAmount,
+            finalAmount: paymentAmount,
+            promoCode: appliedPromotion ? appliedPromotion.code : null,
+            promoType: appliedPromotion ? appliedPromotion.type : null,
+            promoValue: appliedPromotion ? appliedPromotion.value : null,
+          },
+        });
+
+        await transaction.save();
+        console.log(
+          `Utworzono transakcję ${transactionId} dla ogłoszenia ${ad._id}, kwota: ${paymentAmount} PLN`
+        );
+
+        // Utwórz powiadomienie o udanej płatności
+        try {
+          const adTitle = headline || `${brand} ${model}`;
+          await notificationManager.notifyPaymentStatusChange(
+            req.user.userId,
+            "completed",
+            adTitle,
+            {
+              transactionId: transaction.transactionId,
+              amount: paymentAmount,
+              type: transactionType,
+            }
+          );
+          console.log("Utworzono powiadomienie o udanej płatności");
+        } catch (notificationError) {
+          console.error(
+            "Błąd podczas tworzenia powiadomienia o płatności:",
+            notificationError
+          );
+        }
+      } catch (transactionError) {
+        console.error("Błąd podczas tworzenia transakcji:", transactionError);
+        // Nie przerywamy głównego procesu w przypadku błędu transakcji
+      }
+
+      // Tworzenie powiadomienia o dodaniu ogłoszenia
+      try {
+        const adTitle = headline || `${brand} ${model}`;
+        await notificationManager.notifyAdCreated(
+          req.user.userId,
+          adTitle,
+          ad._id
+        );
+        console.log(
+          `Utworzono powiadomienie o dodaniu ogłoszenia dla użytkownika ${req.user.userId}`
+        );
+      } catch (notificationError) {
+        console.error(
+          "Błąd podczas tworzenia powiadomienia:",
+          notificationError
+        );
+        // Nie przerywamy głównego procesu w przypadku błędu powiadomienia
+      }
+
+      // Odpowiedź z opublikowanym ogłoszeniem
+      res.status(201).json({
+        ...ad.toObject(),
+        message: "Ogłoszenie zostało pomyślnie opublikowane po płatności",
+      });
     } catch (err) {
       console.error("Błąd podczas dodawania ogłoszenia:", err);
       next(err);

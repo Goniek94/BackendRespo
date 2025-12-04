@@ -354,26 +354,35 @@ export async function uploadMessageImages(files, userId, messageId) {
       // Generate filenames
       const fileId = uuidv4();
       const fileExt = "jpg";
-      const fileName = buildSupabasePath(
-        "messages",
-        userId,
-        messageId,
-        `${fileId}.${fileExt}`
-      );
-      const thumbnailName = buildSupabasePath(
-        "messages",
-        userId,
-        `${messageId}/thumbs`,
-        `${fileId}_thumb.${fileExt}`
-      );
+
+      // Build proper paths: messages/{messageId}/{fileId}.jpg
+      const fileName = `messages/${messageId}/${fileId}.${fileExt}`;
+      const thumbnailName = `messages/${messageId}/thumbs/${fileId}_thumb.${fileExt}`;
+
+      console.log("📁 MESSAGE IMAGE UPLOAD DETAILS:");
+      console.log(`   Bucket: ${bucketName}`);
+      console.log(`   Original path: ${fileName}`);
+      console.log(`   Thumbnail path: ${thumbnailName}`);
+      console.log(`   File ID: ${fileId}`);
+      console.log(`   Message ID: ${messageId}`);
+      console.log(`   User ID: ${userId}`);
 
       // Upload files
+      console.log(`⬆️  Uploading original to: ${bucketName}/${fileName}`);
       await uploadBuffer(fileName, optimizedBuffer, "image/jpeg");
+      console.log(`✅ Original uploaded successfully`);
+
+      console.log(`⬆️  Uploading thumbnail to: ${bucketName}/${thumbnailName}`);
       await uploadBuffer(thumbnailName, thumbnailBuffer, "image/jpeg");
+      console.log(`✅ Thumbnail uploaded successfully`);
 
       // Get public URLs
       const publicUrl = getPublicUrl(fileName);
       const thumbnailUrl = getPublicUrl(thumbnailName);
+
+      console.log(`🔗 Public URLs generated:`);
+      console.log(`   Original: ${publicUrl}`);
+      console.log(`   Thumbnail: ${thumbnailUrl}`);
 
       uploadedImages.push({
         id: fileId,

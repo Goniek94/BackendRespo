@@ -73,10 +73,24 @@ const AdSchema = new mongoose.Schema(
     city: { type: String, default: "" },
 
     // Purchase options
-    purchaseOptions: { type: String, default: "Sprzedaż" }, // Sprzedaż, Faktura VAT, Inne
+    purchaseOptions: { type: String, default: "Sprzedaż" }, // Sprzedaż, Faktura VAT, Inne, Najem, Leasing, Cesja, Zamiana
     listingType: { type: String, default: "standardowe" }, // standardowe, wyróżnione
     negotiable: { type: String, default: "Nie" }, // Tak, Nie
+
+    // Rental fields (Najem)
     rentalPrice: { type: Number, default: null }, // Monthly rental price
+
+    // Leasing/Cession fields (Cesja leasingu)
+    leasingCompany: { type: String, default: "" }, // Leasing company/bank name (Firma leasingowa/bank)
+    remainingInstallments: { type: Number, default: null }, // Number of remaining installments (Pozostałe raty)
+    installmentAmount: { type: Number, default: null }, // Monthly installment amount (Wysokość raty)
+    cessionFee: { type: Number, default: null }, // Cession fee (Opłata za cesję)
+
+    // Exchange fields (Zamiana)
+    exchangeOffer: { type: String, default: "" }, // What the seller is looking for in exchange
+    exchangeValue: { type: Number, default: null }, // Estimated value of exchange
+    exchangePayment: { type: Number, default: null }, // Additional payment (can be negative)
+    exchangeConditions: { type: String, default: "" }, // Exchange conditions/requirements
 
     // Descriptions
     shortDescription: { type: String, default: "" }, // Up to 120 characters

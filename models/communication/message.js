@@ -1,81 +1,88 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const messageSchema = new mongoose.Schema({
   sender: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+    ref: "User",
+    required: true,
   },
   recipient: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+    ref: "User",
+    required: true,
   },
   subject: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
   },
   content: {
     type: String,
-    required: function() {
-      // Content jest wymagane tylko jeśli nie ma załączników
-      return !this.attachments || this.attachments.length === 0;
-    },
+    required: false, // Nie wymagane - może być puste jeśli są załączniki
     trim: true,
-    default: ''
+    default: "",
   },
-  attachments: [{
-    name: String,
-    path: String,
-    size: Number,
-    mimetype: String
-  }],
+  attachments: [
+    {
+      id: String,
+      name: String,
+      path: String,
+      thumbnailPath: String,
+      storagePath: String,
+      size: Number,
+      mimetype: String,
+      width: Number,
+      height: Number,
+      bucketName: String,
+    },
+  ],
   read: {
     type: Boolean,
-    default: false
+    default: false,
   },
   starred: {
     type: Boolean,
-    default: false
+    default: false,
   },
   draft: {
     type: Boolean,
-    default: false
+    default: false,
   },
   archived: {
     type: Boolean,
-    default: false
+    default: false,
   },
-  deletedBy: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  }],
+  deletedBy: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+  ],
   relatedAd: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Ad',
-    default: null
+    ref: "Ad",
+    default: null,
   },
   isEdited: {
     type: Boolean,
-    default: false
+    default: false,
   },
   editedAt: {
     type: Date,
-    default: null
+    default: null,
   },
   unsent: {
     type: Boolean,
-    default: false
+    default: false,
   },
   unsentAt: {
     type: Date,
-    default: null
+    default: null,
   },
   createdAt: {
     type: Date,
-    default: Date.now
-  }
+    default: Date.now,
+  },
 });
 
 // Indeksy dla wydajności
@@ -83,6 +90,7 @@ messageSchema.index({ sender: 1 });
 messageSchema.index({ recipient: 1 });
 messageSchema.index({ createdAt: -1 });
 
-const Message = mongoose.models.Message || mongoose.model('Message', messageSchema);
+const Message =
+  mongoose.models.Message || mongoose.model("Message", messageSchema);
 
 export default Message;

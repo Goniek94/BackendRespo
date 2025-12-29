@@ -437,6 +437,151 @@ function calculateMatchScore(ad, filters) {
     score += 5;
   }
 
+  // Color filter - support for multiple colors (array)
+  if (filters.color) {
+    const colors = Array.isArray(filters.color)
+      ? filters.color
+      : [filters.color];
+    if (colors.some((color) => normalize(ad.color) === normalize(color))) {
+      score += 10;
+    }
+  }
+
+  // Drive type filter
+  if (
+    filters.driveType &&
+    normalize(ad.driveType) === normalize(filters.driveType)
+  ) {
+    score += 10;
+  }
+
+  // Accident status filter - support for multiple values (array)
+  if (filters.accidentStatus) {
+    const accidentStatuses = Array.isArray(filters.accidentStatus)
+      ? filters.accidentStatus
+      : [filters.accidentStatus];
+    if (
+      accidentStatuses.some(
+        (status) => normalize(ad.accidentStatus) === normalize(status)
+      )
+    ) {
+      score += 10;
+    }
+  }
+
+  // Damage status filter - support for multiple values (array)
+  if (filters.damageStatus) {
+    const damageStatuses = Array.isArray(filters.damageStatus)
+      ? filters.damageStatus
+      : [filters.damageStatus];
+    if (
+      damageStatuses.some(
+        (status) => normalize(ad.damageStatus) === normalize(status)
+      )
+    ) {
+      score += 10;
+    }
+  }
+
+  // Country of origin filter - support for multiple countries (array)
+  if (filters.countryOfOrigin) {
+    const countries = Array.isArray(filters.countryOfOrigin)
+      ? filters.countryOfOrigin
+      : [filters.countryOfOrigin];
+    if (
+      countries.some(
+        (country) => normalize(ad.countryOfOrigin) === normalize(country)
+      )
+    ) {
+      score += 10;
+    }
+  }
+
+  // Seller type filter - support for multiple types (array)
+  if (filters.sellerType) {
+    const sellerTypes = Array.isArray(filters.sellerType)
+      ? filters.sellerType
+      : [filters.sellerType];
+    if (
+      sellerTypes.some((type) => normalize(ad.sellerType) === normalize(type))
+    ) {
+      score += 10;
+    }
+  }
+
+  // Condition filter - support for multiple conditions (array)
+  if (filters.condition) {
+    const conditions = Array.isArray(filters.condition)
+      ? filters.condition
+      : [filters.condition];
+    if (
+      conditions.some((cond) => normalize(ad.condition) === normalize(cond))
+    ) {
+      score += 10;
+    }
+  }
+
+  // Tuning filter - support for multiple values (array)
+  if (filters.tuning) {
+    const tuningOptions = Array.isArray(filters.tuning)
+      ? filters.tuning
+      : [filters.tuning];
+    if (
+      tuningOptions.some((tuning) => normalize(ad.tuning) === normalize(tuning))
+    ) {
+      score += 10;
+    }
+  }
+
+  // Engine power range
+  if (
+    filters.enginePowerFrom &&
+    ad.power >= parseInt(filters.enginePowerFrom)
+  ) {
+    score += 5;
+  }
+  if (filters.enginePowerTo && ad.power <= parseInt(filters.enginePowerTo)) {
+    score += 5;
+  }
+
+  // Engine capacity range
+  if (
+    filters.engineCapacityFrom &&
+    ad.engineCapacity >= parseInt(filters.engineCapacityFrom)
+  ) {
+    score += 5;
+  }
+  if (
+    filters.engineCapacityTo &&
+    ad.engineCapacity <= parseInt(filters.engineCapacityTo)
+  ) {
+    score += 5;
+  }
+
+  // Weight range
+  if (filters.weightFrom && ad.weight >= parseInt(filters.weightFrom)) {
+    score += 5;
+  }
+  if (filters.weightTo && ad.weight <= parseInt(filters.weightTo)) {
+    score += 5;
+  }
+
+  // First owner filter
+  if (
+    filters.firstOwner &&
+    normalize(ad.firstOwner) === normalize(filters.firstOwner)
+  ) {
+    score += 5;
+  }
+
+  // Disabled adapted filter
+  if (
+    filters.disabledAdapted &&
+    normalize(ad.disabledAdapted) === normalize(filters.disabledAdapted)
+  ) {
+    score += 5;
+  }
+
   return score;
 }
 

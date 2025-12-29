@@ -135,10 +135,17 @@ export const createAdFilter = (query = {}) => {
         : { $in: accidentStatuses };
   }
 
-  const damageStatus = asStr(query.damageStatus);
-  if (damageStatus) filter.damageStatus = damageStatus;
-  const tuning = asStr(query.tuning);
-  if (tuning) filter.tuning = tuning;
+  const damageStatuses = asStrArray(query.damageStatus);
+  if (damageStatuses && damageStatuses.length > 0) {
+    filter.damageStatus =
+      damageStatuses.length === 1 ? damageStatuses[0] : { $in: damageStatuses };
+  }
+
+  const tuningOptions = asStrArray(query.tuning);
+  if (tuningOptions && tuningOptions.length > 0) {
+    filter.tuning =
+      tuningOptions.length === 1 ? tuningOptions[0] : { $in: tuningOptions };
+  }
 
   // Origin and seller - support arrays
   const countriesOfOrigin = asStrArray(query.countryOfOrigin);

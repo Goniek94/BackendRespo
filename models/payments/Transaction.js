@@ -29,6 +29,12 @@ const transactionSchema = new mongoose.Schema(
       min: 0,
     },
 
+    // Waluta transakcji
+    currency: {
+      type: String,
+      default: "PLN",
+    },
+
     // Typ transakcji (wymagane)
     type: {
       type: String,
@@ -41,7 +47,7 @@ const transactionSchema = new mongoose.Schema(
     status: {
       type: String,
       required: true,
-      enum: ["pending", "completed", "failed"],
+      enum: ["pending", "completed", "failed", "cancelled"],
       default: "pending",
       index: true,
     },
@@ -50,7 +56,16 @@ const transactionSchema = new mongoose.Schema(
     paymentMethod: {
       type: String,
       required: true,
-      enum: ["card", "blik", "transfer", "paypal", "przelewy24", "payu"],
+      enum: [
+        "card",
+        "blik",
+        "transfer",
+        "paypal",
+        "przelewy24",
+        "payu",
+        "tpay",
+        "admin",
+      ],
     },
 
     // Czy zażądano faktury
@@ -67,12 +82,38 @@ const transactionSchema = new mongoose.Schema(
       index: true,
     },
 
-    // ID transakcji z systemu płatności
+    // ID transakcji z systemu płatności (nasze wewnętrzne)
     transactionId: {
       type: String,
       required: true,
       unique: true,
       index: true,
+    },
+
+    // ID transakcji z Tpay (z odpowiedzi createTransaction)
+    providerId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+
+    // ID transakcji z Tpay (z webhooka - tr_id)
+    providerTransactionId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+
+    // Data opłacenia transakcji
+    paidAt: {
+      type: Date,
+      default: null,
+    },
+
+    // Szczegóły do faktury (NIP, nazwa firmy, adres)
+    invoiceDetails: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
     },
 
     // Dodatkowe metadane transakcji
@@ -97,8 +138,8 @@ const transactionSchema = new mongoose.Schema(
     invoiceNumber: {
       type: String,
       default: null,
-      sparse: true,
-      unique: true,
+      sparse: true, // Pozwala na wiele wartości null
+      unique: true, // Ale każda niepusta wartość musi być unikalna
     },
 
     // Ścieżka do pliku PDF faktury

@@ -6,10 +6,9 @@
  * ✅ Walidacja zakresów (min <= max)
  * ✅ drive (zamiast driveType; kompatybilność zachowana)
  * ✅ seats/doors jako liczby
- * ✅ Usunięto getActiveAdsPool (niebezpieczne RAM-owo)
- * ✅ toIn helper (normalizacja array -> $in)
+ * ✅ toIn helper (normalizacja array -> $in) - zastosowany do wszystkich pól multi-select
  * ✅ processAdImages działa także z .lean()
- * ✅ getActiveAdsCount nie nadpisuje statusu, jeśli podany
+ * ✅ Obsługa koloru (color)
  */
 
 /* ------------------------ Safe Helpers ------------------------ */
@@ -42,6 +41,7 @@ const toIn = (v) => {
         .filter(Boolean)
     ),
   ];
+  if (norm.length === 0) return undefined;
   return norm.length > 1 ? { $in: norm } : norm[0];
 };
 
@@ -53,6 +53,7 @@ const toInNumber = (v) => {
   const norm = [
     ...new Set(arr.map((x) => safeFloat(x, null)).filter((n) => n !== null)),
   ];
+  if (norm.length === 0) return undefined;
   return norm.length > 1 ? { $in: norm } : norm[0];
 };
 
@@ -92,13 +93,64 @@ export const createAdFilter = (query = {}) => {
   if (query.transmission) filter.transmission = toIn(query.transmission);
 
   // Napęd (drive, NIE driveType) – kompatybilność z driveType
-  const drive = query.drive || query.driveType;
-  if (drive) filter.drive = toIn(drive);
+  const driveValue = query.drive || query.driveType;
+  if (driveValue) {
+    // Normalizacja wartości napędu
+    const normalizedDrive = toIn(driveValue);
+    if (normalizedDrive) {
+      // Sprawdź czy to pojedyncza wartość czy tablica
+      if (typeof normalizedDrive === "string") {
+        // Dla pojedynczej wartości użyj case-insensitive regex
+        filter.drive = { $regex: new RegExp(`^${normalizedDrive}$`, "i") };
+      } else if (normalizedDrive.$in) {
+        // Dla wielu wartości użyj case-insensitive regex dla każdej
+        filter.drive = {
+          $in: normalizedDrive.$in.map((val) => new RegExp(`^${val}$`, "i")),
+        };
+      }
+    }
+  }
 
-  // === FILTRY ZAAWANSOWANE ===
+  // Kolor (DODANO)
+  if (query.color) {
+    const normalizedColor = toIn(query.color);
+    if (normalizedColor) {
+      // Sprawdź czy to pojedyncza wartość czy tablica
+      if (typeof normalizedColor === "string") {
+        // Dla pojedynczej wartości użyj case-insensitive regex
+        filter.color = { $regex: new RegExp(`^${normalizedColor}$`, "i") };
+      } else if (normalizedColor.$in) {
+        // Dla wielu wartości użyj case-insensitive regex dla każdej
+        filter.color = {
+          $in: normalizedColor.$in.map((val) => new RegExp(`^${val}$`, "i")),
+        };
+      }
+    }
+  }
+
+  // === FILTRY ZAAWANSOWANE (Zastosowano toIn dla obsługi MultiCheckbox) ===
 
   // Wykończenie lakieru
-  if (query.finish) filter.paintFinish = query.finish;
+  if (query.finish) filter.paintFinish = toIn(query.finish);
+
+  // Stan techniczny
+  if (query.condition) filter.condition = toIn(query.condition);
+
+  // Wypadkowość
+  if (query.accidentStatus) filter.accidentStatus = toIn(query.accidentStatus);
+
+  // Uszkodzenia
+  if (query.damageStatus) filter.damageStatus = toIn(query.damageStatus);
+
+  // Tuning
+  if (query.tuning) filter.tuning = toIn(query.tuning);
+
+  // Kraj pochodzenia
+  if (query.countryOfOrigin)
+    filter.countryOfOrigin = toIn(query.countryOfOrigin);
+
+  // Typ sprzedawcy
+  if (query.sellerType) filter.sellerType = toIn(query.sellerType);
 
   // Liczba drzwi (liczba)
   const doors = safeInt(query.doorCount);
@@ -107,24 +159,6 @@ export const createAdFilter = (query = {}) => {
   // Liczba miejsc (liczba)
   const seats = safeInt(query.seats);
   if (seats !== null) filter.seats = seats;
-
-  // Stan techniczny
-  if (query.condition) filter.condition = query.condition;
-
-  // Wypadkowość
-  if (query.accidentStatus) filter.accidentStatus = query.accidentStatus;
-
-  // Uszkodzenia
-  if (query.damageStatus) filter.damageStatus = query.damageStatus;
-
-  // Tuning
-  if (query.tuning) filter.tuning = query.tuning;
-
-  // Kraj pochodzenia
-  if (query.countryOfOrigin) filter.countryOfOrigin = query.countryOfOrigin;
-
-  // Typ sprzedawcy
-  if (query.sellerType) filter.sellerType = query.sellerType;
 
   // Importowany
   if (query.imported)
@@ -342,5 +376,4 @@ export const processAdImages = (ad) => {
 };
 
 /* ------------------------ Named Exports (opcjonalnie) ------------------------ */
-// (Jeśli chcesz korzystać z helperów w innych miejscach)
 export { safeInt, safeFloat, toIn, toInNumber };

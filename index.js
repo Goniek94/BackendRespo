@@ -107,34 +107,8 @@ const startServer = async () => {
   // Zwiększenie limitów Node.js dla nagłówków HTTP - MAKSYMALNE LIMITY
   process.env.NODE_OPTIONS = "--max-http-header-size=131072"; // 128KB zamiast domyślnych 8KB
 
-  // Funkcja do znajdowania wolnego portu
-  const findFreePort = (startPort) => {
-    return new Promise((resolve, reject) => {
-      let port = startPort;
-      const tryPort = () => {
-        const server = http.createServer();
-        server.listen(port, () => {
-          server.close(() => resolve(port));
-        });
-        server.on("error", (err) => {
-          if (err.code === "EADDRINUSE") {
-            console.warn(`⚠️ Port ${port} jest zajęty, sprawdzam następny...`);
-            port++;
-            tryPort();
-          } else {
-            reject(err);
-          }
-        });
-      };
-      tryPort();
-    });
-  };
-
-  // Znajdź wolny port, zaczynając od domyślnego
-  const finalPort = await findFreePort(PORT);
-  if (finalPort !== PORT) {
-    console.log(`✅ Znaleziono wolny port: ${finalPort}`);
-  }
+  // Użyj portu z konfiguracji (bez automatycznego szukania wolnego portu)
+  const finalPort = PORT;
 
   // Połączenie z bazą danych
   const dbConnected = await connectToDatabase();

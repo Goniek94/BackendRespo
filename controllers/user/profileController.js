@@ -142,138 +142,60 @@ export const updateUserProfile = async (req, res, next) => {
 };
 
 /**
- * Request email change - sends verification code to new email
+ * Request email change - returns info that user needs to contact support
  */
 export const requestEmailChange = async (req, res, next) => {
+  console.log("\n🔵 ==========================================");
+  console.log("🔵 [REQUEST EMAIL CHANGE] - INFO ONLY");
+  console.log("🔵 ==========================================");
+  console.log("👤 User from token:", req.user);
+
   try {
     const userId = req.user.userId;
-    const { newEmail } = req.body;
-
-    if (!newEmail) {
-      return res.status(400).json({
-        success: false,
-        message: "Nowy adres email jest wymagany",
-      });
-    }
 
     const user = await User.findById(userId);
 
     if (!user) {
+      console.log("❌ User not found in database");
       return res.status(404).json({
         success: false,
         message: "Użytkownik nie został znaleziony",
       });
     }
 
-    // Check if email is already taken
-    const emailExists = await User.findOne({
-      email: newEmail.toLowerCase(),
-      _id: { $ne: userId },
-    });
+    console.log("📧 Current user email:", user.email);
+    console.log("ℹ️ User informed to contact support for email change");
 
-    if (emailExists) {
-      return res.status(400).json({
-        success: false,
-        message: "Ten adres email jest już zajęty",
-      });
-    }
-
-    // Generate verification code
-    const { generateVerificationCode, sendEmailChangeVerification } =
-      await import("../../services/emailService.js");
-    const verificationCode = generateVerificationCode();
-
-    // Save verification code with expiry (15 minutes)
-    user.emailVerificationCode = verificationCode;
-    user.emailVerificationCodeExpires = new Date(Date.now() + 15 * 60 * 1000);
-    user.pendingEmail = newEmail.toLowerCase();
-    await user.save();
-
-    // Send verification email
-    await sendEmailChangeVerification(newEmail, verificationCode, user.name);
+    console.log("🔵 ==========================================");
+    console.log("🔵 [REQUEST EMAIL CHANGE] - INFO SENT");
+    console.log("🔵 ==========================================\n");
 
     return res.status(200).json({
       success: true,
-      message: "Kod weryfikacyjny został wysłany na nowy adres email",
+      requiresSupport: true,
+      message:
+        "Aby zmienić adres email, skontaktuj się z naszym zespołem wsparcia.",
+      contactEmail: "kontakt@autosell.pl",
     });
   } catch (error) {
-    console.error("❌ Request email change error:", error);
+    console.error("❌ ==========================================");
+    console.error("❌ [REQUEST EMAIL CHANGE] - ERROR");
+    console.error("❌ ==========================================");
+    console.error("❌ Error:", error);
     return next(error);
   }
 };
 
 /**
- * Verify email change with code
+ * Verify email change with code - DISABLED (requires support contact)
  */
 export const verifyEmailChange = async (req, res, next) => {
   try {
-    const userId = req.user.userId;
-    const { code } = req.body;
-
-    if (!code) {
-      return res.status(400).json({
-        success: false,
-        message: "Kod weryfikacyjny jest wymagany",
-      });
-    }
-
-    const user = await User.findById(userId);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "Użytkownik nie został znaleziony",
-      });
-    }
-
-    // Check if code is valid
-    if (
-      !user.emailVerificationCode ||
-      user.emailVerificationCode !== code ||
-      !user.emailVerificationCodeExpires ||
-      user.emailVerificationCodeExpires < new Date()
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Kod weryfikacyjny jest nieprawidłowy lub wygasł",
-      });
-    }
-
-    if (!user.pendingEmail) {
-      return res.status(400).json({
-        success: false,
-        message: "Brak oczekującego adresu email",
-      });
-    }
-
-    // Update email
-    const oldEmail = user.email;
-    user.email = user.pendingEmail;
-    user.isEmailVerified = true;
-    user.emailVerified = true;
-    user.emailVerificationCode = undefined;
-    user.emailVerificationCodeExpires = undefined;
-    user.pendingEmail = undefined;
-    await user.save();
-
-    // Send notification to old email
-    const { sendProfileChangeNotification } = await import(
-      "../../services/emailService.js"
-    );
-    await sendProfileChangeNotification(oldEmail, user.name, [
-      `Email zmieniony z ${oldEmail} na ${user.email}`,
-    ]);
-
-    return res.status(200).json({
-      success: true,
-      message: "Adres email został zmieniony pomyślnie",
-      user: {
-        id: user._id,
-        name: user.name,
-        lastName: user.lastName,
-        email: user.email,
-        phoneNumber: user.phoneNumber,
-      },
+    return res.status(400).json({
+      success: false,
+      requiresSupport: true,
+      message:
+        "Zmiana adresu email wymaga kontaktu z zespołem wsparcia. Skontaktuj się z nami pod adresem kontakt@autosell.pl",
     });
   } catch (error) {
     console.error("❌ Verify email change error:", error);
@@ -285,11 +207,21 @@ export const verifyEmailChange = async (req, res, next) => {
  * Request phone change - sends verification code to new phone
  */
 export const requestPhoneChange = async (req, res, next) => {
+  console.log("\n🟢 ==========================================");
+  console.log("🟢 [REQUEST PHONE CHANGE] - START");
+  console.log("🟢 ==========================================");
+  console.log("📦 Request body:", req.body);
+  console.log("👤 User from token:", req.user);
+
   try {
     const userId = req.user.userId;
     const { newPhone } = req.body;
 
+    console.log("📱 New phone requested:", newPhone);
+    console.log("🆔 User ID:", userId);
+
     if (!newPhone) {
+      console.log("❌ No newPhone provided");
       return res.status(400).json({
         success: false,
         message: "Nowy numer telefonu jest wymagany",
@@ -297,13 +229,17 @@ export const requestPhoneChange = async (req, res, next) => {
     }
 
     const user = await User.findById(userId);
+    console.log("👤 User found:", user ? "YES" : "NO");
 
     if (!user) {
+      console.log("❌ User not found in database");
       return res.status(404).json({
         success: false,
         message: "Użytkownik nie został znaleziony",
       });
     }
+
+    console.log("📱 Current user phone:", user.phoneNumber);
 
     // Check if phone is already taken
     const phoneExists = await User.findOne({
@@ -311,7 +247,10 @@ export const requestPhoneChange = async (req, res, next) => {
       _id: { $ne: userId },
     });
 
+    console.log("📱 Phone already exists:", phoneExists ? "YES" : "NO");
+
     if (phoneExists) {
+      console.log("❌ Phone already taken by another user");
       return res.status(400).json({
         success: false,
         message: "Ten numer telefonu jest już zajęty",
@@ -319,25 +258,40 @@ export const requestPhoneChange = async (req, res, next) => {
     }
 
     // Generate verification code
+    console.log("🔑 Generating verification code...");
     const { generateVerificationCode, sendPhoneChangeVerification } =
       await import("../../services/emailService.js");
     const verificationCode = generateVerificationCode();
+    console.log("🔑 Verification code generated:", verificationCode);
 
     // Save verification code with expiry (15 minutes)
     user.smsVerificationCode = verificationCode;
     user.smsVerificationCodeExpires = new Date(Date.now() + 15 * 60 * 1000);
     user.pendingPhone = newPhone;
     await user.save();
+    console.log("💾 User saved with pending phone and verification code");
 
     // Send verification SMS
-    await sendPhoneChangeVerification(newPhone, verificationCode);
+    console.log("📤 Sending verification SMS to:", newPhone);
+    const smsResult = await sendPhoneChangeVerification(
+      newPhone,
+      verificationCode
+    );
+    console.log("📤 SMS send result:", smsResult);
+
+    console.log("🟢 ==========================================");
+    console.log("🟢 [REQUEST PHONE CHANGE] - SUCCESS");
+    console.log("🟢 ==========================================\n");
 
     return res.status(200).json({
       success: true,
       message: "Kod weryfikacyjny został wysłany SMS",
     });
   } catch (error) {
-    console.error("❌ Request phone change error:", error);
+    console.error("❌ ==========================================");
+    console.error("❌ [REQUEST PHONE CHANGE] - ERROR");
+    console.error("❌ ==========================================");
+    console.error("❌ Error:", error);
     return next(error);
   }
 };

@@ -348,32 +348,40 @@ export const sendEmailChangeVerification = async (
 };
 
 /**
- * Send phone change verification SMS (placeholder - requires SMS provider)
+ * Send phone change verification SMS via Twilio
  */
 export const sendPhoneChangeVerification = async (
   phoneNumber,
   verificationCode
 ) => {
   try {
-    // TODO: Integracja z providerem SMS (SMSAPI/Twilio/SNS)
-    logger.info("Phone verification code generated", {
-      phoneNumber,
-      code: verificationCode,
+    // Import Twilio sendVerificationCode function
+    const { sendVerificationCode } = await import("../config/twilio.js");
+
+    logger.info("Sending phone change verification code via Twilio", {
+      phoneNumber: phoneNumber.substring(0, 6) + "***",
     });
 
-    // Tymczasowo: log do konsoli
-    console.log(
-      `📱 SMS to ${phoneNumber}: Your verification code is ${verificationCode}`
-    );
+    // Send SMS via Twilio
+    const result = await sendVerificationCode(phoneNumber, verificationCode);
 
-    return { success: true };
+    if (!result.success) {
+      throw new Error(result.error || "Failed to send SMS");
+    }
+
+    logger.info("Phone change verification SMS sent successfully", {
+      phoneNumber: phoneNumber.substring(0, 6) + "***",
+      sid: result.sid,
+      simulated: result.simulated,
+    });
+
+    return { success: true, data: result };
   } catch (error) {
-    logger.error("Failed to send phone verification", {
+    logger.error("Failed to send phone change verification SMS", {
       name: error?.name,
       statusCode: error?.statusCode,
       message: error?.message,
-      body: error?.body,
-      phoneNumber,
+      phoneNumber: phoneNumber?.substring(0, 6) + "***",
     });
     throw error;
   }

@@ -108,8 +108,17 @@ const AdSchema = new mongoose.Schema(
     // Status moderacji
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected", "active", "hidden", "archived"],
-      default: "pending",
+      // ZMIANA: Dodano "pending_payment" i ustawiono jako domyślny
+      enum: [
+        "pending_payment",
+        "pending",
+        "approved",
+        "rejected",
+        "active",
+        "hidden",
+        "archived",
+      ],
+      default: "pending_payment",
       index: true,
     },
 

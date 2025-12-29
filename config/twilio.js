@@ -46,9 +46,9 @@ export const sendVerificationCode = async (phone, code) => {
       );
     }
 
-    // Validate code
-    if (!code || code.length !== 4) {
-      throw new Error("Verification code must be 4 digits");
+    // Validate code (accept 4-6 digit codes)
+    if (!code || code.length < 4 || code.length > 6) {
+      throw new Error("Verification code must be 4-6 digits");
     }
 
     // If Twilio is not configured, use simulation

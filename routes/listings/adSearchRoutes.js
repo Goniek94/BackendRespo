@@ -73,6 +73,7 @@ router.get(
             engineCapacity: 1,
             damageStatus: 1,
             vehicleCondition: 1,
+            color: 1, // DODANO: pole koloru dla filtrowania
           },
         },
       ]);
@@ -139,6 +140,37 @@ router.get(
         (type) => type && type.trim() !== ""
       );
       res.status(200).json(filteredBodyTypes.sort());
+    } catch (err) {
+      next(err);
+    }
+  },
+  errorHandler
+);
+
+// GET /ads/colors - Pobieranie dostępnych kolorów z liczbą ogłoszeń (tylko z aktywnych ogłoszeń)
+router.get(
+  "/colors",
+  async (req, res, next) => {
+    try {
+      const activeFilter = { status: getActiveStatusFilter() };
+
+      // Agregacja MongoDB - zlicz ile ogłoszeń ma każdy kolor
+      const colorCounts = await Ad.aggregate([
+        { $match: activeFilter },
+        { $match: { color: { $exists: true, $ne: null, $ne: "" } } },
+        { $group: { _id: "$color", count: { $sum: 1 } } },
+        { $sort: { _id: 1 } },
+      ]);
+
+      // Przekształć do obiektu { "BIAŁY": 3, "CZARNY": 20, ... }
+      const colorsWithCounts = {};
+      colorCounts.forEach((item) => {
+        if (item._id && item._id.trim() !== "") {
+          colorsWithCounts[item._id] = item.count;
+        }
+      });
+
+      res.status(200).json(colorsWithCounts);
     } catch (err) {
       next(err);
     }
@@ -293,6 +325,7 @@ router.get(
             condition: 1,
             sellerType: 1,
             drive: 1,
+            color: 1, // DODANO: pole koloru dla filtrowania
           },
         },
       ]);

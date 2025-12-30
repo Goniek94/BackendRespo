@@ -52,7 +52,13 @@ router.get(
       req.params.id === "models" ||
       req.params.id === "search" ||
       req.params.id === "user" ||
-      req.params.id === "search-stats"
+      req.params.id === "search-stats" ||
+      req.params.id === "colors" ||
+      req.params.id === "body-types" ||
+      req.params.id === "car-data" ||
+      req.params.id === "count" ||
+      req.params.id === "filter-counts" ||
+      req.params.id === "active-count"
     ) {
       return next();
     }

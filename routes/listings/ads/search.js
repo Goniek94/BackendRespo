@@ -72,6 +72,8 @@ function listProjection() {
     featured: 1,
     condition: 1,
     moderation: 1,
+    color: 1, // DODANO: pole koloru dla filtrowania
+    bodyType: 1, // DODANO: typ nadwozia
   };
 }
 
@@ -443,6 +445,55 @@ router.get(
       }
       Object.keys(carData).forEach((b) => carData[b].sort());
       res.status(200).json(carData);
+    } catch (err) {
+      next(err);
+    }
+  },
+  errorHandler
+);
+
+// Dostępne kolory z liczbą ogłoszeń
+router.get(
+  "/colors",
+  async (_req, res, next) => {
+    try {
+      const activeFilter = { status: getActiveStatusFilter() };
+
+      // Agregacja MongoDB - zlicz ile ogłoszeń ma każdy kolor
+      const colorCounts = await Ad.aggregate([
+        { $match: activeFilter },
+        { $match: { color: { $exists: true, $ne: null, $ne: "" } } },
+        { $group: { _id: "$color", count: { $sum: 1 } } },
+        { $sort: { _id: 1 } },
+      ]);
+
+      // Przekształć do obiektu { "BIAŁY": 3, "CZARNY": 20, ... }
+      const colorsWithCounts = {};
+      colorCounts.forEach((item) => {
+        if (item._id && item._id.trim() !== "") {
+          colorsWithCounts[item._id] = item.count;
+        }
+      });
+
+      res.status(200).json(colorsWithCounts);
+    } catch (err) {
+      next(err);
+    }
+  },
+  errorHandler
+);
+
+// Dostępne typy nadwozia
+router.get(
+  "/body-types",
+  async (_req, res, next) => {
+    try {
+      const activeFilter = { status: getActiveStatusFilter() };
+      const bodyTypes = await Ad.distinct("bodyType", activeFilter);
+      const filteredBodyTypes = bodyTypes.filter(
+        (type) => type && type.trim() !== ""
+      );
+      res.status(200).json(filteredBodyTypes.sort());
     } catch (err) {
       next(err);
     }

@@ -168,28 +168,30 @@ export const mapFormDataToBackend = (data) => {
   };
 
   const driveMapping = {
-    // Nowe wartości z frontendu
+    // Nowe wartości z frontendu (4 opcje)
     "FWD (Przedni)": "FWD (Przedni)",
     "RWD (Tylny)": "RWD (Tylny)",
-    "AWD (4x4)": "AWD (4x4)",
+    "AWD (4x4 stały)": "AWD (4x4 stały)",
+    "4WD (4x4 dołączany)": "4WD (4x4 dołączany)",
     // Stare wartości dla kompatybilności
     "RWD (tylny)": "RWD (Tylny)",
     "FWD (przedni)": "FWD (Przedni)",
-    "AWD (na cztery koła)": "AWD (4x4)",
-    "Na cztery koła stały": "AWD (4x4)",
-    "Na cztery koła dołączany": "AWD (4x4)",
+    "AWD (4x4)": "AWD (4x4 stały)",
+    "AWD (na cztery koła)": "AWD (4x4 stały)",
+    "Na cztery koła stały": "AWD (4x4 stały)",
+    "Na cztery koła dołączany": "4WD (4x4 dołączany)",
     Przedni: "FWD (Przedni)",
     przedni: "FWD (Przedni)",
     Tylny: "RWD (Tylny)",
     tylny: "RWD (Tylny)",
-    "4x4": "AWD (4x4)",
+    "4x4": "AWD (4x4 stały)",
     "Napęd na przód": "FWD (Przedni)",
     "Napęd na tył": "RWD (Tylny)",
-    "Napęd na cztery koła": "AWD (4x4)",
+    "Napęd na cztery koła": "AWD (4x4 stały)",
     FWD: "FWD (Przedni)",
     RWD: "RWD (Tylny)",
-    AWD: "AWD (4x4)",
-    "4WD": "AWD (4x4)",
+    AWD: "AWD (4x4 stały)",
+    "4WD": "4WD (4x4 dołączany)",
   };
 
   const bodyTypeMapping = {

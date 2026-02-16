@@ -220,8 +220,8 @@ const refreshUserSession = async (refreshToken, req, res) => {
         user.role === "admin"
           ? adminConfig.adminPermissions
           : user.role === "moderator"
-          ? adminConfig.moderatorPermissions
-          : {},
+            ? adminConfig.moderatorPermissions
+            : {},
     };
   } catch (error) {
     logger.error("Session refresh failed", {
@@ -280,7 +280,7 @@ const authMiddleware = async (req, res, next) => {
         endpoint: req.originalUrl,
       });
       return res.status(401).json({
-        message: "Authentication required",
+        message: "Wymagane uwierzytelnienie",
         code: "NO_TOKEN",
       });
     }
@@ -296,7 +296,7 @@ const authMiddleware = async (req, res, next) => {
         });
         clearAuthCookies(res);
         return res.status(401).json({
-          message: "Token invalidated. Please login again.",
+          message: "Token unieważniony. Zaloguj się ponownie.",
           code: "TOKEN_BLACKLISTED",
         });
       }

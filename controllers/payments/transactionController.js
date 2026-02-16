@@ -23,7 +23,7 @@ class TransactionController {
       const userId = req.user.userId;
 
       console.log(
-        `📋 [TRANSACTIONS] Pobieranie transakcji dla użytkownika: ${userId}`
+        `📋 [TRANSACTIONS] Pobieranie transakcji dla użytkownika: ${userId}`,
       );
 
       const transactions = await Transaction.findByUser(userId, {
@@ -50,7 +50,7 @@ class TransactionController {
       }));
 
       console.log(
-        `✅ [TRANSACTIONS] Znaleziono ${totalTransactions} transakcji`
+        `✅ [TRANSACTIONS] Znaleziono ${totalTransactions} transakcji`,
       );
 
       res.status(200).json({
@@ -65,7 +65,7 @@ class TransactionController {
     } catch (error) {
       console.error(
         "❌ [TRANSACTIONS] Błąd podczas pobierania transakcji:",
-        error
+        error,
       );
       res.status(500).json({
         message: "Błąd podczas pobierania transakcji",
@@ -171,7 +171,8 @@ class TransactionController {
       console.log("💾 [TPAY] Tworzenie transakcji w bazie danych...");
       console.log("💾 [TPAY] ID transakcji:", transactionIdInternal);
 
-      const transaction = new Transaction({
+      // Przygotuj dane transakcji (bez invoiceNumber - zostanie dodane przez middleware)
+      const transactionData = {
         userId,
         adId: savedAd._id, // Powiązanie z nowo utworzonym ogłoszeniem
         amount: parseFloat(amount),
@@ -191,7 +192,10 @@ class TransactionController {
           createdAt: new Date().toISOString(),
         },
         createdAt: new Date(),
-      });
+      };
+
+      // NIE dodawaj invoiceNumber - zostanie dodane automatycznie przez middleware gdy faktura zostanie wygenerowana
+      const transaction = new Transaction(transactionData);
 
       const savedTransaction = await transaction.save();
       console.log("✅ [TPAY] Transakcja zapisana w bazie z statusem: pending");
@@ -206,6 +210,7 @@ class TransactionController {
         email: user.email,
         name: user.name || "Użytkownik",
         transactionId: savedTransaction._id.toString(),
+        // Redirect to payment return page (existing flow)
         returnUrl: `${process.env.FRONTEND_URL}/payment/return?status=success`,
         errorUrl: `${process.env.FRONTEND_URL}/payment/return?status=error`,
       });
@@ -223,7 +228,7 @@ class TransactionController {
 
         console.log(
           "✅ [TPAY] Zaktualizowano providerId:",
-          tpayData.transactionId
+          tpayData.transactionId,
         );
         console.log("🔗 [TPAY] URL płatności:", tpayData.transactionPaymentUrl);
         console.log("🚀 [TPAY] ========================================");
@@ -245,7 +250,7 @@ class TransactionController {
     } catch (error) {
       console.error(
         "❌ [TPAY] KRYTYCZNY BŁĄD podczas tworzenia transakcji:",
-        error
+        error,
       );
       console.error("❌ [TPAY] Stack trace:", error.stack);
       res.status(500).json({
@@ -328,7 +333,7 @@ class TransactionController {
           if (ad) {
             console.log(
               "✅ [WEBHOOK] Znaleziono ogłoszenie:",
-              `${ad.brand} ${ad.model}`
+              `${ad.brand} ${ad.model}`,
             );
 
             // Logika dla wyróżnień
@@ -338,7 +343,7 @@ class TransactionController {
             ) {
               ad.isFeatured = true;
               ad.featuredUntil = new Date(
-                Date.now() + 30 * 24 * 60 * 60 * 1000
+                Date.now() + 30 * 24 * 60 * 60 * 1000,
               );
               console.log("⭐ [WEBHOOK] Ogłoszenie oznaczone jako WYRÓŻNIONE");
             }
@@ -355,14 +360,14 @@ class TransactionController {
           } else {
             console.error(
               "❌ [WEBHOOK] Nie znaleziono ogłoszenia:",
-              transaction.adId
+              transaction.adId,
             );
           }
 
           // D. Powiadomienie użytkownika
           try {
             console.log(
-              "📧 [WEBHOOK] Wysyłanie powiadomienia do użytkownika..."
+              "📧 [WEBHOOK] Wysyłanie powiadomienia do użytkownika...",
             );
 
             await notificationManager.createNotification(
@@ -370,7 +375,7 @@ class TransactionController {
               "Płatność zatwierdzona",
               `Twoje ogłoszenie zostało opłacone i aktywowane. Numer transakcji: ${transaction.transactionId}`,
               "payment_success",
-              { transactionId: transaction.transactionId }
+              { transactionId: transaction.transactionId },
             );
 
             console.log("✅ [WEBHOOK] Powiadomienie wysłane");
@@ -393,7 +398,7 @@ class TransactionController {
           transaction.status = "failed";
           await transaction.save();
           console.log(
-            "✅ [WEBHOOK] Transakcja oznaczona jako nieudana (failed)"
+            "✅ [WEBHOOK] Transakcja oznaczona jako nieudana (failed)",
           );
 
           // Powiadomienie użytkownika o błędzie
@@ -403,7 +408,7 @@ class TransactionController {
               "Płatność nieudana",
               `Płatność za ogłoszenie została odrzucona. Możesz spróbować ponownie.`,
               "payment_failed",
-              { transactionId: transaction.transactionId }
+              { transactionId: transaction.transactionId },
             );
           } catch (e) {
             console.error("❌ [WEBHOOK] Błąd wysyłania powiadomienia:", e);
@@ -418,7 +423,7 @@ class TransactionController {
           transaction.status = "cancelled";
           await transaction.save();
           console.log(
-            "✅ [WEBHOOK] Transakcja oznaczona jako anulowana (cancelled)"
+            "✅ [WEBHOOK] Transakcja oznaczona jako anulowana (cancelled)",
           );
 
           // Powiadomienie użytkownika o anulowaniu
@@ -428,7 +433,7 @@ class TransactionController {
               "Płatność anulowana",
               `Płatność za ogłoszenie została anulowana.`,
               "payment_cancelled",
-              { transactionId: transaction.transactionId }
+              { transactionId: transaction.transactionId },
             );
           } catch (e) {
             console.error("❌ [WEBHOOK] Błąd wysyłania powiadomienia:", e);
@@ -438,7 +443,7 @@ class TransactionController {
         // Inne statusy
         console.log(
           "⚠️ [WEBHOOK] Nieznany status płatności:",
-          notification.tr_status
+          notification.tr_status,
         );
       }
 
@@ -453,7 +458,64 @@ class TransactionController {
   }
 
   /**
-   * 4. Ręczne generowanie faktury PDF (na żądanie z historii)
+   * 4. Sprawdzanie statusu płatności (dla frontendu po powrocie z Tpay)
+   */
+  async checkPaymentStatus(req, res) {
+    try {
+      const { transactionId } = req.params;
+      const userId = req.user.userId;
+
+      console.log(
+        `🔍 [STATUS] Sprawdzanie statusu transakcji: ${transactionId}`,
+      );
+
+      const transaction = await Transaction.findOne({
+        _id: transactionId,
+        userId,
+      }).populate("adId", "brand model headline slug status");
+
+      if (!transaction) {
+        console.log("❌ [STATUS] Transakcja nie znaleziona");
+        return res.status(404).json({
+          success: false,
+          message: "Transakcja nie znaleziona",
+        });
+      }
+
+      console.log(`✅ [STATUS] Status transakcji: ${transaction.status}`);
+
+      res.status(200).json({
+        success: true,
+        transaction: {
+          id: transaction._id,
+          status: transaction.status,
+          amount: transaction.amount,
+          type: transaction.type,
+          paidAt: transaction.paidAt,
+          ad: transaction.adId
+            ? {
+                id: transaction.adId._id,
+                brand: transaction.adId.brand,
+                model: transaction.adId.model,
+                headline: transaction.adId.headline,
+                slug: transaction.adId.slug,
+                status: transaction.adId.status,
+              }
+            : null,
+        },
+      });
+    } catch (error) {
+      console.error("❌ [STATUS] Błąd sprawdzania statusu:", error);
+      res.status(500).json({
+        success: false,
+        message: "Błąd podczas sprawdzania statusu płatności",
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * 5. Ręczne generowanie faktury PDF (na żądanie z historii)
    */
   async requestInvoice(req, res) {
     try {
@@ -540,7 +602,7 @@ class TransactionController {
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename="${fileName}"`
+        `attachment; filename="${fileName}"`,
       );
 
       const fileStream = fs.createReadStream(transaction.invoicePdfPath);
@@ -573,8 +635,8 @@ class TransactionController {
         doc.fontSize(12).text(`Numer: ${transaction.invoiceNumber || "Brak"}`);
         doc.text(
           `Data: ${new Date(
-            transaction.paidAt || Date.now()
-          ).toLocaleDateString("pl-PL")}`
+            transaction.paidAt || Date.now(),
+          ).toLocaleDateString("pl-PL")}`,
         );
         doc.text(`Status: OPŁACONO`);
 
@@ -598,7 +660,7 @@ class TransactionController {
           doc.text(
             `${transaction.userId.name || ""} ${
               transaction.userId.lastName || ""
-            }`
+            }`,
           );
           doc.text(transaction.userId.email);
         }

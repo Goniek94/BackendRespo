@@ -52,12 +52,12 @@ const createApp = () => {
     console.log("📝 Parsowanie JSON/urlencoded");
     // Parsuj tylko gdy NIE jest multipart
     express.json({
-      limit: "1mb",
+      limit: "50mb", // Increased limit for large payloads (e.g., base64 images)
       strict: true,
       type: "application/json", // Parsuj TYLKO JSON
     })(req, res, () => {
       express.urlencoded({
-        limit: "1mb",
+        limit: "50mb", // Increased limit for large payloads
         extended: true,
         parameterLimit: 100,
         type: "application/x-www-form-urlencoded", // Parsuj TYLKO urlencoded

@@ -1,60 +1,119 @@
+/**
+ * Script to fix the invoiceNumber index issue
+ * This script will:
+ * 1. Drop the incorrect unique index on invoiceNumber
+ * 2. Create a proper sparse unique index
+ */
+
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 
-// Załaduj zmienne środowiskowe
+// Load environment variables
 dotenv.config();
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
 async function fixInvoiceNumberIndex() {
   try {
-    console.log("🔧 Łączenie z MongoDB...");
+    console.log("🔌 Connecting to MongoDB...");
     await mongoose.connect(MONGODB_URI);
-    console.log("✅ Połączono z MongoDB");
+    console.log("✅ Connected to MongoDB");
 
     const db = mongoose.connection.db;
     const collection = db.collection("transactions");
 
-    console.log("\n📋 Sprawdzanie istniejących indeksów...");
+    console.log("\n📋 Current indexes on transactions collection:");
     const indexes = await collection.indexes();
-    console.log("Istniejące indeksy:", JSON.stringify(indexes, null, 2));
-
-    // Usuń stary indeks invoiceNumber_1
-    console.log("\n🗑️  Usuwanie starego indeksu invoiceNumber_1...");
-    try {
-      await collection.dropIndex("invoiceNumber_1");
-      console.log("✅ Stary indeks usunięty");
-    } catch (error) {
+    indexes.forEach((index, i) => {
       console.log(
-        "⚠️  Indeks nie istnieje lub już został usunięty:",
-        error.message
+        `${i + 1}. ${index.name}:`,
+        JSON.stringify(index.key),
+        index.unique ? "(unique)" : "",
+        index.sparse ? "(sparse)" : "",
       );
+    });
+
+    // Find the problematic index
+    const problematicIndex = indexes.find(
+      (idx) => idx.key.invoiceNumber && idx.unique && !idx.sparse,
+    );
+
+    if (problematicIndex) {
+      console.log("\n❌ Found problematic index:", problematicIndex.name);
+      console.log("   This index is unique but NOT sparse, causing the error");
+
+      console.log("\n🗑️  Dropping incorrect index...");
+      await collection.dropIndex(problematicIndex.name);
+      console.log("✅ Dropped index:", problematicIndex.name);
+    } else {
+      console.log("\n⚠️  No problematic non-sparse unique index found");
+
+      // Check if there's any invoiceNumber index
+      const anyInvoiceIndex = indexes.find((idx) => idx.key.invoiceNumber);
+      if (anyInvoiceIndex) {
+        console.log("   Found invoiceNumber index:", anyInvoiceIndex.name);
+        if (anyInvoiceIndex.unique && anyInvoiceIndex.sparse) {
+          console.log("   ✅ This index is already correct (unique + sparse)");
+        } else {
+          console.log("   ⚠️  Dropping this index to recreate it properly...");
+          await collection.dropIndex(anyInvoiceIndex.name);
+          console.log("   ✅ Dropped index:", anyInvoiceIndex.name);
+        }
+      }
     }
 
-    // Utwórz nowy indeks sparse unique
-    console.log("\n🔨 Tworzenie nowego indeksu sparse unique...");
+    // Create the correct sparse unique index
+    console.log("\n🔨 Creating correct sparse unique index...");
     await collection.createIndex(
       { invoiceNumber: 1 },
       {
         unique: true,
         sparse: true,
         name: "invoiceNumber_sparse_unique",
-      }
+      },
     );
-    console.log("✅ Nowy indeks utworzony");
+    console.log("✅ Created sparse unique index on invoiceNumber");
 
-    console.log("\n📋 Sprawdzanie nowych indeksów...");
-    const newIndexes = await collection.indexes();
-    console.log("Nowe indeksy:", JSON.stringify(newIndexes, null, 2));
+    console.log("\n📋 Updated indexes on transactions collection:");
+    const updatedIndexes = await collection.indexes();
+    updatedIndexes.forEach((index, i) => {
+      console.log(
+        `${i + 1}. ${index.name}:`,
+        JSON.stringify(index.key),
+        index.unique ? "(unique)" : "",
+        index.sparse ? "(sparse)" : "",
+      );
+    });
 
-    console.log("\n✅ Naprawa zakończona pomyślnie!");
-    console.log("Możesz teraz spróbować ponownie utworzyć transakcję.");
+    // Verify the fix
+    const invoiceIndex = updatedIndexes.find((idx) => idx.key.invoiceNumber);
+    if (invoiceIndex && invoiceIndex.unique && invoiceIndex.sparse) {
+      console.log(
+        "\n✅ SUCCESS! Index is now properly configured as sparse + unique",
+      );
+      console.log("   This allows multiple documents with invoiceNumber: null");
+      console.log("   But ensures unique values for non-null invoiceNumbers");
+    } else {
+      console.log("\n❌ WARNING: Index may not be configured correctly");
+    }
+
+    console.log("\n✅ Fix completed successfully!");
   } catch (error) {
-    console.error("❌ Błąd podczas naprawy indeksu:", error);
+    console.error("\n❌ Error fixing index:", error);
+    throw error;
   } finally {
     await mongoose.connection.close();
-    console.log("\n🔌 Rozłączono z MongoDB");
+    console.log("\n🔌 Disconnected from MongoDB");
   }
 }
 
-fixInvoiceNumberIndex();
+// Run the fix
+fixInvoiceNumberIndex()
+  .then(() => {
+    console.log("\n🎉 All done!");
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error("\n💥 Fatal error:", error);
+    process.exit(1);
+  });

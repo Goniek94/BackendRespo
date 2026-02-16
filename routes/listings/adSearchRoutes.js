@@ -154,21 +154,37 @@ router.get(
     try {
       const activeFilter = { status: getActiveStatusFilter() };
 
-      // Agregacja MongoDB - zlicz ile ogłoszeń ma każdy kolor
-      const colorCounts = await Ad.aggregate([
-        { $match: activeFilter },
-        { $match: { color: { $exists: true, $ne: null, $ne: "" } } },
-        { $group: { _id: "$color", count: { $sum: 1 } } },
-        { $sort: { _id: 1 } },
-      ]);
+      // Lista standardowych kolorów z formularza (dokładnie jak w vehicleOptions.js)
+      const standardColors = [
+        "Biały",
+        "Czarny",
+        "Srebrny",
+        "Szary",
+        "Niebieski",
+        "Czerwony",
+        "Zielony",
+        "Żółty",
+        "Brązowy",
+        "Złoty",
+        "Fioletowy",
+        "Pomarańczowy",
+        "Inne",
+      ];
 
-      // Przekształć do obiektu { "BIAŁY": 3, "CZARNY": 20, ... }
+      // Dla każdego standardowego koloru, policz ile ogłoszeń (case-insensitive)
       const colorsWithCounts = {};
-      colorCounts.forEach((item) => {
-        if (item._id && item._id.trim() !== "") {
-          colorsWithCounts[item._id] = item.count;
+
+      for (const color of standardColors) {
+        const count = await Ad.countDocuments({
+          ...activeFilter,
+          color: { $regex: new RegExp(`^${color}$`, "i") },
+        });
+
+        // Dodaj tylko jeśli są ogłoszenia w tym kolorze
+        if (count > 0) {
+          colorsWithCounts[color] = count;
         }
-      });
+      }
 
       res.status(200).json(colorsWithCounts);
     } catch (err) {

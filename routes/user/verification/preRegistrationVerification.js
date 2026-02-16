@@ -120,9 +120,8 @@ router.post("/send-email-verification", async (req, res) => {
     // Send email
     console.log("📤 Wysyłam email...");
     try {
-      const { sendRegistrationVerificationCode } = await import(
-        "../../../services/emailService.js"
-      );
+      const { sendRegistrationVerificationCode } =
+        await import("../../../services/emailService.js");
       await sendRegistrationVerificationCode(email, code, "");
       console.log("✅ Email wysłany");
     } catch (emailError) {
@@ -379,12 +378,11 @@ router.post("/send-phone-verification", async (req, res) => {
     });
     console.log("💾 Kod zapisany w bazie (10 minut)");
 
-    // Send SMS przez Twilio
-    console.log("📱 Wysyłam SMS przez Twilio...");
+    // Send SMS przez SMSAPI
+    console.log("📱 Wysyłam SMS przez SMSAPI...");
     try {
-      const { sendVerificationCode } = await import(
-        "../../../config/twilio.js"
-      );
+      const { sendVerificationCode } =
+        await import("../../../config/smsapi.js");
       const smsResult = await sendVerificationCode(phone, code);
 
       if (!smsResult.success) {
@@ -398,15 +396,15 @@ router.post("/send-phone-verification", async (req, res) => {
           message: "Błąd wysyłania kodu SMS",
         });
       }
-      console.log("✅ SMS wysłany przez Twilio!");
-      logger.info("SMS verification code sent via Twilio", {
+      console.log("✅ SMS wysłany przez SMSAPI!");
+      logger.info("SMS verification code sent via SMSAPI", {
         phone: phone,
-        sid: smsResult.sid,
+        id: smsResult.id,
         simulated: smsResult.simulated || false,
       });
     } catch (smsError) {
       console.error("❌ Błąd wysyłania SMS:", smsError);
-      logger.error("Error sending SMS via Twilio", {
+      logger.error("Error sending SMS via SMSAPI", {
         phone: phone,
         error: smsError.message,
         stack: smsError.stack,

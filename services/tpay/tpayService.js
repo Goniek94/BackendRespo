@@ -69,7 +69,7 @@ class TpayService {
 
       // Tutaj ustalamy adres powiadomień (Webhooka)
       // Musi być publiczny (https://twoja-domena.pl/...)
-      const notifyUrl = `${process.env.BACKEND_URL}/api/payments/webhook`;
+      const notifyUrl = `${process.env.BACKEND_URL}/api/transactions/webhook/tpay`;
 
       console.log(`🌐 [TpayService] Webhook URL ustawiony na: ${notifyUrl}`);
 

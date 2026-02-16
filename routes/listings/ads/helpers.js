@@ -74,20 +74,40 @@ export const createAdFilter = (query = {}) => {
   // Technical data - support arrays
   const fuelTypes = asStrArray(query.fuelType);
   if (fuelTypes && fuelTypes.length > 0) {
-    filter.fuelType =
-      fuelTypes.length === 1 ? fuelTypes[0] : { $in: fuelTypes };
+    // Case-insensitive search using regex
+    if (fuelTypes.length === 1) {
+      filter.fuelType = { $regex: new RegExp(`^${fuelTypes[0]}$`, "i") };
+    } else {
+      filter.fuelType = {
+        $in: fuelTypes.map((f) => new RegExp(`^${f}$`, "i")),
+      };
+    }
   }
 
   const transmissions = asStrArray(query.transmission);
   if (transmissions && transmissions.length > 0) {
-    filter.transmission =
-      transmissions.length === 1 ? transmissions[0] : { $in: transmissions };
+    // Case-insensitive search using regex
+    if (transmissions.length === 1) {
+      filter.transmission = {
+        $regex: new RegExp(`^${transmissions[0]}$`, "i"),
+      };
+    } else {
+      filter.transmission = {
+        $in: transmissions.map((t) => new RegExp(`^${t}$`, "i")),
+      };
+    }
   }
 
   const driveTypes = asStrArray(query.driveType);
   if (driveTypes && driveTypes.length > 0) {
-    filter.drive =
-      driveTypes.length === 1 ? driveTypes[0] : { $in: driveTypes };
+    // Case-insensitive search using regex
+    if (driveTypes.length === 1) {
+      filter.drive = { $regex: new RegExp(`^${driveTypes[0]}$`, "i") };
+    } else {
+      filter.drive = {
+        $in: driveTypes.map((d) => new RegExp(`^${d}$`, "i")),
+      };
+    }
   }
 
   const bodyTypes = asStrArray(query.bodyType);
@@ -111,13 +131,26 @@ export const createAdFilter = (query = {}) => {
 
   const colors = asStrArray(query.color);
   if (colors && colors.length > 0) {
-    filter.color = colors.length === 1 ? colors[0] : { $in: colors };
+    // Case-insensitive search using regex
+    if (colors.length === 1) {
+      filter.color = { $regex: new RegExp(`^${colors[0]}$`, "i") };
+    } else {
+      filter.color = {
+        $in: colors.map((c) => new RegExp(`^${c}$`, "i")),
+      };
+    }
   }
 
   const finishes = asStrArray(query.finish);
   if (finishes && finishes.length > 0) {
-    filter.paintFinish =
-      finishes.length === 1 ? finishes[0] : { $in: finishes };
+    // Case-insensitive search using regex
+    if (finishes.length === 1) {
+      filter.paintFinish = { $regex: new RegExp(`^${finishes[0]}$`, "i") };
+    } else {
+      filter.paintFinish = {
+        $in: finishes.map((f) => new RegExp(`^${f}$`, "i")),
+      };
+    }
   }
 
   // Vehicle condition - support arrays

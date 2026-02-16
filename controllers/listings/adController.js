@@ -124,30 +124,32 @@ class AdController {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 30;
       const skip = (page - 1) * limit;
-      const { sortBy = "createdAt", order = "desc", sellerType } = req.query;
+      const { sortBy = "createdAt", order = "desc" } = req.query;
 
       console.log("🔍 BACKEND SEARCH - Parametry sortowania:", {
         sortBy,
         order,
       });
-      console.log("🔍 BACKEND SEARCH - Parametry filtrowania:", { sellerType });
+      console.log("🔍 BACKEND SEARCH - Wszystkie parametry:", req.query);
 
-      // Build filter object - start with active ads only
-      const activeFilter = { status: getActiveStatusFilter() };
+      // Użyj createAdFilter z commonFilters - obsługuje wszystkie filtry włącznie z kolorem
+      const { createAdFilter } = await import(
+        "../../utils/listings/commonFilters.js"
+      );
+      const filter = createAdFilter(req.query);
 
-      // Add seller type filter if provided
-      if (sellerType && sellerType !== "all") {
-        activeFilter.sellerType = sellerType;
-        console.log("🔍 BACKEND SEARCH - Dodano filtr sellerType:", sellerType);
-      }
+      console.log(
+        "🔍 BACKEND SEARCH - Wygenerowany filtr MongoDB:",
+        JSON.stringify(filter, null, 2)
+      );
 
-      const allAds = await Ad.find(activeFilter);
+      const allAds = await Ad.find(filter);
       console.log(
         "🔍 BACKEND SEARCH - Znaleziono ogłoszeń po filtrach:",
         allAds.length
       );
 
-      // Calculate match score for each ad
+      // Calculate match score for each ad (dla sortowania według trafności)
       const adsWithScore = allAds.map((ad) => {
         const match_score = calculateMatchScore(ad, req.query);
         // Check both listingType and featured flag for featured status

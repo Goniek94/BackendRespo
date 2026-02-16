@@ -195,66 +195,107 @@ const getFuelTypeCounts = async (Ad, baseFilter, currentFilters) => {
 };
 
 /**
- * Liczniki skrzyń biegów
+ * Liczniki skrzyń biegów - z normalizacją (case-insensitive grouping)
  */
 const getTransmissionCounts = async (Ad, baseFilter, currentFilters) => {
   const filter = { ...baseFilter };
   delete filter.transmission;
 
-  const counts = await Ad.aggregate([
-    { $match: filter },
-    { $group: { _id: "$transmission", count: { $sum: 1 } } },
-    { $sort: { count: -1, _id: 1 } },
-  ]);
+  // Lista standardowych skrzyń biegów (dokładnie jak w vehicleOptions.js)
+  const standardTransmissions = ["Manualna", "Automatyczna", "Półautomatyczna"];
 
-  return counts.reduce((acc, item) => {
-    if (item._id) {
-      acc[item._id] = item.count;
+  // Dla każdej standardowej skrzyni, policz ile ogłoszeń (case-insensitive)
+  const transmissionCounts = {};
+
+  for (const transmission of standardTransmissions) {
+    const count = await Ad.countDocuments({
+      ...filter,
+      transmission: { $regex: new RegExp(`^${transmission}$`, "i") },
+    });
+
+    // Dodaj tylko jeśli są ogłoszenia z tą skrzynią
+    if (count > 0) {
+      transmissionCounts[transmission] = count;
     }
-    return acc;
-  }, {});
+  }
+
+  return transmissionCounts;
 };
 
 /**
- * Liczniki napędów
+ * Liczniki napędów - z normalizacją (case-insensitive grouping)
+ * Wartości zgodne z mapowaniem w createAdHandler.js
  */
 const getDriveTypeCounts = async (Ad, baseFilter, currentFilters) => {
   const filter = { ...baseFilter };
-  delete filter.driveType;
+  delete filter.drive; // Pole w bazie to "drive", nie "driveType"
 
-  const counts = await Ad.aggregate([
-    { $match: filter },
-    { $group: { _id: "$driveType", count: { $sum: 1 } } },
-    { $sort: { count: -1, _id: 1 } },
-  ]);
+  // Lista standardowych napędów - zgodne z wartościami zapisywanymi w bazie
+  const standardDriveTypes = [
+    "FWD (Przedni)",
+    "RWD (Tylny)",
+    "AWD (4x4 stały)",
+    "4WD (4x4 dołączany)",
+  ];
 
-  return counts.reduce((acc, item) => {
-    if (item._id) {
-      acc[item._id] = item.count;
+  // Dla każdego standardowego napędu, policz ile ogłoszeń (case-insensitive)
+  const driveTypeCounts = {};
+
+  for (const driveType of standardDriveTypes) {
+    const count = await Ad.countDocuments({
+      ...filter,
+      drive: { $regex: new RegExp(`^${driveType}$`, "i") },
+    });
+
+    // Dodaj tylko jeśli są ogłoszenia z tym napędem
+    if (count > 0) {
+      driveTypeCounts[driveType] = count;
     }
-    return acc;
-  }, {});
+  }
+
+  return driveTypeCounts;
 };
 
 /**
- * Liczniki kolorów
+ * Liczniki kolorów - z normalizacją (case-insensitive grouping)
  */
 const getColorCounts = async (Ad, baseFilter, currentFilters) => {
   const filter = { ...baseFilter };
   delete filter.color;
 
-  const counts = await Ad.aggregate([
-    { $match: filter },
-    { $group: { _id: "$color", count: { $sum: 1 } } },
-    { $sort: { count: -1, _id: 1 } },
-  ]);
+  // Lista standardowych kolorów z formularza (dokładnie jak w vehicleOptions.js)
+  const standardColors = [
+    "Biały",
+    "Czarny",
+    "Srebrny",
+    "Szary",
+    "Niebieski",
+    "Czerwony",
+    "Zielony",
+    "Żółty",
+    "Brązowy",
+    "Złoty",
+    "Fioletowy",
+    "Pomarańczowy",
+    "Inne",
+  ];
 
-  return counts.reduce((acc, item) => {
-    if (item._id) {
-      acc[item._id] = item.count;
+  // Dla każdego standardowego koloru, policz ile ogłoszeń (case-insensitive)
+  const colorCounts = {};
+
+  for (const color of standardColors) {
+    const count = await Ad.countDocuments({
+      ...filter,
+      color: { $regex: new RegExp(`^${color}$`, "i") },
+    });
+
+    // Dodaj tylko jeśli są ogłoszenia w tym kolorze
+    if (count > 0) {
+      colorCounts[color] = count;
     }
-    return acc;
-  }, {});
+  }
+
+  return colorCounts;
 };
 
 /**

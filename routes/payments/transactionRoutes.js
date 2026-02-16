@@ -46,7 +46,7 @@ router.post(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -168,6 +168,19 @@ router.get("/stats/summary", auth, async (req, res, next) => {
 });
 
 /**
+ * @route GET /api/transactions/:transactionId/status
+ * @desc Sprawdzanie statusu płatności (używane po powrocie z Tpay)
+ * @access Private
+ */
+router.get("/:transactionId/status", auth, async (req, res, next) => {
+  try {
+    await transactionController.checkPaymentStatus(req, res);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * @route POST /api/transactions/:id/request-invoice
  * @desc Żądanie faktury dla transakcji - generuje PDF i wysyła email
  * @access Private
@@ -204,7 +217,7 @@ router.get("/:id", auth, async (req, res, next) => {
     const userId = req.user.userId;
 
     console.log(
-      `Pobieranie szczegółów transakcji: ${id} dla użytkownika: ${userId}`
+      `Pobieranie szczegółów transakcji: ${id} dla użytkownika: ${userId}`,
     );
 
     // Znajdź transakcję z populacją danych

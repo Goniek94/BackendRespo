@@ -137,9 +137,10 @@ const transactionSchema = new mongoose.Schema(
     // Numer faktury (jeśli została wygenerowana)
     invoiceNumber: {
       type: String,
-      default: null,
-      sparse: true, // Pozwala na wiele wartości null
-      unique: true, // Ale każda niepusta wartość musi być unikalna
+      // NO default value - field will not exist in document if not set
+      // This is required for sparse unique index to work correctly
+      sparse: true, // Only indexes documents where this field exists
+      unique: true, // Each non-null value must be unique
     },
 
     // Ścieżka do pliku PDF faktury
@@ -250,7 +251,7 @@ const transactionSchema = new mongoose.Schema(
         }
       },
     },
-  }
+  },
 );
 
 // Indeksy złożone dla wydajności

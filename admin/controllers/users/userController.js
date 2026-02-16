@@ -159,11 +159,11 @@ export const createUser = async (req, res) => {
     console.log("  - email:", userData.email);
     console.log(
       "  - phoneNumber:",
-      userData.phoneNumber || userData.phone || "+48000000000"
+      userData.phoneNumber || userData.phone || "+48000000000",
     );
     console.log(
       "  - dob:",
-      userData.dob || userData.dateOfBirth || new Date("2000-01-01")
+      userData.dob || userData.dateOfBirth || new Date("2000-01-01"),
     );
     console.log("  - role:", userData.role || "user");
     console.log("  - status:", userData.status || "active");
@@ -176,17 +176,27 @@ export const createUser = async (req, res) => {
       dob: userData.dob || userData.dateOfBirth || new Date("2000-01-01"), // Fallback to year 2000
       role: userData.role || "user",
       status: userData.status || "active",
-      isVerified: userData.isVerified || false,
-      isEmailVerified: userData.isEmailVerified || false,
-      emailVerified: userData.emailVerified || false,
-      isPhoneVerified: userData.isPhoneVerified || false,
-      phoneVerified: userData.phoneVerified || false,
+      // FIXED: Properly handle verification fields - use provided value or default to false
+      isVerified:
+        userData.isVerified !== undefined ? userData.isVerified : false,
+      isEmailVerified:
+        userData.isEmailVerified !== undefined
+          ? userData.isEmailVerified
+          : false,
+      emailVerified:
+        userData.emailVerified !== undefined ? userData.emailVerified : false,
+      isPhoneVerified:
+        userData.isPhoneVerified !== undefined
+          ? userData.isPhoneVerified
+          : false,
+      phoneVerified:
+        userData.phoneVerified !== undefined ? userData.phoneVerified : false,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
 
     console.log(
-      "🟢 User object created, password will be hashed by User model..."
+      "🟢 User object created, password will be hashed by User model...",
     );
     // DON'T hash password here - User model pre-save hook will do it automatically
     if (userData.password) {
@@ -394,7 +404,7 @@ export const toggleUserBlock = async (req, res) => {
       blocked,
       reason,
       adminId,
-      blockUntilDate
+      blockUntilDate,
     );
 
     res.json({
@@ -546,7 +556,7 @@ export const bulkUpdateUsers = async (req, res) => {
     const result = await userService.bulkUpdateUsers(
       userIds,
       updateData,
-      adminId
+      adminId,
     );
 
     res.json({
@@ -624,7 +634,7 @@ export const exportUsers = async (req, res) => {
       res.setHeader("Content-Type", "application/json");
       res.setHeader(
         "Content-Disposition",
-        "attachment; filename=users-export.json"
+        "attachment; filename=users-export.json",
       );
       res.json({
         exportedAt: new Date(),
@@ -637,14 +647,14 @@ export const exportUsers = async (req, res) => {
       const csvData = result.users
         .map(
           (user) =>
-            `${user._id},${user.name},${user.email},${user.role},${user.status},${user.createdAt},${user.isVerified}`
+            `${user._id},${user.name},${user.email},${user.role},${user.status},${user.createdAt},${user.isVerified}`,
         )
         .join("\n");
 
       res.setHeader("Content-Type", "text/csv");
       res.setHeader(
         "Content-Disposition",
-        "attachment; filename=users-export.csv"
+        "attachment; filename=users-export.csv",
       );
       res.send(csvHeaders + csvData);
     }

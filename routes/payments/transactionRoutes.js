@@ -29,6 +29,22 @@ router.post("/webhook/tpay", webhookRateLimiter, async (req, res, next) => {
 
 /**
  * ==========================================
+ * TPAY POWRÓT Z PŁATNOŚCI
+ * ==========================================
+ * @route GET /api/transactions/payment/return
+ * @desc Obsługa powrotu użytkownika z bramki Tpay (success/error)
+ * @access Public (użytkownik wraca z Tpay bez tokenu)
+ */
+router.get("/payment/return", async (req, res, next) => {
+  try {
+    await transactionController.handlePaymentReturn(req, res);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * ==========================================
  * TPAY INICJACJA PŁATNOŚCI
  * ==========================================
  * @route POST /api/transactions/tpay/initiate

@@ -19,11 +19,11 @@ class AdminPaymentController {
       const adminRole = req.user.role;
 
       console.log(
-        "👑 [ADMIN_PAYMENT] ========================================"
+        "👑 [ADMIN_PAYMENT] ========================================",
       );
       console.log("👑 [ADMIN_PAYMENT] ADMIN AKTYWACJA OGŁOSZENIA");
       console.log(
-        "👑 [ADMIN_PAYMENT] ========================================"
+        "👑 [ADMIN_PAYMENT] ========================================",
       );
       console.log("📝 [ADMIN_PAYMENT] Admin ID:", adminId);
       console.log("📝 [ADMIN_PAYMENT] Admin Role:", adminRole);
@@ -77,11 +77,11 @@ class AdminPaymentController {
       // --- KROK 2: Utwórz transakcję "completed" dla historii ---
       const transactionIdInternal = `ADMIN_${Date.now()}_${uuidv4().slice(
         0,
-        8
+        8,
       )}`;
 
       console.log(
-        "💾 [ADMIN_PAYMENT] Tworzenie transakcji w bazie danych (dla historii)..."
+        "💾 [ADMIN_PAYMENT] Tworzenie transakcji w bazie danych (dla historii)...",
       );
       console.log("💾 [ADMIN_PAYMENT] ID transakcji:", transactionIdInternal);
 
@@ -112,40 +112,39 @@ class AdminPaymentController {
 
       const savedTransaction = await transaction.save();
       console.log(
-        "✅ [ADMIN_PAYMENT] Transakcja zapisana w bazie z statusem: completed"
+        "✅ [ADMIN_PAYMENT] Transakcja zapisana w bazie z statusem: completed",
       );
       console.log("✅ [ADMIN_PAYMENT] MongoDB ID:", savedTransaction._id);
 
-      // --- KROK 3: Powiadomienie użytkownika (jeśli admin aktywuje dla kogoś innego) ---
-      if (adOwnerId !== adminId) {
-        try {
-          console.log(
-            "📧 [ADMIN_PAYMENT] Wysyłanie powiadomienia do właściciela ogłoszenia..."
-          );
+      // --- KROK 3: Powiadomienie użytkownika ---
+      // ZMIENIONO: Zawsze wysyłaj powiadomienie o publikacji ogłoszenia
+      try {
+        console.log(
+          "📧 [ADMIN_PAYMENT] Wysyłanie powiadomienia o publikacji ogłoszenia...",
+        );
 
-          await notificationManager.createNotification(
-            adOwnerId,
-            "Ogłoszenie aktywowane",
-            `Twoje ogłoszenie zostało aktywowane przez administratora.`,
-            "admin_activation",
-            {
-              adId: savedAd._id,
-              transactionId: savedTransaction._id,
-            }
-          );
+        await notificationManager.createNotification(
+          adOwnerId,
+          "Ogłoszenie opublikowane",
+          `Twoje ogłoszenie "${savedAd.brand} ${savedAd.model}" zostało pomyślnie opublikowane!`,
+          "listing_published",
+          {
+            adId: savedAd._id,
+            transactionId: savedTransaction._id,
+          },
+        );
 
-          console.log("✅ [ADMIN_PAYMENT] Powiadomienie wysłane");
-        } catch (e) {
-          console.error("❌ [ADMIN_PAYMENT] Błąd wysyłania powiadomienia:", e);
-        }
+        console.log("✅ [ADMIN_PAYMENT] Powiadomienie wysłane");
+      } catch (e) {
+        console.error("❌ [ADMIN_PAYMENT] Błąd wysyłania powiadomienia:", e);
       }
 
       console.log(
-        "🎉 [ADMIN_PAYMENT] ========================================"
+        "🎉 [ADMIN_PAYMENT] ========================================",
       );
       console.log("🎉 [ADMIN_PAYMENT] OGŁOSZENIE AKTYWOWANE POMYŚLNIE");
       console.log(
-        "🎉 [ADMIN_PAYMENT] ========================================"
+        "🎉 [ADMIN_PAYMENT] ========================================",
       );
 
       res.status(201).json({
@@ -165,7 +164,7 @@ class AdminPaymentController {
     } catch (error) {
       console.error(
         "❌ [ADMIN_PAYMENT] KRYTYCZNY BŁĄD podczas aktywacji:",
-        error
+        error,
       );
       console.error("❌ [ADMIN_PAYMENT] Stack trace:", error.stack);
       res.status(500).json({

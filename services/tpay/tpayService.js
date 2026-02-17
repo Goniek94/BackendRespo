@@ -35,7 +35,7 @@ class TpayService {
         },
         {
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        }
+        },
       );
 
       this.accessToken = response.data.access_token;
@@ -46,7 +46,7 @@ class TpayService {
     } catch (error) {
       console.error(
         "❌ [TpayService] Błąd autoryzacji:",
-        error.response?.data || error.message
+        error.response?.data || error.message,
       );
       throw new Error("Błąd autoryzacji Tpay");
     }
@@ -91,6 +91,9 @@ class TpayService {
             email: email,
           },
         },
+        pay: {
+          redirectUrl: returnUrl, // Automatyczne przekierowanie po płatności
+        },
         lang: "pl", // Wymuszenie języka polskiego w bramce
       };
 
@@ -99,7 +102,7 @@ class TpayService {
         payload,
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
 
       return {
@@ -110,7 +113,7 @@ class TpayService {
     } catch (error) {
       console.error(
         "❌ [TpayService] Błąd tworzenia transakcji:",
-        error.response?.data || error.message
+        error.response?.data || error.message,
       );
       throw new Error("Błąd komunikacji z Tpay");
     }

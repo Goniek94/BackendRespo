@@ -262,8 +262,9 @@ class TransactionController {
           );
         }
 
+        // Przekieruj z adId aby frontend mógł od razu przekierować do ogłoszenia
         return res.redirect(
-          `${process.env.FRONTEND_URL}/payment/return?status=success&transactionId=${transaction._id}`,
+          `${process.env.FRONTEND_URL}/payment/return?status=success&transactionId=${transaction._id}&adId=${transaction.adId}`,
         );
       }
 
@@ -272,7 +273,7 @@ class TransactionController {
         `⚠️ [RETURN] Płatność nieudana dla transakcji ${transaction._id}`,
       );
       return res.redirect(
-        `${process.env.FRONTEND_URL}/payment/return?status=error&transactionId=${transaction._id}&reason=${tr_error || "unknown"}`,
+        `${process.env.FRONTEND_URL}/payment/return?status=error&transactionId=${transaction._id}&adId=${transaction.adId}&reason=${tr_error || "unknown"}`,
       );
     } catch (error) {
       console.error("❌ [RETURN] Błąd obsługi powrotu:", error);

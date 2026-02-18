@@ -150,8 +150,8 @@ class TransactionController {
         email: user.email,
         name: user.name || "Użytkownik",
         transactionId: savedTransaction._id.toString(),
-        returnUrl: `${process.env.FRONTEND_URL}/payment/return`,
-        errorUrl: `${process.env.FRONTEND_URL}/payment/return`,
+        returnUrl: `${process.env.FRONTEND_URL}/ogloszenia/${savedAd._id}?payment=success`,
+        errorUrl: `${process.env.FRONTEND_URL}/ogloszenia/${savedAd._id}?payment=error`,
       });
 
       if (tpayData.transactionPaymentUrl) {

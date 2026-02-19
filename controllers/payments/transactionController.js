@@ -107,16 +107,41 @@ class TransactionController {
       } = req.body;
       const userId = req.user.userId;
 
+      // 🔍 DEBUG: Loguj wszystkie otrzymane dane
+      console.log("💰 [CREATE TRANSACTION] Otrzymane dane:");
+      console.log("   - amount (raw):", amount, "| type:", typeof amount);
+      console.log("   - adData:", adData ? "✅ Present" : "❌ Missing");
+      console.log("   - adId:", adId || "❌ Missing");
+      console.log("   - type:", type);
+      console.log("   - userId:", userId);
+
       if (!adData && !adId) {
         return res
           .status(400)
           .json({ message: "Brak wymaganych danych: adData lub adId" });
       }
 
-      if (!amount) {
-        return res
-          .status(400)
-          .json({ message: "Brak wymaganej kwoty (amount)" });
+      // 🔒 SECURITY: Walidacja kwoty + zaokrąglenie do 2 miejsc (fix dla błędów floating point)
+      let parsedAmount = parseFloat(amount);
+
+      // Zaokrąglij do 2 miejsc po przecinku (fix dla 0.00999999999999801 -> 0.01)
+      parsedAmount = Math.round(parsedAmount * 100) / 100;
+
+      console.log("   - amount (parsed):", parsedAmount);
+
+      if (!amount || isNaN(parsedAmount) || parsedAmount < 0.01) {
+        console.error("❌ [CREATE TRANSACTION] Nieprawidłowa kwota:", {
+          raw: amount,
+          parsed: parsedAmount,
+          isNaN: isNaN(parsedAmount),
+        });
+        return res.status(400).json({
+          message: "Nieprawidłowa kwota. Minimalna kwota to 0.01 PLN",
+          details: {
+            received: amount,
+            parsed: parsedAmount,
+          },
+        });
       }
 
       const user = await User.findById(userId);
@@ -196,7 +221,7 @@ class TransactionController {
       const transaction = new Transaction({
         userId,
         adId: savedAd._id,
-        amount: parseFloat(amount),
+        amount: parsedAmount, // Używamy już sprawdzonej wartości
         currency: "PLN",
         type,
         status: "pending",
@@ -218,7 +243,7 @@ class TransactionController {
       const savedTransaction = await transaction.save();
 
       const tpayData = await tpayService.createTransaction({
-        amount: amount,
+        amount: parsedAmount, // Używamy już sprawdzonej wartości
         description: `Opłata za ogłoszenie: ${savedAd.brand} ${savedAd.model}`,
         email: user.email,
         name: user.name || "Użytkownik",
@@ -739,6 +764,58 @@ class TransactionController {
       featured_listing: "Ogłoszenie Wyróżnione",
     };
     return map[type] || type;
+  }
+
+  /**
+   * 6. Usuwanie transakcji (tylko dla pending/failed)
+   */
+  async deleteTransaction(req, res) {
+    try {
+      const { id } = req.params;
+      const userId = req.user.userId;
+
+      console.log(
+        `🗑️ [DELETE TRANSACTION] Próba usunięcia transakcji ${id} przez użytkownika ${userId}`,
+      );
+
+      // Znajdź transakcję
+      const transaction = await Transaction.findOne({ _id: id, userId });
+
+      if (!transaction) {
+        console.error(
+          `❌ [DELETE TRANSACTION] Transakcja nie znaleziona: ${id}`,
+        );
+        return res.status(404).json({ message: "Transakcja nie znaleziona" });
+      }
+
+      // Sprawdź czy transakcja może być usunięta
+      // Można usuwać tylko transakcje pending, failed lub cancelled
+      const deletableStatuses = ["pending", "failed", "cancelled"];
+      if (!deletableStatuses.includes(transaction.status)) {
+        console.error(
+          `❌ [DELETE TRANSACTION] Nie można usunąć transakcji ze statusem: ${transaction.status}`,
+        );
+        return res.status(400).json({
+          message: `Nie można usunąć transakcji ze statusem "${transaction.status}". Można usuwać tylko transakcje oczekujące lub nieudane.`,
+        });
+      }
+
+      // Usuń transakcję
+      await Transaction.findByIdAndDelete(id);
+
+      console.log(`✅ [DELETE TRANSACTION] Transakcja ${id} została usunięta`);
+
+      res.status(200).json({
+        success: true,
+        message: "Transakcja została usunięta",
+      });
+    } catch (error) {
+      console.error(`❌ [DELETE TRANSACTION] Błąd:`, error);
+      res.status(500).json({
+        message: "Błąd podczas usuwania transakcji",
+        error: error.message,
+      });
+    }
   }
 }
 

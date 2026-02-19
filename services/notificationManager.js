@@ -83,7 +83,7 @@ class NotificationManager {
     });
 
     logger.info(
-      "[NotificationManager] Integracja z socketService skonfigurowana"
+      "[NotificationManager] Integracja z socketService skonfigurowana",
     );
   }
 
@@ -101,19 +101,19 @@ class NotificationManager {
     title,
     message,
     type = NotificationType.SYSTEM_NOTIFICATION,
-    options = {}
+    options = {},
   ) {
     try {
       if (!userId) {
         logger.warn(
-          "[NotificationManager] Próba utworzenia powiadomienia bez ID użytkownika"
+          "[NotificationManager] Próba utworzenia powiadomienia bez ID użytkownika",
         );
         return null;
       }
 
       if (!message) {
         logger.warn(
-          "[NotificationManager] Próba utworzenia powiadomienia bez treści"
+          "[NotificationManager] Próba utworzenia powiadomienia bez treści",
         );
         return null;
       }
@@ -121,7 +121,7 @@ class NotificationManager {
       // Sprawdź preferencje użytkownika
       if (!this.shouldSendNotification(userId, type)) {
         logger.debug(
-          `[NotificationManager] Powiadomienie ${type} zablokowane przez preferencje użytkownika ${userId}`
+          `[NotificationManager] Powiadomienie ${type} zablokowane przez preferencje użytkownika ${userId}`,
         );
         return null;
       }
@@ -130,11 +130,11 @@ class NotificationManager {
       const notificationHash = this.generateNotificationHash(
         userId,
         type,
-        message
+        message,
       );
       if (this.isDuplicate(notificationHash)) {
         logger.debug(
-          `[NotificationManager] Powiadomienie ${type} jest duplikatem dla użytkownika ${userId}`
+          `[NotificationManager] Powiadomienie ${type} jest duplikatem dla użytkownika ${userId}`,
         );
         return null;
       }
@@ -147,7 +147,7 @@ class NotificationManager {
       }
 
       logger.info(
-        `[NotificationManager] Tworzenie powiadomienia dla użytkownika ${userId}, typ: ${type}`
+        `[NotificationManager] Tworzenie powiadomienia dla użytkownika ${userId}, typ: ${type}`,
       );
 
       // Utwórz powiadomienie w bazie danych
@@ -159,6 +159,7 @@ class NotificationManager {
         type: type,
         link: options.link || null,
         adId: options.adId || null,
+        relatedId: options.relatedId || options.adId || null,
         metadata: {
           ...options.metadata,
           priority: this.getNotificationPriority(type),
@@ -172,7 +173,7 @@ class NotificationManager {
 
       await notification.save();
       logger.info(
-        `[NotificationManager] Powiadomienie utworzone pomyślnie: ${notification._id}`
+        `[NotificationManager] Powiadomienie utworzone pomyślnie: ${notification._id}`,
       );
 
       // Dodaj do historii deduplikacji
@@ -190,7 +191,7 @@ class NotificationManager {
     } catch (error) {
       logger.error(
         `[NotificationManager] Błąd podczas tworzenia powiadomienia: ${error.message}`,
-        error
+        error,
       );
       return null;
     }
@@ -224,7 +225,7 @@ class NotificationManager {
           this.getNotificationCategory(notification.type),
         timestamp: Date.now(),
         requiresConfirmation: this.requiresDeliveryConfirmation(
-          notification.type
+          notification.type,
         ),
       };
 
@@ -241,7 +242,7 @@ class NotificationManager {
         }
 
         logger.info(
-          `[NotificationManager] Powiadomienie wysłane w czasie rzeczywistym do użytkownika ${userId}`
+          `[NotificationManager] Powiadomienie wysłane w czasie rzeczywistym do użytkownika ${userId}`,
         );
 
         // Usuń z kolejki offline jeśli tam było
@@ -251,13 +252,13 @@ class NotificationManager {
         this.addToOfflineQueue(userId, notificationData);
         await this.updateDeliveryStatus(notification._id, "queued");
         logger.info(
-          `[NotificationManager] Użytkownik ${userId} offline - dodano powiadomienie do kolejki`
+          `[NotificationManager] Użytkownik ${userId} offline - dodano powiadomienie do kolejki`,
         );
       }
     } catch (error) {
       logger.error(
         `[NotificationManager] Błąd podczas wysyłania powiadomienia real-time: ${error.message}`,
-        error
+        error,
       );
 
       // Dodaj do kolejki offline w przypadku błędu
@@ -272,7 +273,7 @@ class NotificationManager {
    */
   async handleUserOnline(userId) {
     logger.info(
-      `[NotificationManager] Użytkownik ${userId} połączył się - sprawdzanie powiadomień offline`
+      `[NotificationManager] Użytkownik ${userId} połączył się - sprawdzanie powiadomień offline`,
     );
 
     try {
@@ -296,7 +297,7 @@ class NotificationManager {
     } catch (error) {
       logger.error(
         `[NotificationManager] Błąd podczas obsługi połączenia użytkownika ${userId}: ${error.message}`,
-        error
+        error,
       );
     }
   }
@@ -312,7 +313,7 @@ class NotificationManager {
 
     const queue = this.offlineQueue.get(userId);
     logger.info(
-      `[NotificationManager] Wysyłanie ${queue.length} powiadomień offline dla użytkownika ${userId}`
+      `[NotificationManager] Wysyłanie ${queue.length} powiadomień offline dla użytkownika ${userId}`,
     );
 
     // Filtruj stare powiadomienia (starsze niż 24h)
@@ -326,7 +327,7 @@ class NotificationManager {
       logger.info(
         `[NotificationManager] Odfiltrowano ${
           queue.length - validNotifications.length
-        } starych powiadomień`
+        } starych powiadomień`,
       );
     }
 
@@ -346,7 +347,7 @@ class NotificationManager {
           }
         } catch (error) {
           logger.error(
-            `[NotificationManager] Błąd podczas wysyłania powiadomienia offline ${notification.id}: ${error.message}`
+            `[NotificationManager] Błąd podczas wysyłania powiadomienia offline ${notification.id}: ${error.message}`,
           );
         }
       }
@@ -360,7 +361,7 @@ class NotificationManager {
     // Wyczyść kolejkę po wysłaniu
     this.offlineQueue.delete(userId);
     logger.info(
-      `[NotificationManager] Wysłano wszystkie powiadomienia offline dla użytkownika ${userId}`
+      `[NotificationManager] Wysłano wszystkie powiadomienia offline dla użytkownika ${userId}`,
     );
   }
 
@@ -418,7 +419,7 @@ class NotificationManager {
     } catch (error) {
       logger.error(
         `[NotificationManager] Błąd podczas sprawdzania użytkownika: ${error.message}`,
-        error
+        error,
       );
       return true;
     }
@@ -509,7 +510,7 @@ class NotificationManager {
     }
 
     logger.debug(
-      `[NotificationManager] Dodano powiadomienie do kolejki offline dla użytkownika ${userId}, rozmiar kolejki: ${queue.length}`
+      `[NotificationManager] Dodano powiadomienie do kolejki offline dla użytkownika ${userId}, rozmiar kolejki: ${queue.length}`,
     );
   }
 
@@ -518,13 +519,13 @@ class NotificationManager {
 
     const queue = this.offlineQueue.get(userId);
     const index = queue.findIndex(
-      (notification) => notification.id === notificationId
+      (notification) => notification.id === notificationId,
     );
 
     if (index !== -1) {
       queue.splice(index, 1);
       logger.debug(
-        `[NotificationManager] Usunięto powiadomienie ${notificationId} z kolejki offline użytkownika ${userId}`
+        `[NotificationManager] Usunięto powiadomienie ${notificationId} z kolejki offline użytkownika ${userId}`,
       );
 
       if (queue.length === 0) {
@@ -557,7 +558,7 @@ class NotificationManager {
     }, this.batchTimeout);
 
     logger.debug(
-      `[NotificationManager] Dodano powiadomienie do wsadu ${batchKey}, rozmiar: ${batch.notifications.length}`
+      `[NotificationManager] Dodano powiadomienie do wsadu ${batchKey}, rozmiar: ${batch.notifications.length}`,
     );
   }
 
@@ -573,18 +574,18 @@ class NotificationManager {
       } else {
         const groupedNotification = this.createGroupedNotification(
           notifications,
-          type
+          type,
         );
         await this.sendRealtimeNotification(userId, groupedNotification);
       }
 
       logger.info(
-        `[NotificationManager] Przetworzono wsad ${batchKey} z ${notifications.length} powiadomieniami`
+        `[NotificationManager] Przetworzono wsad ${batchKey} z ${notifications.length} powiadomieniami`,
       );
     } catch (error) {
       logger.error(
         `[NotificationManager] Błąd podczas przetwarzania wsadu ${batchKey}: ${error.message}`,
-        error
+        error,
       );
     } finally {
       this.batchQueue.delete(batchKey);
@@ -643,12 +644,12 @@ class NotificationManager {
 
       await this.updateDeliveryStatus(notificationId, "delivered");
       logger.debug(
-        `[NotificationManager] Potwierdzono dostarczenie powiadomienia ${notificationId} dla użytkownika ${userId}`
+        `[NotificationManager] Potwierdzono dostarczenie powiadomienia ${notificationId} dla użytkownika ${userId}`,
       );
     } catch (error) {
       logger.error(
         `[NotificationManager] Błąd podczas obsługi potwierdzenia dostarczenia: ${error.message}`,
-        error
+        error,
       );
     }
   }
@@ -657,7 +658,7 @@ class NotificationManager {
     const confirmationKey = `${userId}:${notificationId}`;
     const timeout = setTimeout(async () => {
       logger.warn(
-        `[NotificationManager] Brak potwierdzenia dostarczenia powiadomienia ${notificationId} dla użytkownika ${userId}`
+        `[NotificationManager] Brak potwierdzenia dostarczenia powiadomienia ${notificationId} dla użytkownika ${userId}`,
       );
       await this.updateDeliveryStatus(notificationId, "unconfirmed");
       this.deliveryConfirmations.delete(confirmationKey);
@@ -675,7 +676,7 @@ class NotificationManager {
     } catch (error) {
       logger.error(
         `[NotificationManager] Błąd podczas aktualizacji statusu dostarczenia: ${error.message}`,
-        error
+        error,
       );
     }
   }
@@ -683,18 +684,22 @@ class NotificationManager {
   updateUserPreferences(userId, preferences) {
     this.userPreferences.set(userId, preferences);
     logger.debug(
-      `[NotificationManager] Zaktualizowano preferencje użytkownika ${userId}`
+      `[NotificationManager] Zaktualizowano preferencje użytkownika ${userId}`,
     );
   }
 
   // Metody API dla kompatybilności z poprzednimi serwisami
   async notifyAdCreated(userId, adTitle, adId = null) {
-    const title = "Ogłoszenie opublikowane!";
+    const title = "Ogłoszenie opublikowane";
     const message = `Twoje ogłoszenie "${adTitle}" zostało pomyślnie opublikowane!`;
     const options = {
       adId: adId && adId !== "test_ad_id_123" ? adId : null, // Fix ObjectId validation
-      link: adId && adId !== "test_ad_id_123" ? `/ads/${adId}` : null,
-      metadata: { adId: adId && adId !== "test_ad_id_123" ? adId : null },
+      relatedId: adId && adId !== "test_ad_id_123" ? adId : null, // KLUCZOWE: to pole jest używane przez frontend do przekierowania
+      link: adId && adId !== "test_ad_id_123" ? `/listing/${adId}` : null,
+      metadata: {
+        adId: adId && adId !== "test_ad_id_123" ? adId : null,
+        adTitle: adTitle,
+      },
     };
 
     return this.createNotification(
@@ -702,7 +707,7 @@ class NotificationManager {
       title,
       message,
       NotificationType.LISTING_ADDED,
-      options
+      options,
     );
   }
 
@@ -718,7 +723,7 @@ class NotificationManager {
       // For now, just return success without creating notification
       // The notification will be created on backend when ad is created
       logger.info(
-        `[NotificationManager] createListingPublishedNotification called for ad ${adId}`
+        `[NotificationManager] createListingPublishedNotification called for ad ${adId}`,
       );
       return {
         success: true,
@@ -727,7 +732,7 @@ class NotificationManager {
     } catch (error) {
       logger.error(
         `[NotificationManager] Error in createListingPublishedNotification: ${error.message}`,
-        error
+        error,
       );
       return null;
     }
@@ -764,7 +769,7 @@ class NotificationManager {
       title,
       message,
       NotificationType.LISTING_EXPIRING,
-      options
+      options,
     );
   }
 
@@ -796,7 +801,7 @@ class NotificationManager {
       title,
       message,
       NotificationType.LISTING_EXPIRED,
-      options
+      options,
     );
   }
 
@@ -820,19 +825,19 @@ class NotificationManager {
       title,
       message,
       NotificationType.NEW_MESSAGE,
-      options
+      options,
     );
   }
 
   async notifyAdAddedToFavorites(userId, adTitle, adId = null) {
     try {
       logger.info(
-        `[NotificationManager] Próba utworzenia powiadomienia o dodaniu do ulubionych dla użytkownika ${userId}, ogłoszenie: ${adTitle}`
+        `[NotificationManager] Próba utworzenia powiadomienia o dodaniu do ulubionych dla użytkownika ${userId}, ogłoszenie: ${adTitle}`,
       );
 
       if (!userId) {
         logger.warn(
-          "[NotificationManager] Brak ID użytkownika dla powiadomienia o dodaniu do ulubionych"
+          "[NotificationManager] Brak ID użytkownika dla powiadomienia o dodaniu do ulubionych",
         );
         return null;
       }
@@ -862,12 +867,12 @@ class NotificationManager {
         title,
         message,
         NotificationType.LISTING_LIKED,
-        options
+        options,
       );
     } catch (error) {
       logger.error(
         `[NotificationManager] Błąd podczas tworzenia powiadomienia o dodaniu do ulubionych: ${error.message}`,
-        error
+        error,
       );
       return null;
     }
@@ -883,7 +888,7 @@ class NotificationManager {
   async createListingLikedNotification(ownerId, ad, likerId) {
     try {
       logger.info(
-        `[NotificationManager] createListingLikedNotification wywołane: właściciel=${ownerId}, ogłoszenie=${ad._id}, polubił=${likerId}`
+        `[NotificationManager] createListingLikedNotification wywołane: właściciel=${ownerId}, ogłoszenie=${ad._id}, polubił=${likerId}`,
       );
 
       const adTitle = ad.headline || `${ad.brand} ${ad.model}`;
@@ -893,7 +898,7 @@ class NotificationManager {
     } catch (error) {
       logger.error(
         `[NotificationManager] Błąd w createListingLikedNotification: ${error.message}`,
-        error
+        error,
       );
       return null;
     }
@@ -929,7 +934,7 @@ class NotificationManager {
       title,
       message,
       NotificationType.PAYMENT_FAILED,
-      options
+      options,
     );
   }
 
@@ -937,7 +942,7 @@ class NotificationManager {
     userId,
     status,
     adTitle = null,
-    metadata = {}
+    metadata = {},
   ) {
     if (status === "completed") {
       const title = "Płatność zakończona sukcesem";
@@ -959,7 +964,7 @@ class NotificationManager {
         title,
         message,
         NotificationType.PAYMENT_COMPLETED,
-        options
+        options,
       );
     } else {
       const title = "Status płatności";
@@ -981,7 +986,7 @@ class NotificationManager {
         title,
         statusMessage,
         NotificationType.SYSTEM_NOTIFICATION,
-        options
+        options,
       );
     }
   }
@@ -989,7 +994,7 @@ class NotificationManager {
   async notifyCommentApproved(userId, adTitle, commentContent, adId = null) {
     try {
       logger.info(
-        `[NotificationManager] Tworzenie powiadomienia o akceptacji komentarza dla użytkownika ${userId}`
+        `[NotificationManager] Tworzenie powiadomienia o akceptacji komentarza dla użytkownika ${userId}`,
       );
 
       const title = "Komentarz zaakceptowany";
@@ -1012,12 +1017,12 @@ class NotificationManager {
         title,
         message,
         NotificationType.COMMENT_APPROVED,
-        options
+        options,
       );
     } catch (error) {
       logger.error(
         `[NotificationManager] Błąd podczas tworzenia powiadomienia o akceptacji komentarza: ${error.message}`,
-        error
+        error,
       );
       return null;
     }
@@ -1032,7 +1037,7 @@ class NotificationManager {
     } catch (error) {
       logger.error(
         `[NotificationManager] Błąd podczas pobierania nieprzeczytanych powiadomień: ${error.message}`,
-        error
+        error,
       );
       throw error;
     }
@@ -1066,7 +1071,7 @@ class NotificationManager {
     } catch (error) {
       logger.error(
         `[NotificationManager] Błąd podczas oznaczania powiadomienia jako przeczytane: ${error.message}`,
-        error
+        error,
       );
       throw error;
     }
@@ -1076,7 +1081,7 @@ class NotificationManager {
     try {
       const result = await Notification.updateMany(
         { user: userId, isRead: false },
-        { $set: { isRead: true } }
+        { $set: { isRead: true } },
       );
 
       // Powiadom klienta o oznaczeniu wszystkich powiadomień jako przeczytane
@@ -1093,7 +1098,7 @@ class NotificationManager {
     } catch (error) {
       logger.error(
         `[NotificationManager] Błąd podczas oznaczania wszystkich powiadomień jako przeczytane: ${error.message}`,
-        error
+        error,
       );
       throw error;
     }
@@ -1125,7 +1130,7 @@ class NotificationManager {
     } catch (error) {
       logger.error(
         `[NotificationManager] Błąd podczas usuwania powiadomienia: ${error.message}`,
-        error
+        error,
       );
       throw error;
     }
@@ -1140,7 +1145,7 @@ class NotificationManager {
         }),
         offlineQueueSize: Array.from(this.offlineQueue.values()).reduce(
           (total, queue) => total + queue.length,
-          0
+          0,
         ),
         onlineUsers: socketService.getTotalConnectionCount(),
         activeUsers: this.activeUsers.size,
@@ -1154,7 +1159,7 @@ class NotificationManager {
     } catch (error) {
       logger.error(
         `[NotificationManager] Błąd podczas pobierania statystyk powiadomień: ${error.message}`,
-        error
+        error,
       );
       throw error;
     }

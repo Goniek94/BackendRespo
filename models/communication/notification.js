@@ -76,6 +76,13 @@ const notificationSchema = new mongoose.Schema(
       default: null,
     },
 
+    // ID powiązanego obiektu (ogłoszenie, komentarz, wiadomość, etc.)
+    relatedId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+      index: true,
+    },
+
     // Metadane - dodatkowe informacje o powiadomieniu (np. ID komentarza, itp.)
     metadata: {
       type: mongoose.Schema.Types.Mixed,
@@ -133,7 +140,7 @@ const notificationSchema = new mongoose.Schema(
         };
       },
     },
-  }
+  },
 );
 
 // Indeks TTL (Time-To-Live) dla automatycznego usuwania wygasłych powiadomień
@@ -148,7 +155,7 @@ notificationSchema.statics.getUnreadCount = async function (userId) {
 notificationSchema.statics.markAllAsRead = async function (userId) {
   return this.updateMany(
     { user: userId, isRead: false },
-    { $set: { isRead: true } }
+    { $set: { isRead: true } },
   );
 };
 

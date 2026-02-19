@@ -34,19 +34,43 @@ class TransactionController {
 
       const totalTransactions = await Transaction.countByUser(userId, status);
 
-      const formattedTransactions = transactions.map((transaction) => ({
-        ...transaction.toApiResponse(),
-        ad: transaction.adId
-          ? {
-              id: transaction.adId._id,
-              headline: transaction.adId.headline,
-              brand: transaction.adId.brand,
-              model: transaction.adId.model,
-              price: transaction.adId.price,
-              images: transaction.adId.images,
-            }
-          : null,
-      }));
+      const formattedTransactions = transactions.map((transaction) => {
+        const apiResponse = transaction.toApiResponse();
+        return {
+          ...apiResponse,
+          ad: transaction.adId
+            ? {
+                id: transaction.adId._id,
+                headline: transaction.adId.headline,
+                brand: transaction.adId.brand,
+                model: transaction.adId.model,
+                price: transaction.adId.price,
+                images: transaction.adId.images,
+              }
+            : null,
+          // Dodaj szczegóły dla UI
+          details: {
+            description: apiResponse.description,
+            providerId: transaction.providerId || "-",
+            paymentMethod: transaction.paymentMethod || "tpay",
+            invoiceNumber: transaction.invoiceNumber,
+            canDownloadInvoice: transaction.isInvoiceAvailable(),
+            adLink: transaction.adId?._id
+              ? `/listing/${transaction.adId._id}`
+              : null,
+          },
+          // Dodaj mainInfo dla wyświetlania
+          mainInfo: {
+            title:
+              transaction.adId?.headline ||
+              transaction.metadata?.adTitle ||
+              apiResponse.description,
+            amountString: `- ${transaction.amount.toFixed(2)} PLN`,
+            isExpense: true,
+            image: transaction.adId?.images?.[0] || null,
+          },
+        };
+      });
 
       res.status(200).json({
         transactions: formattedTransactions,
@@ -101,8 +125,57 @@ class TransactionController {
 
       let savedAd;
       if (adData) {
+        // Sanityzacja danych numerycznych - konwersja stringów na liczby
+        const sanitizedAdData = { ...adData };
+
+        // Lista pól numerycznych, które mogą przyjść jako stringi
+        const numericFields = [
+          "doors",
+          "seats",
+          "year",
+          "mileage",
+          "price",
+          "enginePower",
+          "engineCapacity",
+          "weight",
+          "priceNetto",
+          "priceVAT",
+          "installmentAmount",
+          "remainingInstallments",
+          "cessionFee",
+          "exchangeValue",
+          "exchangePayment",
+        ];
+
+        // Konwertuj pola numeryczne
+        numericFields.forEach((field) => {
+          if (
+            sanitizedAdData[field] !== undefined &&
+            sanitizedAdData[field] !== null
+          ) {
+            const value = sanitizedAdData[field];
+
+            // Jeśli to string, spróbuj przekonwertować
+            if (typeof value === "string") {
+              // Usuń wszystko oprócz cyfr i kropki/przecinka
+              const cleaned = value.replace(/[^\d.,]/g, "");
+              const parsed = parseFloat(cleaned.replace(",", "."));
+
+              // Jeśli udało się sparsować, użyj wartości, w przeciwnym razie usuń pole
+              if (!isNaN(parsed)) {
+                sanitizedAdData[field] = parsed;
+              } else {
+                console.warn(
+                  `⚠️ [SANITIZE] Nie można sparsować ${field}: "${value}" - usuwam pole`,
+                );
+                delete sanitizedAdData[field];
+              }
+            }
+          }
+        });
+
         const newAd = new Ad({
-          ...adData,
+          ...sanitizedAdData,
           user: userId,
           owner: userId,
           status: "pending_payment",
@@ -150,8 +223,8 @@ class TransactionController {
         email: user.email,
         name: user.name || "Użytkownik",
         transactionId: savedTransaction._id.toString(),
-        returnUrl: `${process.env.FRONTEND_URL}/ogloszenia/${savedAd._id}?payment=success`,
-        errorUrl: `${process.env.FRONTEND_URL}/ogloszenia/${savedAd._id}?payment=error`,
+        returnUrl: `${process.env.FRONTEND_URL}/listing/${savedAd._id}?payment=success`,
+        errorUrl: `${process.env.FRONTEND_URL}/listing/${savedAd._id}?payment=error`,
       });
 
       if (tpayData.transactionPaymentUrl) {
@@ -342,16 +415,50 @@ class TransactionController {
         `🔍 [COMPLETE] Weryfikacja z bazy - status: "${verifyAd.status}"`,
       );
 
+      // OBSŁUGA FAKTURY / POTWIERDZENIA
+      try {
+        if (transaction.invoiceRequested === true) {
+          // A) Klient chce fakturę
+          console.log(
+            `📄 [COMPLETE] Generuję fakturę dla transakcji ${transaction._id}`,
+          );
+          const invoicePath = await this.generateInvoicePDF(transaction);
+          transaction.invoicePdfPath = invoicePath;
+          transaction.invoiceGenerated = true;
+          await transaction.save();
+
+          // Wyślij email z fakturą
+          await this.sendInvoiceEmail(transaction, invoicePath);
+          console.log(`✅ [COMPLETE] Faktura wygenerowana i wysłana`);
+        } else {
+          // B) Klient nie chce faktury - tylko potwierdzenie
+          console.log(
+            `📧 [COMPLETE] Wysyłam potwierdzenie płatności (bez faktury)`,
+          );
+          await this.sendInvoiceEmail(transaction, null);
+          console.log(`✅ [COMPLETE] Potwierdzenie płatności wysłane`);
+        }
+      } catch (emailError) {
+        console.error("❌ [COMPLETE] Błąd wysyłania email:", emailError);
+        // Nie przerywaj procesu - ogłoszenie jest już aktywne
+      }
+
       // Powiadomienie - używamy listing_added (typ istnieje w enum)
+      // WAŻNE: relatedId musi być ustawione aby frontend mógł przekierować do ogłoszenia
       await notificationManager
         .createNotification(
           transaction.userId,
           "Ogłoszenie opublikowane",
-          `Twoje ogłoszenie "${ad.brand} ${ad.model}" zostało pomyślnie opublikowane!`,
+          `Twoje ogłoszenie "${ad.headline || `${ad.brand} ${ad.model}`}" zostało pomyślnie opublikowane!`,
           "listing_added",
           {
             adId: ad._id,
+            relatedId: ad._id, // KLUCZOWE: to pole jest używane przez frontend do przekierowania
             transactionId: transaction._id,
+            metadata: {
+              adId: ad._id,
+              adTitle: ad.headline || `${ad.brand} ${ad.model}`,
+            },
           },
         )
         .catch((e) => console.error("❌ [COMPLETE] Błąd powiadomienia:", e));
@@ -373,31 +480,66 @@ class TransactionController {
       const { transactionId } = req.params;
       const userId = req.user.userId;
 
+      console.log(
+        `🔍 [CHECK STATUS] Sprawdzanie statusu transakcji: ${transactionId} dla użytkownika: ${userId}`,
+      );
+
       const transaction = await Transaction.findOne({
         _id: transactionId,
         userId,
       }).populate("adId", "brand model headline slug status isActive");
 
-      if (!transaction)
+      if (!transaction) {
+        console.error(
+          `❌ [CHECK STATUS] Transakcja nie znaleziona: ${transactionId}`,
+        );
         return res
           .status(404)
           .json({ success: false, message: "Transakcja nie znaleziona" });
+      }
+
+      console.log(
+        `✅ [CHECK STATUS] Transakcja znaleziona - status: ${transaction.status}`,
+      );
+
+      // Bezpieczne odczytanie danych ogłoszenia
+      let adData = null;
+      if (transaction.adId) {
+        // Sprawdź czy adId jest obiektem (populated) czy tylko ID
+        if (transaction.adId._id) {
+          // Jest populated
+          adData = {
+            id: transaction.adId._id,
+            status: transaction.adId.status,
+            isActive: transaction.adId.isActive,
+          };
+        } else {
+          // Nie jest populated - tylko ID
+          console.warn(
+            `⚠️ [CHECK STATUS] adId nie jest populated, pobieram dane...`,
+          );
+          const Ad = (await import("../../models/listings/ad.js")).default;
+          const ad = await Ad.findById(transaction.adId);
+          if (ad) {
+            adData = {
+              id: ad._id,
+              status: ad.status,
+              isActive: ad.isActive,
+            };
+          }
+        }
+      }
 
       res.status(200).json({
         success: true,
         transaction: {
           id: transaction._id,
           status: transaction.status,
-          ad: transaction.adId
-            ? {
-                id: transaction.adId._id,
-                status: transaction.adId.status,
-                isActive: transaction.adId.isActive,
-              }
-            : null,
+          ad: adData,
         },
       });
     } catch (error) {
+      console.error(`❌ [CHECK STATUS] Błąd:`, error);
       res.status(500).json({ success: false, error: error.message });
     }
   }
@@ -410,25 +552,57 @@ class TransactionController {
       const { id } = req.params;
       const userId = req.user.userId;
 
+      console.log(
+        `📄 [REQUEST INVOICE] Żądanie faktury dla transakcji ${id} przez użytkownika ${userId}`,
+      );
+
       const transaction = await Transaction.findOne({
         _id: id,
         userId,
       }).populate("userId", "name lastName email");
-      if (!transaction || transaction.status !== "completed") {
+
+      if (!transaction) {
+        console.error(`❌ [REQUEST INVOICE] Transakcja nie znaleziona: ${id}`);
+        return res.status(404).json({ message: "Transakcja nie znaleziona" });
+      }
+
+      if (transaction.status !== "completed") {
+        console.error(
+          `❌ [REQUEST INVOICE] Transakcja nie jest opłacona: ${transaction.status}`,
+        );
         return res
           .status(400)
           .json({ message: "Transakcja nie jest opłacona" });
       }
 
+      // Jeśli faktura już istnieje, zwróć ją
+      if (transaction.invoiceGenerated && transaction.invoicePdfPath) {
+        console.log(
+          `✅ [REQUEST INVOICE] Faktura już istnieje: ${transaction.invoicePdfPath}`,
+        );
+        return res.status(200).json({
+          message: "Faktura jest już dostępna do pobrania",
+          invoiceAvailable: true,
+        });
+      }
+
+      // Generuj fakturę
+      console.log(`🔄 [REQUEST INVOICE] Generowanie faktury...`);
       const invoicePath = await this.generateInvoicePDF(transaction);
       await this.sendInvoiceEmail(transaction, invoicePath);
 
+      transaction.invoiceRequested = true;
       transaction.invoiceGenerated = true;
       transaction.invoicePdfPath = invoicePath;
       await transaction.save();
 
-      res.status(200).json({ message: "Faktura wysłana na email." });
+      console.log(`✅ [REQUEST INVOICE] Faktura wygenerowana i wysłana`);
+      res.status(200).json({
+        message: "Faktura została wygenerowana i wysłana na email",
+        invoiceAvailable: true,
+      });
     } catch (error) {
+      console.error(`❌ [REQUEST INVOICE] Błąd:`, error);
       res
         .status(500)
         .json({ message: "Błąd generowania faktury", error: error.message });
@@ -439,17 +613,53 @@ class TransactionController {
     try {
       const { id } = req.params;
       const userId = req.user.userId;
+
+      console.log(
+        `📥 [DOWNLOAD INVOICE] Pobieranie faktury dla transakcji ${id} przez użytkownika ${userId}`,
+      );
+
       const transaction = await Transaction.findOne({ _id: id, userId });
 
-      if (
-        !transaction ||
-        !transaction.invoicePdfPath ||
-        !fs.existsSync(transaction.invoicePdfPath)
-      ) {
-        return res.status(404).json({ message: "Plik faktury niedostępny." });
+      if (!transaction) {
+        console.error(`❌ [DOWNLOAD INVOICE] Transakcja nie znaleziona: ${id}`);
+        return res.status(404).json({ message: "Transakcja nie znaleziona" });
       }
 
-      const fileName = `Faktura_${transaction.invoiceNumber?.replace(/\//g, "_")}.pdf`;
+      // Jeśli faktura nie została jeszcze wygenerowana, wygeneruj ją teraz
+      if (!transaction.invoiceGenerated || !transaction.invoicePdfPath) {
+        console.log(
+          `⚠️ [DOWNLOAD INVOICE] Faktura nie istnieje, generuję nową...`,
+        );
+
+        if (transaction.status !== "completed") {
+          return res
+            .status(400)
+            .json({ message: "Transakcja nie jest opłacona" });
+        }
+
+        // Generuj fakturę
+        const invoicePath = await this.generateInvoicePDF(transaction);
+        transaction.invoiceRequested = true;
+        transaction.invoiceGenerated = true;
+        transaction.invoicePdfPath = invoicePath;
+        await transaction.save();
+
+        console.log(
+          `✅ [DOWNLOAD INVOICE] Faktura wygenerowana: ${invoicePath}`,
+        );
+      }
+
+      // Sprawdź czy plik istnieje
+      if (!fs.existsSync(transaction.invoicePdfPath)) {
+        console.error(
+          `❌ [DOWNLOAD INVOICE] Plik nie istnieje: ${transaction.invoicePdfPath}`,
+        );
+        return res.status(404).json({ message: "Plik faktury niedostępny" });
+      }
+
+      const fileName = `Faktura_${transaction.invoiceNumber?.replace(/\//g, "_") || transaction._id}.pdf`;
+      console.log(`✅ [DOWNLOAD INVOICE] Wysyłanie pliku: ${fileName}`);
+
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(
         "Content-Disposition",
@@ -457,7 +667,8 @@ class TransactionController {
       );
       fs.createReadStream(transaction.invoicePdfPath).pipe(res);
     } catch (error) {
-      res.status(500).json({ message: "Błąd serwera" });
+      console.error(`❌ [DOWNLOAD INVOICE] Błąd:`, error);
+      res.status(500).json({ message: "Błąd serwera", error: error.message });
     }
   }
 
@@ -501,13 +712,25 @@ class TransactionController {
       auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
     });
 
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || "no-reply@autosell.pl",
-      to: transaction.userId.email,
-      subject: "Twoja Faktura - AutoSell",
-      html: "<p>Dziękujemy za płatność. W załączniku Twoja faktura.</p>",
-      attachments: [{ filename: "Faktura.pdf", path: invoicePath }],
-    });
+    // Rozróżnienie: faktura vs potwierdzenie
+    if (invoicePath) {
+      // Klient chce fakturę - wyślij z załącznikiem
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || "no-reply@autosell.pl",
+        to: transaction.userId.email,
+        subject: "Twoja Faktura - AutoSell",
+        html: "<p>W załączniku przesyłamy fakturę.</p>",
+        attachments: [{ filename: "Faktura.pdf", path: invoicePath }],
+      });
+    } else {
+      // Klient nie chce faktury - wyślij tylko potwierdzenie
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || "no-reply@autosell.pl",
+        to: transaction.userId.email,
+        subject: "Potwierdzenie płatności - AutoSell",
+        html: "<p>Dziękujemy za opłacenie ogłoszenia. Twoja płatność została zaksięgowana, a ogłoszenie jest aktywne.</p>",
+      });
+    }
   }
 
   getServiceName(type) {

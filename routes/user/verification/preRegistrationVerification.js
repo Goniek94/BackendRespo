@@ -385,17 +385,6 @@ router.post("/send-phone-verification", async (req, res) => {
         await import("../../../config/smsapi.js");
       const smsResult = await sendVerificationCode(phone, code);
 
-      if (!smsResult.success) {
-        console.error("❌ Błąd wysyłania SMS:", smsResult.error);
-        await VerificationCode.deleteOne({
-          identifier: phone,
-          type: "phone",
-        });
-        return res.status(500).json({
-          success: false,
-          message: "Błąd wysyłania kodu SMS",
-        });
-      }
       console.log("✅ SMS wysłany przez SMSAPI!");
       logger.info("SMS verification code sent via SMSAPI", {
         phone: phone,
@@ -409,13 +398,18 @@ router.post("/send-phone-verification", async (req, res) => {
         error: smsError.message,
         stack: smsError.stack,
       });
+
+      // Usuń kod z bazy, ponieważ SMS nie został wysłany
       await VerificationCode.deleteOne({
         identifier: phone,
         type: "phone",
       });
+
       return res.status(500).json({
         success: false,
-        message: "Błąd wysyłania kodu SMS",
+        message: "Błąd wysyłania kodu SMS. Spróbuj ponownie.",
+        error:
+          process.env.NODE_ENV !== "production" ? smsError.message : undefined,
       });
     }
 

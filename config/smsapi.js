@@ -150,12 +150,9 @@ export const sendVerificationCode = async (phone, code) => {
       error.message,
     );
 
-    // Return error object
-    return {
-      success: false,
-      error: error.message,
-      code: error.code || "SMSAPI_ERROR",
-    };
+    // Throw error instead of returning error object
+    // This ensures proper error handling in the calling code
+    throw new Error(`SMS sending failed: ${error.message}`);
   }
 };
 

@@ -7,6 +7,11 @@ import {
 } from "../../../utils/securityTokens.js";
 import { verifyBothTokens } from "../../../utils/verification/tokenGenerator.js";
 import { cleanupVerificationCodes } from "../../../routes/user/verification/preRegistrationVerification.js";
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  setAuthCookies,
+} from "../../../middleware/auth.js";
 
 /**
  * Register new user with advanced verification
@@ -79,11 +84,11 @@ export const registerUser = async (req, res) => {
     console.log("   Regulamin zaakceptowany:", termsAccepted);
     console.log(
       "   Email Verification Token:",
-      emailVerificationToken ? "✅ Present" : "❌ Missing"
+      emailVerificationToken ? "✅ Present" : "❌ Missing",
     );
     console.log(
       "   Phone Verification Token:",
-      phoneVerificationToken ? "✅ Present" : "❌ Missing"
+      phoneVerificationToken ? "✅ Present" : "❌ Missing",
     );
 
     // STEP 4: Validate required fields
@@ -124,7 +129,7 @@ export const registerUser = async (req, res) => {
       emailVerificationToken,
       phoneVerificationToken,
       email,
-      formattedPhoneForVerification
+      formattedPhoneForVerification,
     );
 
     if (!tokensValid) {
@@ -246,18 +251,21 @@ export const registerUser = async (req, res) => {
     console.log("🧹 Czyszczę kody weryfikacyjne z Kroku 2 i 3...");
     await cleanupVerificationCodes(newUser.email, newUser.phoneNumber);
 
-    // STEP 4: Generate auth token for immediate login
-    console.log("🎟️ Generuję token autoryzacyjny...");
-    const jwt = await import("jsonwebtoken");
-    const authToken = jwt.default.sign(
-      {
-        userId: newUser._id,
-        email: newUser.email,
-        role: newUser.role,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+    // STEP 4: Generate secure auth tokens for immediate login (using dual-token system)
+    console.log(
+      "🎟️ Generuję bezpieczne tokeny autoryzacyjne (Access + Refresh)...",
     );
+    const tokenPayload = {
+      userId: newUser._id,
+      role: newUser.role || "user",
+    };
+
+    const accessToken = generateAccessToken(tokenPayload);
+    const refreshToken = generateRefreshToken(tokenPayload);
+
+    // Set secure HttpOnly cookies (same as login flow)
+    setAuthCookies(res, accessToken, refreshToken);
+    console.log("✅ Tokeny ustawione w bezpiecznych HttpOnly cookies");
 
     // STEP 4: Return user data (without sensitive information)
     const userData = {
@@ -292,7 +300,7 @@ export const registerUser = async (req, res) => {
       success: true,
       message: "Rejestracja zakończona pomyślnie! Witamy w AutoSell!",
       user: userData,
-      authToken,
+      // Tokens are set in HttpOnly cookies - no need to return them in response
     });
   } catch (error) {
     console.error("❌ ==========================================");
@@ -301,6 +309,26 @@ export const registerUser = async (req, res) => {
     console.error("❌ Registration error:", error);
     console.error("❌ Message:", error.message);
     console.error("❌ Stack:", error.stack);
+
+    // 🔒 SECURITY: Handle MongoDB duplicate key error (race condition protection)
+    if (error.code === 11000) {
+      const duplicateField = error.keyPattern?.email ? "email" : "telefon";
+
+      logger.warn("Race condition detected - duplicate user attempt", {
+        error: error.message,
+        field: duplicateField,
+        ip: req.ip,
+        userAgent: req.get("User-Agent"),
+      });
+
+      console.error("❌ Race condition: Duplikat", duplicateField);
+
+      return res.status(400).json({
+        success: false,
+        message: `Użytkownik z tym ${duplicateField === "email" ? "adresem email" : "numerem telefonu"} już istnieje`,
+        code: "USER_ALREADY_EXISTS",
+      });
+    }
 
     logger.error("Registration finalization error", {
       error: error.message,

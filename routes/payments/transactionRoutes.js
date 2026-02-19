@@ -223,6 +223,19 @@ router.get("/:id/download-invoice", auth, async (req, res, next) => {
 });
 
 /**
+ * @route DELETE /api/transactions/:id
+ * @desc Usuwanie transakcji (tylko pending/failed/cancelled)
+ * @access Private
+ */
+router.delete("/:id", auth, async (req, res, next) => {
+  try {
+    await transactionController.deleteTransaction(req, res);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * @route GET /api/transactions/:id
  * @desc Pobieranie szczegółów pojedynczej transakcji
  * @access Private

@@ -79,19 +79,19 @@ const connectToDatabase = async () => {
 
         console.log("✅ Połączono z lokalną bazą danych MongoDB");
         console.log(
-          "⚠️  UWAGA: Używasz lokalnej bazy danych - dane mogą się różnić od produkcji"
+          "⚠️  UWAGA: Używasz lokalnej bazy danych - dane mogą się różnić od produkcji",
         );
         return true;
       } catch (localErr) {
         console.error(
           "❌ Błąd połączenia z lokalną MongoDB:",
-          localErr.message
+          localErr.message,
         );
         console.log("💡 Aby uruchomić lokalną MongoDB:");
         console.log("   1. Zainstaluj MongoDB Community Server");
         console.log("   2. Uruchom: mongod --dbpath ./data");
         console.log(
-          "   3. Lub użyj Docker: docker run -d -p 27017:27017 mongo"
+          "   3. Lub użyj Docker: docker run -d -p 27017:27017 mongo",
         );
       }
     }
@@ -120,15 +120,17 @@ const startServer = async () => {
   // UŻYWAMY GOTOWEJ APLIKACJI Z app.js (z minimalnymi nagłówkami)
   // const app = configureApp(); // USUNIĘTE - używamy importowanego app
 
-  // Utworzenie serwera HTTP z MAKSYMALNYMI limitami
+  // Utworzenie serwera HTTP z bezpiecznymi limitami
   const server = http.createServer(
     {
-      // MAKSYMALNY limit nagłówków HTTP - ROZWIĄZUJE BŁĄD 431
-      maxHeaderSize: 131072, // 128KB (maksymalny możliwy limit)
+      // 🔒 SECURITY: Reduced from 128KB to 16KB (2x standard 8KB)
+      // TODO: Investigate root cause of large headers (likely cookie accumulation)
+      // Standard is 8KB, we use 16KB as safe compromise until investigation
+      maxHeaderSize: 16384, // 16KB (2x standard, down from 128KB)
       headersTimeout: 60000, // 60 sekund
       requestTimeout: 300000, // 5 minut
     },
-    app
+    app,
   );
 
   // Dodatkowa konfiguracja serwera

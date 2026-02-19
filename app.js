@@ -52,12 +52,12 @@ const createApp = () => {
     console.log("📝 Parsowanie JSON/urlencoded");
     // Parsuj tylko gdy NIE jest multipart
     express.json({
-      limit: "50mb", // Increased limit for large payloads (e.g., base64 images)
+      limit: "2mb", // 🔒 SECURITY: Reduced from 50mb to prevent DoS attacks
       strict: true,
       type: "application/json", // Parsuj TYLKO JSON
     })(req, res, () => {
       express.urlencoded({
-        limit: "50mb", // Increased limit for large payloads
+        limit: "2mb", // 🔒 SECURITY: Reduced from 50mb to prevent DoS attacks
         extended: true,
         parameterLimit: 100,
         type: "application/x-www-form-urlencoded", // Parsuj TYLKO urlencoded
@@ -70,7 +70,7 @@ const createApp = () => {
     mongoSanitize({
       allowDots: false,
       replaceWith: "_",
-    })
+    }),
   );
 
   // --- Monitoring nagłówków ---
@@ -101,7 +101,7 @@ const createApp = () => {
       maxAge: 86400,
       preflightContinue: false,
       optionsSuccessStatus: 204,
-    })
+    }),
   );
   // gwarantujemy Vary: Origin
   app.use((_req, res, next) => {
@@ -135,8 +135,8 @@ const createApp = () => {
             ...(Array.isArray(config.security?.cors?.origin)
               ? config.security.cors.origin
               : config.security?.cors?.origin
-              ? [config.security.cors.origin]
-              : []),
+                ? [config.security.cors.origin]
+                : []),
             ...(process.env.SUPABASE_URL ? [process.env.SUPABASE_URL] : []),
           ],
           objectSrc: ["'none'"],
@@ -153,7 +153,7 @@ const createApp = () => {
       frameguard: { action: "deny" },
       noSniff: true,
       referrerPolicy: { policy: "strict-origin-when-cross-origin" },
-    })
+    }),
   );
 
   // --- Statyki /uploads ---
@@ -164,7 +164,7 @@ const createApp = () => {
     import("./routes/dev-maintenance.routes.js")
       .then((mod) => app.use("/_dev", mod.default))
       .catch((err) =>
-        logger.warn("Dev maintenance routes not loaded", { err: err.message })
+        logger.warn("Dev maintenance routes not loaded", { err: err.message }),
       );
   }
 
@@ -228,7 +228,7 @@ function configureUploads(app) {
           res.setHeader("Cache-Control", "public, max-age=604800, immutable");
         }
       },
-    })
+    }),
   );
 }
 
